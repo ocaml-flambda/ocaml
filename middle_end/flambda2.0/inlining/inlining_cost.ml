@@ -19,61 +19,337 @@
 open! Flambda.Import
 
 module DE = Simplify_env_and_result.Downwards_env
+module BAK = Flambda_primitive.Block_access_kind
 
-(* Simple approximation of the space cost of a primitive. *)
-let prim_size (_prim : Flambda_primitive.t) = 1
-(* CR mshinwell: Implement this function
-  match prim with
-  | Pidentity -> 0
-  | Pgetglobal _ -> 1
-  | Psetglobal _ -> 1
-  | Pmakeblock _ -> 5 + List.length args
-  | Pfield _ -> 1
-  | Psetfield (_, isptr, init) ->
-    begin match init with
-    | Root_initialization -> 1  (* never causes a write barrier hit *)
-    | Assignment | Heap_initialization ->
-      match isptr with
-      | Pointer -> 4
-      | Immediate -> 1
-    end
-  | Pfloatfield _ -> 1
-  | Psetfloatfield _ -> 1
-  | Pduprecord _ -> 10 + List.length args
-  | Pccall p -> (if p.Primitive.prim_alloc then 10 else 4) + List.length args
-  | Praise _ -> 4
-  | Pstringlength -> 5
-  | Pbyteslength -> 5
-  | Pstringrefs -> 6
-  | Pbytesrefs | Pbytessets -> 6
-  | Pmakearray _ -> 5 + List.length args
-  | Parraylength Pgenarray -> 6
-  | Parraylength _ -> 2
-  | Parrayrefu Pgenarray -> 12
-  | Parrayrefu _ -> 2
-  | Parraysetu Pgenarray -> 16
-  | Parraysetu _ -> 4
-  | Parrayrefs Pgenarray -> 18
-  | Parrayrefs _ -> 8
-  | Parraysets Pgenarray -> 22
-  | Parraysets _ -> 10
-  | Pbittest -> 3
-  | Pbigarrayref (_, ndims, _, _, _) -> 4 + ndims * 6
-  | Pbigarrayset (_, ndims, _, _, _) -> 4 + ndims * 6
-  | Psequand | Psequor ->
-    Misc.fatal_error "Psequand and Psequor are not allowed in Prim \
-        expressions; translate out instead (cf. closure_conversion.ml)"
-  (* CR-soon mshinwell: This match must be made exhaustive.
-     mshinwell: Let's do this when we have the new size computation. *)
-  | _ -> 2 (* arithmetic and comparisons *)
-*)
+let arch32 = Targetint.size = 32 (* are we compiling for a 32-bit arch *)
+let arch64 = Targetint.size = 64 (* are we compiling for a 64-bit arch *)
 
-(* Simple approximation of the space cost of an Flambda expression. *)
-
+(* Constants *)
 (* CR-soon mshinwell: Investigate revised size numbers. *)
 
+(* Native operations are estimated to be of size 1, this includes:
+   - arithmetic operations
+   - direct loads (without write barrier) *)
+
+(** Allocation size *)
+let alloc_size = 5
+
+(* Call sizes are approximated, using for now the same values as
+   flambda1. This estimation includes average cost of spilling
+   registers. Typically, for a call, the number of arguments will be
+   added to the size to take into account the likely move instructions
+   needed before the call. *)
 let direct_call_size = 4
-let _project_size = 1
+let indirect_call_size = 6
+let alloc_extcall_size = 10
+let nonalloc_extcall_size = 4
+
+
+(* Helper functions for computing sizes of primitives *)
+
+let array_length_size kind =
+  match BAK.to_lambda_array_kind kind with
+  | Pgenarray -> 6
+  | Pfloatarray
+  | Pintarray
+  | Paddrarray -> 2
+
+let unary_int_prim_size kind op =
+  match (kind : Flambda_kind.Standard_int.t),
+        (op  : Flambda_primitive.unary_int_arith_op) with
+  | Tagged_immediate, Neg -> 1
+  | Tagged_immediate, Swap_byte_endianness ->
+    2 + nonalloc_extcall_size + 1
+  | Naked_immediate, Neg -> 1
+  | Naked_immediate, Swap_byte_endianness ->
+    nonalloc_extcall_size + 1
+  | Naked_int64, Neg when arch32 ->
+    nonalloc_extcall_size + 1
+  | (Naked_int32 | Naked_int64 | Naked_nativeint), Neg -> 1
+  | (Naked_int32 | Naked_int64 | Naked_nativeint), Swap_byte_endianness ->
+    nonalloc_extcall_size + 1
+
+let arith_conversion_size src dst =
+  match (src : Flambda_kind.Standard_int_or_float.t),
+        (dst : Flambda_kind.Standard_int_or_float.t) with
+  (* 64-bit on 32-bit host specific cases *)
+  | Naked_int64, Tagged_immediate
+  | Naked_int64, Naked_int32
+  | Naked_int64, (Naked_nativeint | Naked_immediate)
+  | Naked_int64, Naked_float when arch32 ->
+    nonalloc_extcall_size + 1 (* arg *)
+  | Tagged_immediate, Naked_int64
+  | Naked_int32, Naked_int64
+  | (Naked_nativeint | Naked_immediate), Naked_int64
+  | Naked_float, Naked_int64 when arch32 ->
+    alloc_extcall_size + 1 (* arg *) + 1 (* unbox *)
+  | Naked_float, Naked_float -> 0
+  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate),
+    Tagged_immediate -> 1
+  | Tagged_immediate,
+    (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate) -> 1
+  | Tagged_immediate, Tagged_immediate
+  | Naked_int32, (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate)
+  | Naked_int64, (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate)
+  | Naked_nativeint,
+    (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate)
+  | Naked_immediate,
+    (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate) -> 0
+  | Tagged_immediate, Naked_float -> 1
+  | (Naked_immediate | Naked_int32 | Naked_int64 | Naked_nativeint),
+    Naked_float -> 1
+  | Naked_float, Tagged_immediate -> 1
+  | Naked_float,
+    (Naked_immediate | Naked_int32 | Naked_int64 | Naked_nativeint) -> 1
+
+let unbox_number kind =
+  match (kind : Flambda_kind.Boxable_number.t) with
+  | Naked_float -> 1 (* 1 load *)
+  | Untagged_immediate -> 1 (* 1 shift *)
+  | Naked_int64 when arch32 -> 4 (* 2 Cadda + 2 loads *)
+  | Naked_int32 | Naked_int64 | Naked_nativeint -> 2 (* Cadda + load *)
+
+let box_number kind =
+  match (kind : Flambda_kind.Boxable_number.t) with
+  | Naked_float -> alloc_size (* 1 alloc *)
+  | Untagged_immediate -> 2 (* 1 shift + add *)
+  | Naked_int32 when not arch32 -> 1 + alloc_size (* shift/sextend + alloc *)
+  | Naked_int32 | Naked_int64 | Naked_nativeint -> alloc_size (* alloc *)
+
+let block_load kind =
+  match BAK.to_lambda_array_kind kind with
+  | Pintarray -> 1 (* cadda + load *)
+  | Paddrarray -> 1
+  | Pfloatarray -> 1
+  | Pgenarray -> 11 (* tag inspection + rest.. *)
+
+let block_set kind init =
+  match BAK.to_lambda_array_kind kind,
+        (init : Flambda_primitive.init_or_assign) with
+  | Pintarray, (Assignment | Initialization) -> 1 (* cadda + store *)
+  | Pfloatarray, (Assignment | Initialization) -> 1
+  | Paddrarray, Assignment -> 1
+  | Paddrarray, Initialization -> 4
+  | Pgenarray, Initialization -> 12 (* tag inspection + rest.. *)
+  | Pgenarray, Assignment -> 16 (* tag inspection + rest.. *)
+
+
+let string_or_bigstring_load kind width =
+  let start_address_load =
+    match (kind : Flambda_primitive.string_like_value) with
+    | String | Bytes -> 0
+    | Bigstring -> 2 (* add, load *)
+  in
+  let elt_load =
+    match (width : Flambda_primitive.string_accessor_width) with
+    | Eight ->
+      3 (* untag, add, load *)
+
+    (* CR gbury: these should actually depend on Arch.allow_unaligned_access,
+       but that would add a dependency on the backend which is
+       probably not desirable ? *)
+    | Sixteen ->
+      2 (* add, load (allow_unaligned_access) *)
+      (* 7 (not allow_unaligned_access) *)
+    | Thirty_two ->
+      2 (* add, load (allow_unaligned_access) *)
+      (* 17 (not allow_unaligned_access) *)
+    | Sixty_four ->
+      if arch32
+      then nonalloc_extcall_size
+      else 2 (* add, load (allow_unaligned_access) *)
+      (* 37 (not allow_unaligned_access) *)
+  in
+  start_address_load + elt_load
+
+(* This is exactly the same as string/bigstirng loads, since
+   loads and stores have the same size *)
+let bytes_like_set kind width =
+  match (kind : Flambda_primitive.bytes_like_value) with
+  | Bytes -> string_or_bigstring_load Bytes width
+  | Bigstring -> string_or_bigstring_load Bigstring width
+
+let binary_phys_comparison kind op =
+  match (kind : Flambda_kind.t),
+        (op : Flambda_primitive.equality_comparison) with
+  (* int64 special case *)
+  | Naked_number Naked_int64, Eq
+  | Naked_number Naked_int64, Neq when arch32 ->
+    1 (* untag *) + alloc_extcall_size + 2 (* args *)
+    + 2 * (box_number Naked_int64)
+  (* generic case *)
+  | _, Eq -> 2
+  | _, Neq -> 2
+
+let divmod_bi_check else_branch_size bi =
+  (* CR gbury: we should allow check Arch.division_crashed_on_overflow,
+     but that's likely a dependency we want to avoid ? *)
+  if (arch32 || bi <> Flambda_kind.Standard_int.Naked_int32)
+  then 2 + else_branch_size
+  else 0
+
+let binary_int_arith_primitive kind op =
+  match (kind : Flambda_kind.Standard_int.t),
+        (op : Flambda_primitive.binary_int_arith_op) with
+  (* Int64 bits ints on 32-bit archs *)
+  | Naked_int64, Add
+  | Naked_int64, Sub
+  | Naked_int64, Mul when arch32 ->
+    nonalloc_extcall_size + 2
+  | Naked_int64, Div
+  | Naked_int64, Mod when arch32 ->
+    alloc_extcall_size + 2
+  | Naked_int64, And
+  | Naked_int64, Or
+  | Naked_int64, Xor when arch32 ->
+    nonalloc_extcall_size + 2
+  (* Tagged integers *)
+  | Tagged_immediate, Add -> 2
+  | Tagged_immediate, Sub -> 2
+  | Tagged_immediate, Mul -> 4
+  | Tagged_immediate, Div -> 4
+  | Tagged_immediate, Mod -> 4
+  | Tagged_immediate, And -> 1
+  | Tagged_immediate, Or  -> 1
+  | Tagged_immediate, Xor -> 2
+  (* Naked ints *)
+  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Add
+  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Sub
+  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Mul
+  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), And
+  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Or
+  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Xor ->
+    1
+  (* Division and modulo need some extra care *)
+  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Div ->
+    divmod_bi_check 1 kind + 1
+  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Mod ->
+    divmod_bi_check 0 kind + 1
+
+let binary_int_shift_primitive kind op =
+  match (kind : Flambda_kind.Standard_int.t),
+        (op : Flambda_primitive.int_shift_op) with
+  (* Int64 special case *)
+  | Naked_int64, Lsl
+  | Naked_int64, Lsr
+  | Naked_int64, Asr when arch32 ->
+    nonalloc_extcall_size + 2
+  (* Int32 special case *)
+  | Naked_int32, Lsr when arch64 -> 2
+  (* Tagged integers *)
+  | Tagged_immediate, Lsl -> 3
+  | Tagged_immediate, Lsr -> 2
+  | Tagged_immediate, Asr -> 2
+  (* Naked ints *)
+  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Lsl
+  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Lsr
+  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Asr ->
+    1
+
+let binary_int_comp_primitive kind signed cmp =
+  match (kind : Flambda_kind.Standard_int.t),
+        (signed : Flambda_primitive.signed_or_unsigned),
+        (cmp : Flambda_primitive.ordered_comparison) with
+  | Naked_int64, Signed, Lt
+  | Naked_int64, Signed, Le
+  | Naked_int64, Signed, Gt
+  | Naked_int64, Signed, Ge when arch32 ->
+    alloc_extcall_size + 2
+  | Naked_int64, Unsigned, (Lt | Le | Gt | Ge) when arch32 ->
+    alloc_extcall_size + 2
+  (* Tagged integers *)
+  | Tagged_immediate, Signed, Lt
+  | Tagged_immediate, Signed, Le
+  | Tagged_immediate, Signed, Gt
+  | Tagged_immediate, Signed, Ge
+  | Tagged_immediate, Unsigned, Lt
+  | Tagged_immediate, Unsigned, Le
+  | Tagged_immediate, Unsigned, Gt
+  | Tagged_immediate, Unsigned, Ge -> 2
+  (* Naked integers. *)
+  | (Naked_int32|Naked_int64|Naked_nativeint|Naked_immediate), Signed, Lt
+  | (Naked_int32|Naked_int64|Naked_nativeint|Naked_immediate), Signed, Le
+  | (Naked_int32|Naked_int64|Naked_nativeint|Naked_immediate), Signed, Gt
+  | (Naked_int32|Naked_int64|Naked_nativeint|Naked_immediate), Signed, Ge
+  | (Naked_int32|Naked_int64|Naked_nativeint|Naked_immediate), Unsigned, Lt
+  | (Naked_int32|Naked_int64|Naked_nativeint|Naked_immediate), Unsigned, Le
+  | (Naked_int32|Naked_int64|Naked_nativeint|Naked_immediate), Unsigned, Gt
+  | (Naked_int32|Naked_int64|Naked_nativeint|Naked_immediate), Unsigned, Ge ->
+    2
+
+let binary_float_arith_primitive _op = 2
+
+let binary_float_comp_primitive _op = 2
+
+
+(* Primitives sizes *)
+
+let unary_prim_size prim =
+  match (prim : Flambda_primitive.unary_primitive) with
+  | Duplicate_block _ -> alloc_extcall_size + 1
+  | Is_int -> 1
+  | Get_tag -> 2
+  | Array_length kind -> array_length_size kind
+  | Bigarray_length _ -> 2 (* cadda + load *)
+  | String_length _ -> 5
+  | Int_as_pointer -> 1
+  | Opaque_identity -> 0
+  | Int_arith (kind, op) -> unary_int_prim_size kind op
+  | Float_arith _ -> 2
+  | Num_conv { src; dst; } -> arith_conversion_size src dst
+  | Boolean_not -> 1
+  | Unbox_number k -> unbox_number k
+  | Box_number k -> box_number k
+  | Select_closure _ -> 1 (* caddv *)
+  | Project_var _ -> 1 (* load *)
+
+let binary_prim_size prim =
+  match (prim : Flambda_primitive.binary_primitive) with
+  | Block_load (kind, _) -> block_load kind
+  | String_or_bigstring_load (kind, width) ->
+    string_or_bigstring_load kind width
+  | Phys_equal (kind, op) ->
+    binary_phys_comparison kind op
+  | Int_arith (kind, op) ->
+    binary_int_arith_primitive kind op
+  | Int_shift (kind, op) ->
+    binary_int_shift_primitive kind op
+  | Int_comp (kind, signed, cmp) ->
+    binary_int_comp_primitive kind signed cmp
+  | Float_arith op ->
+    binary_float_arith_primitive op
+  | Float_comp cmp ->
+    binary_float_comp_primitive cmp
+
+let ternary_prim_size prim =
+  match (prim : Flambda_primitive.ternary_primitive) with
+  | Block_set (block_access, init) ->
+    block_set block_access init
+  | Bytes_or_bigstring_set (kind, width) ->
+    bytes_like_set kind width
+
+let variadic_prim_size prim args =
+  match (prim : Flambda_primitive.variadic_primitive) with
+  | Make_block (_kind, _mut) -> alloc_size + List.length args
+  | Bigarray_load (_is_safe, _dimensions, Unknown, _)
+  | Bigarray_load (_is_safe, _dimensions, _, Unknown) ->
+    alloc_extcall_size + List.length args
+  | Bigarray_set (_is_safe, _dimensions, Unknown, _)
+  | Bigarray_set (_is_safe, _dimensions, _, Unknown) ->
+    alloc_extcall_size + List.length args
+  (* CR Gbury: this is assuming that the modification to the
+     generation of code for indexing into bigarray is done *)
+  | Bigarray_load (_is_safe, dims, _kind, _layout) -> 4 + dims * 6
+  | Bigarray_set (_is_safe, dims, _kind, _layout) -> 4 + dims * 6
+
+let prim_size (prim : Flambda_primitive.t) =
+  match prim with
+  | Unary (p, _) -> unary_prim_size p
+  | Binary (p, _, _) -> binary_prim_size p
+  | Ternary (p, _, _, _) -> ternary_prim_size p
+  | Variadic (p, args) -> variadic_prim_size p args
+
+(* Simple approximation of the space cost of an Flambda expression. *)
 
 let smaller' denv expr ~than:threshold =
   let size = ref 0 in
@@ -104,13 +380,19 @@ let smaller' denv expr ~than:threshold =
         match Apply.call_kind apply with
         | Function Direct _ -> direct_call_size
         (* CR mshinwell: Check / fix these numbers *)
-        | Function Indirect_unknown_arity -> 6
-        | Function Indirect_known_arity _ -> 6
-        | Method _ -> 1
-        | C_call _ -> 1
+        | Function Indirect_unknown_arity -> indirect_call_size
+        | Function Indirect_known_arity _ -> indirect_call_size
+        | C_call { alloc = true; _ } -> alloc_extcall_size
+        | C_call { alloc = false; _ } -> nonalloc_extcall_size
+        | Method _ -> 8 (* from flambda/inlining_cost.ml *)
       in
       size := !size + call_cost
-    | Apply_cont _ -> incr size
+    | Apply_cont e ->
+      begin match Apply_cont.trap_action e with
+      | None -> ()
+      | Some (Push _ | Pop _) -> size := !size + 4
+      end;
+      incr size
     | Switch switch -> size := !size + (5 * Switch.num_arms switch)
     | Invalid _ -> ()
   and named_size denv (named : Named.t) =

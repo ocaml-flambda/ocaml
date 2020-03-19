@@ -103,7 +103,8 @@ let primitive_boxed_int_of_standard_int b =
   | Naked_int64 -> Primitive.Pint64
   | Naked_nativeint -> Primitive.Pnativeint
   | Naked_immediate
-  | Tagged_immediate -> assert false
+  | Tagged_immediate ->
+    Misc.fatal_errorf "No corresponding primitive boxed int type."
 
 let primitive_boxed_int_of_boxable_number b =
   match (b : Flambda_kind.Boxable_number.t) with
@@ -251,22 +252,8 @@ let make_closure_block ?(dbg=Debuginfo.none) l =
 
 (* Block access *)
 
-let array_kind_of_block_access kind =
-  match (kind : Flambda_primitive.Block_access_kind.t) with
-  (* Full naked float arrays *)
-  | Block { elt_kind = Naked_float; _ }
-  | Array Naked_float
-  | Generic_array Full_of_naked_floats -> Lambda.Pfloatarray
-  (* Arrays (or accesses) to immediate integers *)
-  | Block { elt_kind = Value Definitely_immediate; _ }
-  | Array Value Definitely_immediate
-  | Generic_array Full_of_immediates -> Lambda.Pintarray
-  (* Arrays of caml values (i.e specifically not naked floats) *)
-  | Block { elt_kind = Value (Anything|Definitely_pointer); _ }
-  | Array Value Definitely_pointer
-  | Generic_array Full_of_arbitrary_values_but_not_floats -> Lambda.Paddrarray
-  (* General case: the array might contain naked floats *)
-  | _ -> Lambda.Pgenarray
+let array_kind_of_block_access =
+  Flambda_primitive.Block_access_kind.to_lambda_array_kind
 
 let block_length ?(dbg=Debuginfo.none) block_access_kind block =
   arraylength (array_kind_of_block_access block_access_kind) block dbg

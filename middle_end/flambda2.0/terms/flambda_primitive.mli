@@ -81,6 +81,8 @@ module Block_access_kind : sig
     | Generic_array of Generic_array_specialisation.t
 
   val element_kind : t -> Flambda_kind.t
+
+  val to_lambda_array_kind : t -> Lambda.array_kind
 end
 
 (* CR mshinwell:

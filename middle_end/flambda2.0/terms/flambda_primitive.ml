@@ -206,6 +206,24 @@ module Block_access_kind = struct
     | Generic_array spec ->
       Format.fprintf ppf "(Generic %a)"
         Generic_array_specialisation.print spec
+
+  let to_lambda_array_kind kind =
+    match (kind : t) with
+    (* Full naked float arrays *)
+    | Block { elt_kind = Naked_float; _ }
+    | Array Naked_float
+    | Generic_array Full_of_naked_floats -> Lambda.Pfloatarray
+    (* Arrays (or accesses) to immediate integers *)
+    | Block { elt_kind = Value Definitely_immediate; _ }
+    | Array Value Definitely_immediate
+    | Generic_array Full_of_immediates -> Lambda.Pintarray
+    (* Arrays of caml values (i.e specifically not naked floats) *)
+    | Block { elt_kind = Value (Anything|Definitely_pointer); _ }
+    | Array Value Definitely_pointer
+    | Generic_array Full_of_arbitrary_values_but_not_floats -> Lambda.Paddrarray
+    (* General case: the array might contain naked floats *)
+    | _ -> Lambda.Pgenarray
+
 end
 
 type string_or_bytes = String | Bytes
