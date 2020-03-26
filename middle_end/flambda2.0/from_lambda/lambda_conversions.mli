@@ -80,11 +80,11 @@ val convert_array_kind_to_duplicate_block_kind
 
 val convert_bigarray_kind
    : Lambda.bigarray_kind
-  -> Flambda_primitive.bigarray_kind
+  -> Flambda_primitive.bigarray_kind option
 
 val convert_bigarray_layout
    : Lambda.bigarray_layout
-  -> Flambda_primitive.bigarray_layout
+  -> Flambda_primitive.bigarray_layout option
 
 val convert_field_read_semantics
    : Lambda.field_read_semantics

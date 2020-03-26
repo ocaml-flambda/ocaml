@@ -1030,7 +1030,8 @@ let simplify_binary_primitive dacc (prim : P.binary_primitive)
           | Float_comp op -> Binary_float_comp.simplify op
           | Phys_equal (kind, op) -> simplify_phys_equal op kind
           | Block_load _
-          | String_or_bigstring_load _ ->
+          | String_or_bigstring_load _
+          | Bigarray_load _ ->
             fun dacc ~original_term:_ dbg ~arg1 ~arg1_ty:_ ~arg2 ~arg2_ty:_
                 ~result_var:_ ->
               let named = Named.create_prim (Binary (prim, arg1, arg2)) dbg in

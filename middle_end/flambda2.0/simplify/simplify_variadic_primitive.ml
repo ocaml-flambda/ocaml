@@ -132,9 +132,7 @@ let simplify_variadic_primitive dacc ~original_named ~original_prim
           mutable_or_immutable) ->
         simplify_make_block dacc prim dbg ~make_block_kind ~mutable_or_immutable
           args_with_tys ~result_var:result_var'
-      | Make_block _
-      | Bigarray_set _ (*(_is_safe, _num_dims, _kind, _layout) *)
-      | Bigarray_load _ -> (* (_is_safe, _num_dims, _kind, _layout) -> *)
+      | Make_block _ ->
         let named =
           match args_changed with
           | Changed ->

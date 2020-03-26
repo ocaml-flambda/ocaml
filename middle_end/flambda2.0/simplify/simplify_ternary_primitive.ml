@@ -66,7 +66,8 @@ let simplify_ternary_primitive dacc (prim : P.ternary_primitive)
         | Ok arg3, _arg3_ty ->
           match prim with
           | Block_set _
-          | Bytes_or_bigstring_set _ ->
+          | Bytes_or_bigstring_set _
+          | Bigarray_set _ ->
             let named =
               Named.create_prim (Ternary (prim, arg1, arg2, arg3)) dbg
             in

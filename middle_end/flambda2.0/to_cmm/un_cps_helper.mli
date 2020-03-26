@@ -162,28 +162,31 @@ val unbox_number :
 
 val bigarray_load :
   ?dbg:Debuginfo.t ->
-  Flambda_primitive.is_safe ->
   int ->
   Flambda_primitive.bigarray_kind ->
   Flambda_primitive.bigarray_layout ->
-  Cmm.expression list -> Cmm.expression
-(** Load a value from a bigarray. First argument if the number of dimensions
-    of the bigarray. Teh expression list expects first the bigarray ocaml
-    value, and then the list of index as tagged integers, with as many indexes
-    as dimensions. *)
+  Cmm.expression -> Cmm.expression -> Cmm.expression
+(** [bigarray_load dimensions kind layout ba offset] loads the element of the
+    bigarray at the given offset. The translation from multi-dimension addressing
+    to linear addressing is supposed to already have been done (typically during
+    conversion from lambda to flambda). This returns the raw value contained
+    in the array (e.g. a single byte), *except* for bigarrays containing
+    complex numbers, in which case it returns a boxed complex (i.e. a caml
+    value). *)
 
 val bigarray_store :
   ?dbg:Debuginfo.t ->
-  Flambda_primitive.is_safe ->
   int ->
   Flambda_primitive.bigarray_kind ->
   Flambda_primitive.bigarray_layout ->
-  Cmm.expression list -> Cmm.expression
-(** Store a value in a bigarray. First argument if the number of dimensions
-    of the bigarray. Teh expression list expects first the bigarray ocaml
-    value, and then the list of index as tagged integers, with as many indexes
-    as dimensions, and finally the new value to be set. *)
-
+  Cmm.expression -> Cmm.expression -> Cmm.expression -> Cmm.expression
+(** [bigarray_store dimensions kind layout ba offset newval] stores the
+    given value at the given offset in the given bigarray. The translation
+    from multi-dimension addressing to linear addressing is supposed to
+    already have been done (typically during conversion from lambda to
+    flambda). This takes as argument the raw value to be stored (e.g. a
+    single byte), *except* in the case of complex numbers, in which case
+    it takes a boxed complex (i.e. a caml value). *)
 
 (** {2 Expression combinators} *)
 
