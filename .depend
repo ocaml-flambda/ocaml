@@ -6197,6 +6197,8 @@ middle_end/flambda2.0/from_lambda/prepare_lambda.cmo : \
     utils/numbers.cmi \
     utils/misc.cmi \
     lambda/matching.cmi \
+    parsing/location.cmi \
+    middle_end/flambda2.0/from_lambda/lambda_conversions.cmi \
     lambda/lambda.cmi \
     typing/ident.cmi \
     middle_end/flambda2.0/compilenv_deps/compilation_unit.cmi \
@@ -6209,6 +6211,8 @@ middle_end/flambda2.0/from_lambda/prepare_lambda.cmx : \
     utils/numbers.cmx \
     utils/misc.cmx \
     lambda/matching.cmx \
+    parsing/location.cmx \
+    middle_end/flambda2.0/from_lambda/lambda_conversions.cmx \
     lambda/lambda.cmx \
     typing/ident.cmx \
     middle_end/flambda2.0/compilenv_deps/compilation_unit.cmx \

@@ -126,7 +126,7 @@ type ordered_comparison = Lt | Gt | Le | Ge
 type equality_comparison = Eq | Neq
 
 type bigarray_kind =
-  | Unknown
+  (* | Unknown *)
   | Float32 | Float64
   | Sint8 | Uint8
   | Sint16 | Uint16
@@ -136,9 +136,7 @@ type bigarray_kind =
 
 val element_kind_of_bigarray_kind : bigarray_kind -> Flambda_kind.t
 
-type is_safe = Safe | Unsafe
-
-type bigarray_layout = Unknown | C | Fortran
+type bigarray_layout = (* Unknown | *) C | Fortran
 
 (* CR xclerc: We can use array_kind instead
 type block_set_kind =
@@ -249,6 +247,7 @@ type binary_float_arith_op = Add | Sub | Mul | Div
 type binary_primitive =
   | Block_load of Block_access_kind.t * Effects.mutable_or_immutable
   | String_or_bigstring_load of string_like_value * string_accessor_width
+  | Bigarray_load of num_dimensions * bigarray_kind * bigarray_layout
   | Phys_equal of Flambda_kind.t * equality_comparison
   | Int_arith of Flambda_kind.Standard_int.t * binary_int_arith_op
   | Int_shift of Flambda_kind.Standard_int.t * int_shift_op
@@ -261,6 +260,7 @@ type binary_primitive =
 type ternary_primitive =
   | Block_set of Block_access_kind.t * init_or_assign
   | Bytes_or_bigstring_set of bytes_like_value * string_accessor_width
+  | Bigarray_set of num_dimensions * bigarray_kind * bigarray_layout
 
 (** Primitives taking zero or more arguments. *)
 type variadic_primitive =
@@ -268,18 +268,6 @@ type variadic_primitive =
   | Make_block of make_block_kind * Effects.mutable_or_immutable
   (* CR mshinwell: Invariant checks -- e.g. that the number of arguments
      matches [num_dimensions] *)
-  | Bigarray_set of is_safe * num_dimensions * bigarray_kind * bigarray_layout
-    (** Bigarray accesses are an exception to the usual convention here that
-        operations are unsafe.  The downside of doing this is that we lose
-        the potential to eliminate the ">= 0" part of the bounds check (we
-        are never going to eliminate the other part at present as Bigarrays
-        are not tracked in the Flambda type system).  However the upsides are
-        significant: for safe accesses, the code will be improved for bigarrays
-        with dimension >= 2 (since the code for checking the indexes can be
-        combined with the accesses themselves -- see [Cmm_helpers]).
-        Furthermore, the complexity of expanding the bounds checks does not
-        need to be in the Flambda code. *)
-  | Bigarray_load of is_safe * num_dimensions * bigarray_kind * bigarray_layout
 
 (** The application of a primitive to its arguments. *)
 type t =

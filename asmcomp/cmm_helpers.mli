@@ -322,6 +322,14 @@ val curry_function_sym : int -> string
 
 (** Bigarrays *)
 
+(** Returns the size (in number of bytes) of a single element contained
+    in a bigarray. *)
+val bigarray_elt_size : Lambda.bigarray_kind -> int
+
+(** Returns the memory chunk corresponding to the kind of elements stored
+    in a bigarray. *)
+val bigarray_word_kind : Lambda.bigarray_kind -> memory_chunk
+
 (** [bigarray_get unsafe kind layout b args dbg]
     - unsafe : if true, do not insert bound checks
     - kind : see [Lambda.bigarray_kind]

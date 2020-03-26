@@ -417,6 +417,8 @@ let binary_primitive env dbg f x y =
       C.block_load ~dbg kind x y
   | String_or_bigstring_load (kind, width) ->
       C.string_like_load ~dbg kind width x y
+  | Bigarray_load (dimensions, kind, layout) ->
+      C.bigarray_load ~dbg dimensions kind layout x y
   | Phys_equal (kind, op) ->
       binary_phys_comparison env dbg kind op x y
   | Int_arith (kind, op) ->
@@ -436,23 +438,13 @@ let ternary_primitive _env dbg f x y z =
       C.block_set ~dbg block_access init x y z
   | Bytes_or_bigstring_set (kind, width) ->
       C.bytes_like_set ~dbg kind width x y z
+  | Bigarray_set (dimensions, kind, layout) ->
+      C.bigarray_store ~dbg dimensions kind layout x y z
 
 let variadic_primitive _env dbg f args =
   match (f : Flambda_primitive.variadic_primitive) with
   | Make_block (kind, _mut) ->
       C.make_block ~dbg kind args
-  | Bigarray_load (_is_safe, dimensions, Unknown, _)
-  | Bigarray_load (_is_safe, dimensions, _, Unknown) ->
-      let f = "caml_ba_get_" ^ string_of_int dimensions in
-      C.extcall ~dbg ~alloc:true f typ_val args
-  | Bigarray_set (_is_safe, dimensions, Unknown, _)
-  | Bigarray_set (_is_safe, dimensions, _, Unknown) ->
-      let f = "caml_ba_set_" ^ string_of_int dimensions in
-      C.extcall ~dbg ~alloc:true f typ_val args
-  | Bigarray_load (is_safe, dimensions, kind, layout) ->
-      C.bigarray_load ~dbg is_safe dimensions kind layout args
-  | Bigarray_set (is_safe, dimensions, kind, layout) ->
-      C.bigarray_store ~dbg is_safe dimensions kind layout args
 
 let arg_list env l =
   let aux (list, env, effs) x =

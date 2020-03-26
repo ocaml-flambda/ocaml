@@ -309,18 +309,8 @@ let print_equality_comparison ppf op =
   | Eq -> Format.pp_print_string ppf "Eq"
   | Neq -> Format.pp_print_string ppf "Neq"
 
-type is_safe = Safe | Unsafe
-
-let print_is_safe ppf is_safe =
-  match is_safe with
-  | Safe -> Format.pp_print_string ppf "Safe"
-  | Unsafe -> Format.pp_print_string ppf "Unsafe"
-
-let compare_is_safe is_safe1 is_safe2 =
-  Stdlib.compare is_safe1 is_safe2
-
 type bigarray_kind =
-  | Unknown
+  (* | Unknown *)
   | Float32 | Float64
   | Sint8 | Uint8
   | Sint16 | Uint16
@@ -330,7 +320,7 @@ type bigarray_kind =
 
 let element_kind_of_bigarray_kind k =
   match k with
-  | Unknown -> K.value
+  (* | Unknown -> K.value *)
   | Float32
   | Float64 -> K.naked_float
   | Sint8
@@ -349,7 +339,7 @@ let element_kind_of_bigarray_kind k =
 let print_bigarray_kind ppf k =
   let fprintf = Format.fprintf in
   match k with
-  | Unknown -> fprintf ppf "Unknown"
+  (* | Unknown -> fprintf ppf "Unknown" *)
   | Float32 -> fprintf ppf "Float32"
   | Float64 -> fprintf ppf "Float64"
   | Sint8 -> fprintf ppf "Sint8"
@@ -363,12 +353,12 @@ let print_bigarray_kind ppf k =
   | Complex32 -> fprintf ppf "Complex32"
   | Complex64 -> fprintf ppf "Complex64"
 
-type bigarray_layout = Unknown | C | Fortran
+type bigarray_layout = (* Unknown | *) C | Fortran
 
 let print_bigarray_layout ppf l =
   let fprintf = Format.fprintf in
   match l with
-  | Unknown -> fprintf ppf "Unknown"
+  (* | Unknown -> fprintf ppf "Unknown" *)
   | C -> fprintf ppf "C"
   | Fortran -> fprintf ppf "Fortran"
 
@@ -780,6 +770,7 @@ let print_binary_float_arith_op ppf o =
 type binary_primitive =
   | Block_load of Block_access_kind.t * Effects.mutable_or_immutable
   | String_or_bigstring_load of string_like_value * string_accessor_width
+  | Bigarray_load of num_dimensions * bigarray_kind * bigarray_layout
   | Phys_equal of Flambda_kind.t * equality_comparison
   | Int_arith of Flambda_kind.Standard_int.t * binary_int_arith_op
   | Int_shift of Flambda_kind.Standard_int.t * int_shift_op
@@ -792,6 +783,7 @@ let binary_primitive_eligible_for_cse p =
   match p with
   | Block_load _ -> false
   | String_or_bigstring_load _ -> false  (* CR mshinwell: review *)
+  | Bigarray_load _ -> false
   | Phys_equal _
   | Int_arith _
   | Int_shift _
@@ -813,12 +805,13 @@ let compare_binary_primitive p1 p2 =
     match p with
     | Block_load _ -> 0
     | String_or_bigstring_load _ -> 1
-    | Phys_equal _ -> 2
-    | Int_arith _ -> 3
-    | Int_shift _ -> 4
-    | Int_comp _ -> 5
-    | Float_arith _ -> 6
-    | Float_comp _ -> 7
+    | Bigarray_load _ -> 2
+    | Phys_equal _ -> 3
+    | Int_arith _ -> 4
+    | Int_shift _ -> 5
+    | Int_comp _ -> 6
+    | Float_arith _ -> 7
+    | Float_comp _ -> 8
   in
   match p1, p2 with
   | Block_load (kind1, mut1), Block_load (kind2, mut2) ->
@@ -830,6 +823,14 @@ let compare_binary_primitive p1 p2 =
     let c = Stdlib.compare string_like1 string_like2 in
     if c <> 0 then c
     else Stdlib.compare width1 width2
+  | Bigarray_load (num_dim1, kind1, layout1),
+      Bigarray_load (num_dim2, kind2, layout2) ->
+    let c = Stdlib.compare num_dim1 num_dim2 in
+    if c <> 0 then c
+    else
+      let c = Stdlib.compare kind1 kind2 in
+      if c <> 0 then c
+      else Stdlib.compare layout1 layout2
   | Phys_equal (kind1, comp1), Phys_equal (kind2, comp2) ->
     let c = K.compare kind1 kind2 in
     if c <> 0 then c
@@ -856,6 +857,7 @@ let compare_binary_primitive p1 p2 =
     Stdlib.compare comp1 comp2
   | (Block_load _
     | String_or_bigstring_load _
+    | Bigarray_load _
     | Phys_equal _
     | Int_arith _
     | Int_shift _
@@ -876,6 +878,15 @@ let print_binary_primitive ppf p =
     fprintf ppf "@[(String_load %a %a)@]"
       print_string_like_value string_like
       print_string_accessor_width width
+  | Bigarray_load (num_dimensions, kind, layout) ->
+    fprintf ppf "@[(Bigarray_load \
+        (num_dimensions@ %d)@ \
+        (kind@ %a)@ \
+        (layout@ %a)\
+        )@]"
+      num_dimensions
+      print_bigarray_kind kind
+      print_bigarray_layout layout
   | Phys_equal (kind, op) ->
     Format.fprintf ppf "@[(Phys_equal %a %a)@]"
       K.print kind
@@ -894,6 +905,8 @@ let args_kind_of_binary_primitive p =
     string_or_bytes_kind, array_like_thing_index_kind
   | String_or_bigstring_load (Bigstring, _) ->
     bigstring_kind, array_like_thing_index_kind
+  | Bigarray_load (_, _, _) ->
+    bigarray_kind, array_like_thing_index_kind
   | Phys_equal (kind, _) -> kind, kind
   | Int_arith (kind, _) ->
     let kind = K.Standard_int.to_kind kind in
@@ -916,6 +929,8 @@ let result_kind_of_binary_primitive p : result_kind =
     Singleton K.naked_int32
   | String_or_bigstring_load (_, Sixty_four) ->
     Singleton K.naked_int64
+  | Bigarray_load (_, kind, _) ->
+    Singleton (element_kind_of_bigarray_kind kind)
   | Int_arith (kind, _)
   | Int_shift (kind, _) -> Singleton (K.Standard_int.to_kind kind)
   | Float_arith _ -> Singleton K.naked_float
@@ -934,6 +949,12 @@ let effects_and_coeffects_of_binary_primitive p =
   | Float_arith (Add | Sub | Mul | Div) -> Effects.No_effects, Coeffects.No_coeffects
   | Float_comp _ -> Effects.No_effects, Coeffects.No_coeffects
   | String_or_bigstring_load _ -> reading_from_an_array_like_thing
+  | Bigarray_load (_, ((*Unknown | *) Complex32 | Complex64), _) ->
+    (* XXX Need to check the is_safe flag *)
+    Effects.Only_generative_effects Immutable, Coeffects.Has_coeffects
+  | Bigarray_load (_, _, _) ->
+    (* XXX Need to check the is_safe flag *)
+    reading_from_an_array_like_thing
 
 let binary_classify_for_printing p =
   match p with
@@ -944,22 +965,26 @@ let binary_classify_for_printing p =
   | Int_comp _
   | Float_arith _
   | Float_comp _
+  | Bigarray_load _
   | String_or_bigstring_load _ -> Neither
 
 type ternary_primitive =
   | Block_set of Block_access_kind.t * init_or_assign
   | Bytes_or_bigstring_set of bytes_like_value * string_accessor_width
+  | Bigarray_set of num_dimensions * bigarray_kind * bigarray_layout
 
 let ternary_primitive_eligible_for_cse p =
   match p with
   | Block_set _
-  | Bytes_or_bigstring_set _ -> false
+  | Bytes_or_bigstring_set _
+  | Bigarray_set _ -> false
 
 let compare_ternary_primitive p1 p2 =
   let ternary_primitive_numbering p =
     match p with
     | Block_set _ -> 0
     | Bytes_or_bigstring_set _ -> 1
+    | Bigarray_set _ -> 2
   in
   match p1, p2 with
   | Block_set (kind1, init_or_assign1),
@@ -972,8 +997,17 @@ let compare_ternary_primitive p1 p2 =
     let c = Stdlib.compare kind1 kind2 in
     if c <> 0 then c
     else Stdlib.compare width1 width2
+  | Bigarray_set (num_dims1, kind1, layout1),
+      Bigarray_set (num_dims2, kind2, layout2) ->
+    let c = Stdlib.compare num_dims1 num_dims2 in
+    if c <> 0 then c
+    else
+      let c = Stdlib.compare kind1 kind2 in
+      if c <> 0 then c
+      else Stdlib.compare layout1 layout2
   | (Block_set _
-    | Bytes_or_bigstring_set _), _ ->
+    | Bytes_or_bigstring_set _
+    | Bigarray_set _ ), _ ->
     Stdlib.compare (ternary_primitive_numbering p1)
       (ternary_primitive_numbering p2)
 
@@ -988,6 +1022,15 @@ let print_ternary_primitive ppf p =
     fprintf ppf "(Bytes_set %a %a)"
       print_bytes_like_value kind
       print_string_accessor_width string_accessor_width
+  | Bigarray_set (num_dimensions, kind, layout) ->
+    fprintf ppf "@[(Bigarray_set \
+        (num_dimensions@ %d)@ \
+        (kind@ %a)@ \
+        (layout@ %a)\
+        )@]"
+      num_dimensions
+      print_bigarray_kind kind
+      print_bigarray_layout layout
 
 let args_kind_of_ternary_primitive p =
   match p with
@@ -1012,26 +1055,30 @@ let args_kind_of_ternary_primitive p =
   | Bytes_or_bigstring_set (Bigstring, Sixty_four) ->
     bigstring_kind, array_like_thing_index_kind,
       K.naked_int64
+  | Bigarray_set (_, kind, _) ->
+    let new_value = element_kind_of_bigarray_kind kind in
+    bigarray_kind, array_like_thing_index_kind, new_value
 
 let result_kind_of_ternary_primitive p : result_kind =
   match p with
   | Block_set _
-  | Bytes_or_bigstring_set _ -> Unit
+  | Bytes_or_bigstring_set _
+  | Bigarray_set _ -> Unit
 
 let effects_and_coeffects_of_ternary_primitive p =
   match p with
   | Block_set _
-  | Bytes_or_bigstring_set _ -> writing_to_an_array_like_thing
+  | Bytes_or_bigstring_set _
+  | Bigarray_set _ -> writing_to_an_array_like_thing
 
 let ternary_classify_for_printing p =
   match p with
   | Block_set _
-  | Bytes_or_bigstring_set _ -> Neither
+  | Bytes_or_bigstring_set _
+  | Bigarray_set _ -> Neither
 
 type variadic_primitive =
   | Make_block of make_block_kind * Effects.mutable_or_immutable
-  | Bigarray_set of is_safe * num_dimensions * bigarray_kind * bigarray_layout
-  | Bigarray_load of is_safe * num_dimensions * bigarray_kind * bigarray_layout
 
 let variadic_primitive_eligible_for_cse p ~args =
   match p with
@@ -1040,38 +1087,24 @@ let variadic_primitive_eligible_for_cse p ~args =
        [Box_number] case. *)
     List.exists (fun arg -> Simple.is_var arg) args
   | Make_block (_, Mutable) -> false
-  | Bigarray_set _
-  | Bigarray_load _ -> false
 
 let compare_variadic_primitive p1 p2 =
+  (*
   let variadic_primitive_numbering p =
     match p with
     | Make_block _ -> 0
-    | Bigarray_set _ -> 1
-    | Bigarray_load _ -> 2
-  in
+     in
+  *)
   match p1, p2 with
   | Make_block (kind1, mut1), Make_block (kind2, mut2) ->
     let c = compare_make_block_kind kind1 kind2 in
     if c <> 0 then c
     else Stdlib.compare mut1 mut2
-  | Bigarray_set (is_safe1, num_dims1, kind1, layout1),
-      Bigarray_set (is_safe2, num_dims2, kind2, layout2) ->
-    let c = compare_is_safe is_safe1 is_safe2 in
-    if c <> 0 then c
-    else
-      let c = Stdlib.compare num_dims1 num_dims2 in
-      if c <> 0 then c
-      else
-        let c = Stdlib.compare kind1 kind2 in
-        if c <> 0 then c
-        else Stdlib.compare layout1 layout2
-  | (Make_block _
-    | Bigarray_set _
-    | Bigarray_load _
-    ), _ ->
+  (*
+  | (Make_block _), _ ->
     Stdlib.compare (variadic_primitive_numbering p1)
-      (variadic_primitive_numbering p2)
+     (variadic_primitive_numbering p2)
+  *)
 
 let print_variadic_primitive ppf p =
   let fprintf = Format.fprintf in
@@ -1080,28 +1113,6 @@ let print_variadic_primitive ppf p =
     fprintf ppf "@[<hov 1>(Make_block@ %a@ %a)@]"
       print_make_block_kind kind
       Effects.print_mutable_or_immutable mut
-  | Bigarray_set (is_safe, num_dimensions, kind, layout) ->
-    fprintf ppf "@[(Bigarray_set \
-        (is_safe@ %a)@ \
-        (num_dimensions@ %d)@ \
-        (kind@ %a)@ \
-        (layout@ %a)\
-        )@]"
-      print_is_safe is_safe
-      num_dimensions
-      print_bigarray_kind kind
-      print_bigarray_layout layout
-  | Bigarray_load (is_safe, num_dimensions, kind, layout) ->
-    fprintf ppf "@[(Bigarray_load \
-        (is_safe@ %a)@ \
-        (num_dimensions@ %d)@ \
-        (kind@ %a)@ \
-        (layout@ %a)\
-        )@]"
-      print_is_safe is_safe
-      num_dimensions
-      print_bigarray_kind kind
-      print_bigarray_layout layout
 
 let args_kind_of_variadic_primitive p : arg_kinds =
   match p with
@@ -1117,41 +1128,20 @@ let args_kind_of_variadic_primitive p : arg_kinds =
     Variadic_all_of_kind K.value
   | Make_block (Generic_array Full_of_arbitrary_values_but_not_floats, _) ->
     Variadic_all_of_kind K.value
-  | Bigarray_set (_is_safe, num_dims, kind, _) ->
-    let index = List.init num_dims (fun _ -> array_like_thing_index_kind) in
-    let new_value = element_kind_of_bigarray_kind kind in
-    Variadic ([bigarray_kind] @ index @ [new_value])
-  | Bigarray_load (_is_safe, num_dims, _, _) ->
-    let index = List.init num_dims (fun _ -> array_like_thing_index_kind) in
-    Variadic ([bigarray_kind] @ index)
 
 let result_kind_of_variadic_primitive p : result_kind =
   match p with
   | Make_block _ -> Singleton K.value
-  | Bigarray_set _ -> Unit
-  | Bigarray_load (_, _, kind, _) ->
-    Singleton (element_kind_of_bigarray_kind kind)
 
 let effects_and_coeffects_of_variadic_primitive p =
   match p with
   (* CR mshinwell: Arrays of size zero? *)
   | Make_block (_, mut) ->
     Effects.Only_generative_effects mut, Coeffects.No_coeffects
-  | Bigarray_set (_, _, _, _) ->
-    (* XXX Need to check the is_safe flag *)
-    writing_to_an_array_like_thing
-  | Bigarray_load (_, _, (Unknown | Complex32 | Complex64), _) ->
-    (* XXX Need to check the is_safe flag *)
-    Effects.Only_generative_effects Immutable, Coeffects.Has_coeffects
-  | Bigarray_load (_, _, _, _) ->
-    (* XXX Need to check the is_safe flag *)
-    reading_from_an_array_like_thing
 
 let variadic_classify_for_printing p =
   match p with
   | Make_block _ -> Constructive
-  | Bigarray_set _
-  | Bigarray_load _ -> Neither
 
 type t =
   | Unary of unary_primitive * Simple.t
@@ -1200,6 +1190,7 @@ let invariant env t =
        are reminded to check upon adding a new primitive. *)
     | Block_load _
     | String_or_bigstring_load _
+    | Bigarray_load _
     | Phys_equal _
     | Int_arith _
     | Int_shift _
@@ -1214,7 +1205,8 @@ let invariant env t =
     E.check_simple_is_bound_and_of_kind env x2 kind2;
     begin match prim with
     | Block_set _
-    | Bytes_or_bigstring_set _ -> ()
+    | Bytes_or_bigstring_set _
+    | Bigarray_set _ -> ()
     end
   | Variadic (prim, xs) ->
     let kinds =
@@ -1227,9 +1219,7 @@ let invariant env t =
         E.check_simple_is_bound_and_of_kind env var kind)
       xs kinds;
     begin match prim with
-    | Make_block _
-    | Bigarray_set _
-    | Bigarray_load _ -> ()
+    | Make_block _ -> ()
     end
 
 let classify_for_printing t =

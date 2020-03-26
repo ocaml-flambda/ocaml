@@ -191,7 +191,7 @@ let find_in_reload_cache nfail env =
       Numbers.Int.Map.find nfail !reload_cache
     in
     if Numbers.Int.Map.for_all (fun n at_exit ->
-        Reg.Set.equal at_exit (find_reload_at_exit env n))
+        Reg.Set.subset (find_reload_at_exit env n) at_exit)
       at_exit_restricted
     then Some result
     else None
@@ -450,7 +450,7 @@ let find_in_spill_cache nfail env =
       Numbers.Int.Map.find nfail !spill_cache
     in
     if List.for_all (fun (n, at_exit) ->
-        Reg.Set.equal at_exit (find_spill_at_exit env n))
+        Reg.Set.subset (find_spill_at_exit env n) at_exit)
       at_exit_restricted
     then Some result
     else None

@@ -17,6 +17,7 @@
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
 module L = Lambda
+module C = Lambda_conversions
 
 let stub_hack_prim_name = "*stub*"
 
@@ -216,6 +217,42 @@ let simplify_primitive (prim : L.primitive) args loc =
       }
     in
     L.Lapply apply
+  | Pbigarrayref (_unsafe, num_dimensions, kind, layout), args ->
+    begin match C.convert_bigarray_kind kind,
+                C.convert_bigarray_layout layout with
+    | Some _, Some _ ->
+      L.Lprim (prim, args, loc)
+    | None, None | None, Some _ | Some _, None ->
+      if 1 <= num_dimensions && num_dimensions <= 3 then begin
+        let arity = 1 + num_dimensions in
+        let name = "caml_ba_get_" ^ string_of_int num_dimensions in
+        let desc = Primitive.simple ~name ~arity ~alloc:true in
+        L.Lprim (Pccall desc, args, loc)
+      end else begin
+        Misc.fatal_errorf
+          "Prepare_lambda.prepare_prim: Pbigarrayref with unknown layout \
+           and elements should only have dimensions between 1 and 3 \
+           (see translprim)."
+      end
+    end
+  | Pbigarrayset (_unsafe, num_dimensions, kind, layout), args ->
+    begin match C.convert_bigarray_kind kind,
+                C.convert_bigarray_layout layout with
+    | Some _, Some _ ->
+      L.Lprim (prim, args, loc)
+    | None, None | None, Some _ | Some _, None ->
+      if 1 <= num_dimensions && num_dimensions <= 3 then begin
+        let arity = 2 + num_dimensions in
+        let name = "caml_ba_set_" ^ string_of_int num_dimensions in
+        let desc = Primitive.simple ~name ~arity ~alloc:true in
+        L.Lprim (Pccall desc, args, loc)
+      end else begin
+        Misc.fatal_errorf
+          "Prepare_lambda.prepare_prim: Pbigarrayset with unknown layout \
+           and elements should only have dimensions between 1 and 3 \
+           (see translprim)."
+      end
+    end
   | _, _ -> L.Lprim (prim, args, loc)
 
 let rec prepare env (lam : L.lambda) (k : L.lambda -> L.lambda) =

@@ -203,27 +203,27 @@ let convert_array_kind_to_duplicate_block_kind (kind : L.array_kind)
     Generic_array (P.Generic_array_specialisation.full_of_immediates ())
   | Pfloatarray -> Full_of_naked_floats { length = None; }
 
-let convert_bigarray_kind (kind : L.bigarray_kind) : P.bigarray_kind =
+let convert_bigarray_kind (kind : L.bigarray_kind) : P.bigarray_kind option =
   match kind with
-  | Pbigarray_unknown -> Unknown
-  | Pbigarray_float32 -> Float32
-  | Pbigarray_float64 -> Float64
-  | Pbigarray_sint8 -> Sint8
-  | Pbigarray_uint8 -> Uint8
-  | Pbigarray_sint16 -> Sint16
-  | Pbigarray_uint16 -> Uint16
-  | Pbigarray_int32 -> Int32
-  | Pbigarray_int64 -> Int64
-  | Pbigarray_caml_int -> Int_width_int
-  | Pbigarray_native_int -> Targetint_width_int
-  | Pbigarray_complex32 -> Complex32
-  | Pbigarray_complex64 -> Complex64
+  | Pbigarray_unknown -> None
+  | Pbigarray_float32 -> Some Float32
+  | Pbigarray_float64 -> Some Float64
+  | Pbigarray_sint8 -> Some Sint8
+  | Pbigarray_uint8 -> Some Uint8
+  | Pbigarray_sint16 -> Some Sint16
+  | Pbigarray_uint16 -> Some Uint16
+  | Pbigarray_int32 -> Some Int32
+  | Pbigarray_int64 -> Some Int64
+  | Pbigarray_caml_int -> Some Int_width_int
+  | Pbigarray_native_int -> Some Targetint_width_int
+  | Pbigarray_complex32 -> Some Complex32
+  | Pbigarray_complex64 -> Some Complex64
 
-let convert_bigarray_layout (layout : L.bigarray_layout) : P.bigarray_layout =
+let convert_bigarray_layout (layout : L.bigarray_layout) : P.bigarray_layout option =
   match layout with
-  | Pbigarray_unknown_layout -> Unknown
-  | Pbigarray_c_layout -> C
-  | Pbigarray_fortran_layout -> Fortran
+  | Pbigarray_unknown_layout -> None
+  | Pbigarray_c_layout -> Some C
+  | Pbigarray_fortran_layout -> Some Fortran
 
 let convert_field_read_semantics (sem : L.field_read_semantics)
       : Effects.mutable_or_immutable =

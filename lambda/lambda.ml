@@ -251,6 +251,14 @@ let primitive_can_raise = function
   | Pbigstring_set_64 false
   | Pdivbint { is_safe = Safe; _ }
   | Pmodbint { is_safe = Safe; _ }
+  | Pbigarrayref (false, _, _, _)
+  | Pbigarrayset (false, _, _, _)
+  (* These bigarray primitives are translated into c-calls which may
+     raise even if the unsafe flag is true *)
+  | Pbigarrayref (_, _, Pbigarray_unknown, _)
+  | Pbigarrayset (_, _, Pbigarray_unknown, _)
+  | Pbigarrayref (_, _, _, Pbigarray_unknown_layout)
+  | Pbigarrayset (_, _, _, Pbigarray_unknown_layout)
     (* CR mshinwell: some more need to go here too *)
     -> true
   | Pidentity

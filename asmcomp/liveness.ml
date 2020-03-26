@@ -32,13 +32,13 @@ let initial_env fundecl =
     free_conts_for_handlers = Mach.free_conts_for_handlers fundecl;
   }
 
-let same_env env1 env2 =
+let env_subset env1 env2 =
   List.for_all2 (fun (nfail1, live_regs1) (nfail2, live_regs2) ->
-      nfail1 = nfail2 && Reg.Set.equal live_regs1 live_regs2)
+      nfail1 = nfail2 && Reg.Set.subset live_regs1 live_regs2)
     env1.at_exit
     env2.at_exit
-  && Reg.Set.equal env1.at_raise env2.at_raise
-  && Reg.Set.equal env1.last_regular_trywith_handler
+  && Reg.Set.subset env1.at_raise env2.at_raise
+  && Reg.Set.subset env1.last_regular_trywith_handler
        env2.last_regular_trywith_handler
 
 type cache_entry =
@@ -47,6 +47,17 @@ type cache_entry =
     at_join : Reg.Set.t;            (* last used set at join *)
     before_handler : Reg.Set.t;    (* last computed result *)
 }
+
+(*
+let print_cache ppf entry =
+  let pr = Printmach.regset in
+  Format.fprintf ppf "@[<v 2>at_join: @[%a@]@,at_exit: @[%a@]@,at_raise: @[%a@]@,trywith: @[%a@]@,result: @[%a@]@]"
+    pr entry.at_join
+    (Format.pp_print_list (fun ppf (n, regs) -> Format.fprintf ppf "%d -> %a" n pr regs)) entry.restricted_env.at_exit
+    pr entry.restricted_env.at_raise
+    pr entry.restricted_env.last_regular_trywith_handler
+    pr entry.before_handler
+*)
 
 let fixpoint_cache : cache_entry Numbers.Int.Map.t ref =
  ref Numbers.Int.Map.empty
@@ -150,7 +161,7 @@ let rec live env i finally =
             live env handler at_join, restricted_env, true
           | cache ->
             let restricted_env = restrict_env env free_conts in
-            if same_env restricted_env cache.restricted_env
+            if env_subset restricted_env cache.restricted_env
             && Reg.Set.equal at_join cache.at_join
             then cache.before_handler, cache.restricted_env, false
             else live env handler at_join, restricted_env, true
