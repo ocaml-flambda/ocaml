@@ -35,6 +35,7 @@ module type Set = sig
   val to_string : t -> string
   val of_list : elt list -> t
   val map : (elt -> elt) -> t -> t
+  val fixpoint : (elt -> t) -> t -> t
   val union_list : t list -> t
   val intersection_is_empty : t -> t -> bool
 end
@@ -262,6 +263,15 @@ module Make_set (T : Thing) = struct
     | t::ts -> union t (union_list ts)
 
   let intersection_is_empty t1 t2 = is_empty (inter t1 t2)
+
+  let fixpoint f set =
+    let rec aux acc set =
+      if is_empty set then acc else
+        let set' = fold (fun x -> union (f x)) set empty in
+        let acc = union acc set in
+        aux acc (diff set' acc)
+    in
+    aux empty set
 end [@@@inline always]
 
 module Make_tbl (T : Thing) (Map : Map with module T := T) = struct
