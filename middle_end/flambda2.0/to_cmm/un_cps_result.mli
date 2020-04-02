@@ -39,7 +39,7 @@ val set_data : t -> Cmm.data_item list -> t
 val add_gc_roots : t -> Symbol.t list -> t
 (** Add a gc root to the accumulator. *)
 
-val add_function : t -> Cmm.phrase -> t
+val add_function : t -> Cmm.fundecl -> t
 (** Add a function translation. *)
 
 (* CR mshinwell: Use a "private" record for the return type of this. *)

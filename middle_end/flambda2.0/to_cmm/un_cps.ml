@@ -1160,7 +1160,7 @@ and fill_up_to j acc i =
 
 (* Translate a function declaration. *)
 
-and params_and_body env fun_name fun_dbg p =
+and params_and_body env fun_name p =
     Function_params_and_body.pattern_match p
       ~f:(fun ~return_continuation:k k_exn vars ~body ~my_closure ->
           try
@@ -1173,6 +1173,7 @@ and params_and_body env fun_name fun_dbg p =
             let env, fun_args = var_list env args in
             let fun_body = expr env body in
             let fun_flags = function_flags () in
+            let fun_dbg = Function_params_and_body.debuginfo p in
             C.fundecl fun_name fun_args fun_body fun_flags fun_dbg
           with Misc.Fatal_error as e ->
             Format.eprintf "\n%sContext is:%s translating function %s to Cmm \

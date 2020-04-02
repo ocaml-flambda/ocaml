@@ -24,7 +24,6 @@ val static_const
   -> params_and_body:(
         Un_cps_env.t
      -> string
-     -> Debuginfo.t
      -> Flambda.Function_params_and_body.t
      -> Cmm.fundecl)
   -> Let_symbol.Bound_symbols.t

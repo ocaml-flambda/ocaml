@@ -178,6 +178,7 @@ let tupled_function_call_stub
       ~return_continuation
       exn_continuation
       [tuple_param]
+      ~dbg
       ~body
       ~my_closure
   in
@@ -1014,7 +1015,7 @@ and close_one_function t ~external_env ~by_closure_id decl
   let params_and_body =
     Flambda.Function_params_and_body.create
       ~return_continuation:(Function_decl.return_continuation decl)
-      exn_continuation params ~body ~my_closure
+      exn_continuation params ~dbg ~body ~my_closure
   in
   let fun_decl =
     Flambda.Function_declaration.create ~code_id

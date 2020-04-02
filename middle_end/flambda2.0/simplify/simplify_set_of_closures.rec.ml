@@ -373,10 +373,11 @@ let simplify_function context r closure_id function_decl
               ~exn_cont_scope:(Scope.next Scope.initial)
           with
           | body, dacc_after_body, r ->
+            let dbg = Function_params_and_body.debuginfo params_and_body in
             (* CR mshinwell: Should probably look at [cont_uses]? *)
             let params_and_body =
               Function_params_and_body.create ~return_continuation
-                exn_continuation params ~body ~my_closure
+                exn_continuation params ~dbg ~body ~my_closure
             in
             params_and_body, dacc_after_body, r
           | exception Misc.Fatal_error ->

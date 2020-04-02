@@ -22,17 +22,18 @@ module A = Name_abstraction.Make (Bindable_continuation) (T1)
 
 type t = {
   abst : A.t;
+  dbg : Debuginfo.t;
   params_arity : Flambda_arity.t;
 }
 
 let invariant _env _t = ()
 
-let create ~return_continuation exn_continuation params ~body ~my_closure =
+let create ~return_continuation exn_continuation params ~dbg ~body ~my_closure =
   let my_closure = Kinded_parameter.create my_closure K.value in
   let t0 = T0.create (params @ [my_closure]) body in
   let t1 = T1.create exn_continuation t0 in
   let abst = A.create return_continuation t1 in
-  { abst;
+  { abst; dbg;
     params_arity = Kinded_parameter.List.arity params;
   }
 
@@ -71,9 +72,11 @@ let print ppf t =
 
 let params_arity t = t.params_arity
 
-let apply_name_permutation ({ abst; params_arity; } as t) perm =
+let apply_name_permutation ({ abst; dbg; params_arity; } as t) perm =
   let abst' = A.apply_name_permutation abst perm in
   if abst == abst' then t
-  else { abst = abst'; params_arity; }
+  else { abst = abst'; dbg; params_arity; }
 
-let free_names { abst; params_arity = _; } = A.free_names abst
+let free_names { abst; params_arity = _; dbg = _; } = A.free_names abst
+
+let debuginfo { dbg; _ } = dbg

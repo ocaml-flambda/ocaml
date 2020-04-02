@@ -22,7 +22,7 @@ end
 type t = {
   gc_roots : Symbol.t list;
   data_list : Cmm.phrase list;
-  functions : Cmm.phrase list;
+  functions : Cmm.fundecl list;
   current_data : Cmm.data_item list;
 }
 
@@ -61,6 +61,17 @@ let add_function r f =
   { r with functions = f :: r.functions; }
 
 let to_cmm r =
+  (* Make sure we do not forget any current data *)
   let r = archive_data r in
-  r.data_list, r.gc_roots, r.functions
+  (* Sort functions according to debuginfo *)
+  let sorted_functions =
+    List.sort (fun (f1: Cmm.fundecl) (f2: Cmm.fundecl) ->
+      Debuginfo.compare f1.fun_dbg f2.fun_dbg
+    ) r.functions
+  in
+  let functions_phrases =
+    List.map (fun f -> Cmm.Cfunction f) sorted_functions
+  in
+  (* Return the data list, gc roots and function declarations *)
+  r.data_list, r.gc_roots, functions_phrases
 

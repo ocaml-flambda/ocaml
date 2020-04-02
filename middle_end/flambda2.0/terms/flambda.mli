@@ -462,6 +462,7 @@ end and Function_params_and_body : sig
      : return_continuation:Continuation.t
     -> Exn_continuation.t
     -> Kinded_parameter.t list
+    -> dbg:Debuginfo.t
     -> body:Expr.t
     -> my_closure:Variable.t
     -> t
@@ -484,6 +485,10 @@ end and Function_params_and_body : sig
       -> my_closure:Variable.t
       -> 'a)
     -> 'a
+
+   (** Return the debuginfo associated *)
+   val debuginfo : t -> Debuginfo.t
+
 end and Static_const : sig
   (** Language terms that represent statically-allocated values, bound to
       symbols. *)

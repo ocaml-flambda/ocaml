@@ -36,6 +36,7 @@ val create
    : return_continuation:Continuation.t
   -> Exn_continuation.t
   -> Kinded_parameter.t list
+  -> dbg:Debuginfo.t
   -> body:Expr.t
   -> my_closure:Variable.t
   -> t
@@ -60,3 +61,5 @@ val pattern_match
   -> 'a
 
 val params_arity : t -> Flambda_arity.t
+
+val debuginfo : t -> Debuginfo.t

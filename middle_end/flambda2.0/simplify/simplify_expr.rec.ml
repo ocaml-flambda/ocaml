@@ -787,6 +787,7 @@ and simplify_direct_partial_application
         (Apply.exn_continuation apply)
         remaining_params
         ~body
+        ~dbg
         ~my_closure
     in
     let code_id =
