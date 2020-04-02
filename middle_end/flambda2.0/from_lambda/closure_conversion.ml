@@ -282,7 +282,10 @@ let close_const t const =
 
 let find_simple_from_id _t env id =
   match Env.find_var_exn env id with
-  | exception Not_found -> raise Not_found
+  | exception Not_found ->
+    Misc.fatal_errorf
+      "find_simple_from_id: Cannot find [Ident] %a in environment"
+      Ident.print id
   | var ->
     match Env.find_simple_to_substitute_exn env id with
     | exception Not_found -> Simple.var var
@@ -952,7 +955,22 @@ and close_one_function t ~external_env ~by_closure_id decl
         Kinded_parameter.create var (LC.value_kind kind))
       param_vars
   in
-  let body, handlers = close t closure_env body in
+  let body, handlers =
+    try close t closure_env body
+    with Misc.Fatal_error -> begin
+      if !Clflags.flambda2_context_on_error then begin
+        Format.eprintf "\n%sContext is:%s closure converting \
+          function@ with [our_let_rec_ident] %a (closure ID %a)@ \
+          and body:@ %a"
+          (Flambda_colours.error ())
+          (Flambda_colours.normal ())
+          Ident.print our_let_rec_ident
+          Closure_id.print closure_id
+          Ilambda.print body
+      end;
+      raise Misc.Fatal_error
+    end
+  in
   let body = drop_all_handlers handlers ~around:body in
   let free_names_of_body = Expr.free_names body in
   let my_closure' = Simple.var my_closure in
