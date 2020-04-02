@@ -354,11 +354,11 @@ module Make (U : Unboxing_spec) = struct
         let block_type, env_extension =
           U.make_boxed_value info ~param_being_unboxed ~new_params ~fields
         in
-        let typing_env = TE.add_env_extension typing_env env_extension in
         let typing_env =
           TE.add_definitions_of_params typing_env
             ~params:(Index.Map.data new_params)
         in
+        let typing_env = TE.add_env_extension typing_env env_extension in
         match T.meet typing_env block_type param_type with
         | Bottom ->
           Misc.fatal_errorf "[meet] between %a and %a should not have \
