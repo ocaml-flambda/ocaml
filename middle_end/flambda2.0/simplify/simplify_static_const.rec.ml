@@ -38,7 +38,7 @@ let simplify_field_of_block dacc (field : Field_of_block.t) =
       Simple.pattern_match simple
         ~name:(fun name ->
           Name.pattern_match name
-            ~var:(fun _var -> field, ty)
+            ~var:(fun var -> Field_of_block.Dynamically_computed var, ty)
             ~symbol:(fun sym -> Field_of_block.Symbol sym, ty))
         ~const:(fun const ->
           match Reg_width_const.descr const with
@@ -56,6 +56,7 @@ let simplify_or_variable dacc type_for_const
   | Var var ->
     (* CR mshinwell: This needs to check the type of the variable according
        to the various cases below. *)
+    (* CR mshinwell: This should be calling [simplify_simple] *)
     or_variable, DE.find_variable denv var
 
 let simplify_static_const_of_kind_value dacc

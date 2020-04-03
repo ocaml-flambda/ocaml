@@ -137,7 +137,9 @@ let simplify_variadic_primitive dacc ~original_named ~original_prim
       | Bigarray_load _ -> (* (_is_safe, _num_dims, _kind, _layout) -> *)
         let named =
           match args_changed with
-          | Changed -> Named.create_prim (Variadic (prim, args)) dbg
+          | Changed ->
+            let args, _ = List.split args_with_tys in
+            Named.create_prim (Variadic (prim, args)) dbg
           | Unchanged -> original_named
         in
         let kind = P.result_kind_of_variadic_primitive' prim in
