@@ -35,28 +35,24 @@ let make_const_float (i, m) =
 /* Tokens */
 
 %token AND   [@symbol "and"]
+%token AT    [@symbol "@"]
 %token APPLY [@symbol "apply"]
-%token AROBASE [@symbol "@"]
-%token BANG [@symbol "!"]
 %token BLOCK [@symbol "Block"]
 %token CCALL  [@symbol "ccall"]
 %token CLOSURE  [@symbol "closure"]
 %token CODE  [@symbol "code"]
 %token COLON  [@symbol ":"]
-%token COLONEQUAL  [@symbol ":="]
 %token COMMA  [@symbol ","]
 %token CONT  [@symbol "cont"]
-%token DEF   [@symbol "def"]
 %token DOT   [@symbol "."]
-%token EFFECT [@symbol "effect"]
 %token EQUAL [@symbol "="]
 %token EXN   [@symbol "exn"]
 %token <string * char option> FLOAT
-%token GET_FIELD
 %token HCF   [@symbol "HCF"]
 %token IN    [@symbol "in"]
 %token IS_INT  [@symbol "is_int"]
 %token <string * char option> INT
+%token LANGLE [@symbol "<"]
 %token LBRACE [@symbol "{"]
 %token LBRACKET [@symbol "["]
 %token LET    [@symbol "let"]
@@ -66,64 +62,105 @@ let make_const_float (i, m) =
 %token MINUS    [@symbol "-"]
 %token MINUSDOT [@symbol "-."]
 %token MINUSGREATER [@symbol "->"]
-%token MUT    [@symbol "mut"]
+%token NEWER_VERSION_OF [@symbol "newer_version_of"]
 %token OPAQUE [@symbol "opaque_identity"]
 %token PLUS     [@symbol "+"]
 %token PLUSDOT  [@symbol "+."]
+%token PROJECT_VAR [@symbol "Project_var"]
+%token RANGLE [@symbol ">"]
 %token RBRACE [@symbol "}"]
 %token RBRACKET [@symbol "]"]
 %token REC    [@symbol "rec"]
 %token RPAREN [@symbol ")"]
-%token ROOT   [@symbol "root"]
 %token SEMICOLON [@symbol ";"]
+%token SEGMENT [@symbol "segment"]
 %token STUB   [@symbol "stub"]
 %token STAR   [@symbol "*"]
 %token SWITCH [@symbol "switch"]
+%token SYMBOL [@symbol "symbol"]
 %token TAG    [@symbol "tag"]
 %token <string> UIDENT
 %token UNDERSCORE [@symbol "_"]
 %token UNREACHABLE [@symbol "Unreachable"]
+%token WITH [@symbol "with"]
 %token EOF
 
-%start program
-%type <Fexpr.program> program
-%type <Fexpr.definition> definition
+%start flambda_unit
+%type <Fexpr.flambda_unit> flambda_unit
 %type <Fexpr.static_structure> static_structure
 %type <Fexpr.expr> expr
 (* %type <Fexpr.name> name *)
+%type <Fexpr.named> named
 %type <Fexpr.of_kind_value> of_kind_value
 %%
 
-program:
-  | elts = program_body_elt* EOF       { elts }
-;
-
-program_body_elt:
-  | EFFECT e = effect                     { Define_symbol (Nonrecursive, e) }
-  | DEF recu = recursive
-        exn_cont = option(exn_continuation)
-        def = definition
-    { let def =
-        match def.computation with
-        | None -> def
-        | Some comput ->
-          { def with computation =
-            Some { comput with exception_cont = exn_cont } }
-      in
-      Define_symbol (recu, def) }
-  | LET CODE let_code = let_code          { Let_code let_code }
-  | ROOT s = symbol                       { Root s }
+flambda_unit:
+  | return_cont = continuation
+    exception_cont = option(exn_continuation)
+    body = expr
+    EOF
+    { { return_cont; exception_cont; body } }
 ;
 
 exn_continuation:
   | STAR cont = continuation { cont }
+;
 
-let_code:
-  | name = func_sym params = typed_args
-  MINUSGREATER ret_cont = continuation
-  exn_cont = option(exn_continuation)
-  ret_arity = return_arity EQUAL expr = expr
-  { ({ name; params; ret_cont; ret_arity; exn_cont; expr } : let_code) }
+let_symbol:
+  | LET; bindings = symbol_bindings; IN; body = expr; { { bindings; body } }
+;
+
+symbol_bindings:
+  | SYMBOL s = static_structure { Simple s }
+  | segs = segments { Segments segs }
+;
+
+segments:
+  | seg = segment { [ seg ] }
+  | segs = separated_nonempty_list(AND, SEGMENT; seg = segment { seg }) { segs }
+;
+
+segment:
+  | cbcs = code_bindings_and_closures;
+    closure_elements = with_closure_elements_opt;
+    { let (code_bindings, closures) = cbcs in
+      { code_bindings; closures; closure_elements } }
+;
+
+code_bindings_and_closures:
+  | cbs = code_bindings { cbs, [] }
+  | closures = static_closures { [], closures }
+  | cbs = code_bindings; AND; closures = static_closures { cbs, closures; }
+;
+
+code_bindings:
+  | cbs = separated_nonempty_list(AND, code_binding) { cbs }
+;
+
+code_binding:
+  | CODE;
+    recursive = recursive;
+    id = code_id;
+    closure_id = option(AT; cid = closure_id { cid });
+    newer_version_of = option(NEWER_VERSION_OF; id = code_id { id });
+    params = kinded_args;
+    closure_var = variable;
+    vars_within_closures = kinded_vars_within_closures;
+    MINUSGREATER; ret_cont = continuation;
+    exn_cont = option(exn_continuation);
+    ret_arity = return_arity;
+    EQUAL; expr = expr;
+    { { id; closure_id; newer_version_of; params; closure_var;
+        vars_within_closures; ret_cont; ret_arity; exn_cont; recursive; expr; }
+       : code_binding }
+;
+
+static_closures:
+  | scs = separated_nonempty_list(AND, static_closure) { scs }
+;
+
+static_closure:
+  | SYMBOL; sym = symbol; EQUAL; clo = closure; { sym, clo }
 ;
 
 recursive:
@@ -151,6 +188,7 @@ switch_sort:
 
 unop:
   | OPAQUE { Opaque_identity }
+  | PROJECT_VAR; var = var_within_closure; { Project_var var }
 
 infix_binop:
   | PLUS { Plus }
@@ -169,8 +207,7 @@ named:
   | a1 = simple b = infix_binop a2 = simple { Prim (Infix_binop (b, a1, a2)) }
   | b = binop { Prim b }
   | BLOCK t = tag LPAREN elts = simple* RPAREN { Prim (Block (t, Immutable, elts)) }
-  | BANG v = variable { Read_mutable v }
-  | v = variable COLONEQUAL s = simple { Assign { being_assigned = v; new_value = s } }
+  | c = closure { Closure { code_id = c } }
 ;
 
 switch_case:
@@ -185,31 +222,30 @@ switch:
 kind:
   | { None }
 ;
-return_kinds:
+kinds:
   | { [] }
-  | k = kind COMMA t = return_kinds { k :: t }
+  | k = kind COMMA t = kinds { k :: t }
 ;
 return_arity:
   | { None }
-  | COLON k = return_kinds { Some k }
+  | COLON k = kinds { Some k }
 ;
+
 expr:
   | HCF { Invalid Halt_and_catch_fire }
   | UNREACHABLE { Invalid Treat_as_unreachable }
   | CONT c = continuation s = simple_args { Apply_cont (c, None, s) }
   | SWITCH sort = switch_sort scrutinee = simple LBRACE cases = switch RBRACE
     { Switch {scrutinee; sort; cases} }
-  | LET v = kinded_variable_opt EQUAL defining_expr = named IN body = expr
-      { let (var, kind) = v in
-        Let { var; kind; defining_expr; body } }
+  | LET l = let_ { Let l }
   | defining_expr = named SEMICOLON body = expr
-      { Let { var = None; kind = None; defining_expr; body } }
-  | LET MUT v = kinded_variable EQUAL initial_value = simple IN body = expr
-      { let (var, kind) = v in
-        Let_mutable { var; kind; initial_value; body } }
+      { Let { bindings = [ { var = None; kind = None; defining_expr; } ];
+              closure_elements = None; 
+              body } }
   | LETK recursive = recursive handler = continuation_handler t = andk body = expr
      { let handlers = handler :: t in
        Let_cont { recursive; body; handlers } }
+  | ls = let_symbol; { Let_symbol ls }
   | CCALL LBRACKET func = csymbol RBRACKET args = simple_args ra = return_arity
     MINUSGREATER r = continuation e = exn_continuation
      { Apply {
@@ -232,16 +268,35 @@ expr:
           args = args;
           call_kind = Function Indirect_unknown_arity;
        }}
-  | CLOSURE r = recursive c = separated_nonempty_list(AND, closure) body = expr
-    { Let_closure { closures = c; body; recursive = r } }
+;
+
+let_:
+  | bindings = separated_nonempty_list(AND, let_binding);
+    closure_elements = with_closure_elements_opt;
+    IN body = expr;
+    { { bindings; closure_elements; body } }
+;
+
+let_binding:
+  | v = kinded_variable_opt EQUAL defining_expr = named
+      { let (var, kind) = v in { var; kind; defining_expr } }
+;
+
+with_closure_elements_opt:
+  | { None }
+  | WITH LBRACE;
+    elements = separated_list(SEMICOLON, closure_element);
+    RBRACE;
+    { Some elements }
+;
+
+closure_element:
+  | var = var_within_closure; EQUAL; value = simple; { { var; value; } }
 ;
 
 closure:
-  | name = variable params = typed_args closure_vars = closure_elements
-    MINUSGREATER ret_cont = continuation
-    exn_cont = option(exn_continuation)
-    ret_arity = return_arity LBRACE expr = expr RBRACE
-    { { name; params; closure_vars; ret_cont; exn_cont; ret_arity; expr } }
+  | CLOSURE; code_id = code_id; { code_id }
+;
 
 exn_and_stub:
   | { false, false }
@@ -253,7 +308,7 @@ exn_and_stub:
 
 continuation_handler:
   | exn_and_stub = exn_and_stub name = continuation
-    params = typed_args LBRACE handler = expr RBRACE
+    params = kinded_args LBRACE handler = expr RBRACE
     { let is_exn_handler, stub = exn_and_stub in
       { name; params; stub; is_exn_handler; handler } }
 ;
@@ -262,41 +317,12 @@ andk:
   | AND h = continuation_handler t = andk { h :: t }
   | { [] }
 
-definition:
-  | static = static_structure+
-      { { computation = None; static_structure = static } }
-  | LETK c = continuation v = args LBRACE
-         static = static_structure+
-      RBRACE
-      expr = expr
-      { let computation =
-          { expr; return_cont = c;
-            exception_cont = None; computed_values = v }
-        in
-        { computation = Some computation; static_structure = static } }
-;
-
-effect:
-  | c = continuation
-    exn_cont = option(exn_continuation)
-    v = args expr = expr
-      { let computation =
-          { expr; return_cont = c;
-            exception_cont = exn_cont; computed_values = v }
-        in
-        { computation = Some computation; static_structure = [] } }
-;
-
-closure_elements:
-  | LBRACKET v = variable* RBRACKET { v }
-  | { [] }
-
-typed_args:
-  | LPAREN v = typed_variable* RPAREN { v }
-  | { [] }
-
-args:
+kinded_args:
   | LPAREN v = kinded_variable* RPAREN { v }
+  | { [] }
+
+kinded_vars_within_closures:
+  | LANGLE v = kinded_var_within_closure* RANGLE { v }
   | { [] }
 
 static_structure:
@@ -314,16 +340,16 @@ of_kind_value:
   | i = INT { Tagged_immediate ( make_tagged_immediate ~loc:($startpos, $endpos) i ) }
 ;
 
-typed_variable:
-  | param = variable { { param; ty = () } }
-;
-
 kinded_variable:
-  | v = variable { v, None }
+  | param = variable { { param; kind = None } }
 ;
 
 kinded_variable_opt:
   | v = variable_opt { v, None }
+;
+
+kinded_var_within_closure:
+  | var = var_within_closure { { var; kind = None } }
 ;
 
 simple_args:
@@ -347,8 +373,12 @@ simple:
   | c = const { Const c }
 ;
 
-func_sym:
-  | s = symbol { s }
+code_id:
+  | v = variable { v }
+;
+ 
+closure_id:
+  | v = variable { v }
 ;
 
 symbol:
@@ -369,6 +399,10 @@ variable_opt:
 ;
 
 continuation:
+  | e = LIDENT { e, make_loc ($startpos, $endpos) }
+;
+
+var_within_closure:
   | e = LIDENT { e, make_loc ($startpos, $endpos) }
 ;
 %%

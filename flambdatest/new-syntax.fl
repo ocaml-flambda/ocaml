@@ -1,0 +1,6 @@
+k
+let code f (x) myclosure -> k1 : , = cont k1 (x)
+in let symbol F = closure f
+in
+let symbol B = block 0 (F) in
+cont k B

@@ -2,23 +2,27 @@
 (* The type of tokens. *)
 
 type token = 
+  | WITH
   | UNREACHABLE
   | UNDERSCORE
   | UIDENT of (string)
   | TAG
+  | SYMBOL
   | SWITCH
   | STUB
   | STAR
   | SEMICOLON
+  | SEGMENT
   | RPAREN
-  | ROOT
   | REC
   | RBRACKET
   | RBRACE
+  | RANGLE
+  | PROJECT_VAR
   | PLUSDOT
   | PLUS
   | OPAQUE
-  | MUT
+  | NEWER_VERSION_OF
   | MINUSGREATER
   | MINUSDOT
   | MINUS
@@ -28,28 +32,24 @@ type token =
   | LET
   | LBRACKET
   | LBRACE
+  | LANGLE
   | IS_INT
   | INT of (string * char option)
   | IN
   | HCF
-  | GET_FIELD
   | FLOAT of (string * char option)
   | EXN
   | EQUAL
   | EOF
-  | EFFECT
   | DOT
-  | DEF
   | CONT
   | COMMA
-  | COLONEQUAL
   | COLON
   | CODE
   | CLOSURE
   | CCALL
   | BLOCK
-  | BANG
-  | AROBASE
+  | AT
   | APPLY
   | AND
 
@@ -59,4 +59,4 @@ exception Error
 
 (* The monolithic API. *)
 
-val program: (Lexing.lexbuf -> token) -> Lexing.lexbuf -> (Fexpr.program)
+val flambda_unit: (Lexing.lexbuf -> token) -> Lexing.lexbuf -> (Fexpr.flambda_unit)

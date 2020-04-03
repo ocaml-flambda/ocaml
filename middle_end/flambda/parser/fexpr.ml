@@ -2,13 +2,14 @@
 
 type location = Lambda.scoped_location
 
-type closure_id = string * location
-
-type symbol = string * location
 type variable = string * location
 type variable_opt = (string * location) option
 type continuation = string * location
-type func_sym = symbol
+type code_id = string * location
+type closure_id = string * location
+type var_within_closure = string * location
+
+type symbol = string * location
 
 type immediate = string
 type targetint = int64
@@ -59,9 +60,14 @@ type invalid_term_semantics =
   | Halt_and_catch_fire
 
 type trap_action
-type typed_parameter = {
+type kinded_parameter = {
   param : variable;
-  ty : flambda_type;
+  kind : okind;
+}
+
+type kinded_var_within_closure = {
+  var : var_within_closure;
+  kind : okind;
 }
 
 type name =
@@ -75,6 +81,7 @@ type simple =
 
 type unop =
   | Opaque_identity
+  | Project_var of var_within_closure
 
 type generic_array_specialisation =
   | No_specialisation
@@ -99,16 +106,6 @@ type prim =
   | Infix_binop of infix_binop * simple * simple
   | Binop of binop * simple * simple
   | Block of tag_scannable * Mutability.t * simple list
-
-type named =
-  | Simple of simple
-  | Prim of prim
-  (* | Set_of_closures of Set_of_closures.t *)
-  | Assign of {
-      being_assigned : variable;
-      new_value : simple;
-    }
-  | Read_mutable of variable
 
 type is_fabricated =
   | Value | Fabricated
@@ -157,14 +154,8 @@ type switch_sort =
 
 type expr =
   | Let of let_
-  | Let_closure of let_closure
-  | Let_mutable of {
-      var : variable;
-      initial_value : simple;
-      kind : okind;
-      body : expr;
-    }
   | Let_cont of let_cont
+  | Let_symbol of let_symbol
   | Apply of apply
   | Apply_cont of continuation * trap_action option * simple list
   | Switch of {
@@ -174,28 +165,29 @@ type expr =
     }
   | Invalid of invalid_term_semantics
 
-and closure = {
-  name : variable;
-  params : typed_parameter list;
-  closure_vars : variable list;
-  ret_cont : continuation;
-  exn_cont : continuation option;
-  ret_arity : flambda_arity option;
-  expr : expr;
-}
+and closure_elements = closure_element list
 
-and let_closure = {
-  recursive : is_recursive;
-  closures : closure list;
-  body : expr;
+and closure_element = {
+  var : var_within_closure;
+  value : simple;
 }
 
 and let_ = {
+  bindings : let_binding list;
+  closure_elements : closure_elements option;
+  body : expr;
+}
+
+and let_binding = {
     var : variable_opt;
     kind : okind;
     defining_expr : named;
-    body : expr;
   }
+
+and named =
+  | Simple of simple
+  | Prim of prim
+  | Closure of { code_id : code_id }
 
 and let_cont = {
   recursive : is_recursive;
@@ -207,36 +199,44 @@ and let_cont_handlers = continuation_handler list
 
 and continuation_handler = {
   name : continuation;
-  params : typed_parameter list;
+  params : kinded_parameter list;
   stub : bool;
   is_exn_handler : bool;
   handler : expr;
 }
 
-type computation = {
-  expr : expr;
-  return_cont : continuation;
-  exception_cont : continuation option;
-  computed_values : (variable * okind) list;
+and let_symbol = {
+  bindings : symbol_bindings;
+  body : expr;
 }
 
-type definition = {
-  computation : computation option;
-  static_structure : static_structure list;
+and symbol_bindings =
+  | Simple of static_structure
+  | Segments of segment list
+
+and segment = {
+  code_bindings : code_binding list;
+  closures : (symbol * code_id) list;
+  closure_elements : closure_elements option;
 }
 
-type let_code = {
-  name : func_sym;
-  params : typed_parameter list;
+and code_binding = {
+  (* TODO: Allow deleted? *)
+  id : code_id;
+  closure_id : closure_id option;
+  newer_version_of : code_id option;
+  params : kinded_parameter list;
+  closure_var : variable;
+  vars_within_closures : kinded_var_within_closure list;
   ret_cont : continuation;
   exn_cont : continuation option;
   ret_arity : flambda_arity option;
+  recursive : is_recursive;
   expr : expr;
 }
 
-type program_body_elt =
-  | Root of symbol
-  | Let_code of let_code
-  | Define_symbol of is_recursive * definition
-
-type program = program_body_elt list
+type flambda_unit = {
+  return_cont : continuation;
+  exception_cont : continuation option;
+  body : expr;
+}

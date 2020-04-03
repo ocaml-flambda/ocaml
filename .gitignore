@@ -222,6 +222,7 @@ middle_end/flambda/types/flambda_type.ml
 /testsuite/tools/lexcmm.ml
 /testsuite/tools/parsecmm.ml
 /testsuite/tools/parsecmm.mli
+/testsuite/tools/parseflambda
 
 /tools/ocamldep
 /tools/ocamldep.opt

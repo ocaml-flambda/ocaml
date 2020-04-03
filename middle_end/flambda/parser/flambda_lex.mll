@@ -45,28 +45,28 @@ let keyword_table =
     "closure", CLOSURE;
     "code", CODE;
     "cont", CONT;
-    "def", DEF;
-    "effect", EFFECT;
     "exn", EXN;
     "in", IN;
     "is_int", IS_INT;
     "let", LET;
     "letk", LETK;
-    "mut", MUT;
+    "newer_version_of", NEWER_VERSION_OF;
     "rec", REC;
-    "root", ROOT;
+    "segment", SEGMENT;
     "stub", STUB;
     "switch", SWITCH;
+    "symbol", SYMBOL;
     "tag", TAG;
+    "with", WITH;
 ]
 
 let ukeyword_table =
   create_hashtable [
     "Opaque", OPAQUE;
     "Block", BLOCK;
-    "Get_field", GET_FIELD;
     "HCF", HCF;
     "Unreachable", UNREACHABLE;
+    "Project_var", PROJECT_VAR;
 ]
 
 }
@@ -115,16 +115,10 @@ rule token = parse
   | "let"
       { LET }
   | "_" { UNDERSCORE }
-  | "!"
-      { BANG }
-  | "@"
-      { AROBASE }
   | ","
       { COMMA }
   | ":"
       { COLON }
-  | ":="
-      { COLONEQUAL }
   | "."
       { DOT }
   | ";"
@@ -143,12 +137,17 @@ rule token = parse
       { LPAREN }
   | ")"
       { RPAREN }
+  | "<"
+      { LANGLE }
+  | ">"
+      { RANGLE }
   | "+"  { PLUS }
   | "+." { PLUSDOT }
   | "*"  { STAR }
   | "-"  { MINUS }
   | "-." { MINUSDOT }
   | "->" { MINUSGREATER }
+  | "@" { AT }
   | lowercase identchar *
       { let s = Lexing.lexeme lexbuf in
         try Hashtbl.find keyword_table s

@@ -1,20 +1,17 @@
 open Fexpr
 
-let pp_space_list f ppf =
+let pp_list ~sep f ppf =
   Format.pp_print_list f
-    ~pp_sep:(fun ppf () -> Format.fprintf ppf "@ ")
+    ~pp_sep:(fun ppf () -> Format.fprintf ppf sep)
     ppf
 
+let pp_space_list f = pp_list ~sep:"@ " f
 
-let pp_semi_list f ppf =
-  Format.pp_print_list f
-    ~pp_sep:(fun ppf () -> Format.fprintf ppf ";")
-    ppf
+let pp_semi_list f = pp_list ~sep:";" f
 
-let pp_comma_list f ppf =
-  Format.pp_print_list f
-    ~pp_sep:(fun ppf () -> Format.fprintf ppf ",")
-    ppf
+let pp_comma_list f = pp_list ~sep:"," f
+
+let pp_star_list f = pp_list ~sep:" * " f
 
 let recursive ppf = function
   | Nonrecursive -> ()
@@ -41,6 +38,12 @@ let variable_opt ppf s =
   match s with
   | None -> Format.fprintf ppf "_"
   | Some (s, _loc) -> Format.fprintf ppf "%s" s
+
+let var_within_closure ppf (s, _loc) =
+  Format.fprintf ppf "%s" s
+
+let code_id ppf (s, _loc) =
+  Format.fprintf ppf "%s" s
 
 let continuation ppf (s, _loc) =
   Format.fprintf ppf "%s" s
@@ -122,11 +125,11 @@ let binop ppf binop a b =
     failwith "TODO Block_load"
 
 let unop ppf u =
-  let s =
-    match u with
-    | Opaque_identity -> "Opaque"
-  in
-  Format.pp_print_string ppf s
+  match u with
+  | Opaque_identity ->
+    Format.pp_print_string ppf "Opaque"
+  | Project_var var ->
+    Format.fprintf ppf "@[<2>Project_var@ %a@]" var_within_closure var 
 
 let prim ppf = function
   | Unop (u, a) ->
@@ -155,22 +158,26 @@ let prim ppf = function
   | Block (_, Mutable, _) ->
       failwith "TODO mutable block"
 
+let kind ppf _ = Format.pp_print_string ppf "value"
+
+let arity ppf a =
+  pp_star_list kind ppf a
+
+let closure ppf c =
+  Format.fprintf ppf "@[<hov 2>closure %a]"
+    code_id c
+
 let named ppf = function
-  | Simple s ->
+  | (Simple s : named) ->
     simple ppf s
   | Prim p ->
     prim ppf p
-  | Read_mutable v ->
-    Format.fprintf ppf "!%a" variable v
-  | Assign { being_assigned; new_value } ->
-    Format.fprintf ppf "%a@ :=@ %a" variable being_assigned simple new_value
+  | Closure { code_id = c } ->
+    closure ppf c
 
-let type_ _ppf (():flambda_type) =
-  ()
-
-let parameter ppf { param; ty } =
+let parameter ppf { param; kind = k } =
   variable ppf param;
-  type_ ppf ty
+  kind ppf k
 
 let typed_parameters ppf = function
   | [] -> ()
@@ -206,11 +213,6 @@ let simple_args ppf = function
     Format.fprintf ppf "@,@[(@[<hov>%a@])@]@ "
       (pp_space_list simple) args
 
-let return_arity _ppf = function
-  | None -> ()
-  | Some _ ->
-    failwith "TODO"
-
 let rec expr ppf = function
   | Invalid inv ->
     invalid ppf inv
@@ -220,20 +222,34 @@ let rec expr ppf = function
     Format.fprintf ppf "cont %a (@[<hov>%a@])"
       continuation cont
       (pp_space_list simple) args
-  | Let { var = None; kind = None; defining_expr; body } ->
+  | Let { bindings = [ { var = None; defining_expr; _ } ]; body; _ } ->
     Format.fprintf ppf "@[<hov>@[<2>%a@];@]@,%a"
       named defining_expr
       expr body
-  | Let { var; kind = None; defining_expr; body } ->
-    Format.fprintf ppf "@[<hov>@[<2>let %a =@ %a@]@ in@]@ %a"
-      variable_opt var
-      named defining_expr
-      expr body
-  | Let_mutable { var; kind = None; initial_value; body } ->
-    Format.fprintf ppf "@[<hov>@[<2>let mut %a =@ %a@]@ in@]@ %a"
-      variable var
-      simple initial_value
-      expr body
+  | Let { bindings = first :: rest; body; closure_elements; } ->
+    Format.fprintf ppf "@[<hov>@[<2>let %a =@ %a@]"
+      variable_opt first.var
+      named first.defining_expr;
+    List.iter (fun ({ var; defining_expr } : let_binding) ->
+      Format.fprintf ppf "@ @[<2>and %a =@ %a@]"
+        variable_opt var
+        named defining_expr;
+    ) rest;
+    begin
+      match closure_elements with
+      | None -> ()
+      | Some closure_elements ->
+        Format.fprintf ppf "@ @[<hov2>with {";
+        pp_semi_list (fun ppf ({ var; value } : closure_element) ->
+          Format.fprintf ppf "@ @[<hov2>%a =@ %a@]"
+            var_within_closure var
+            simple value
+        ) ppf closure_elements;
+        Format.fprintf ppf "@ }@]";
+    end;
+    Format.fprintf ppf "@ in@]@ %a" expr body;
+  | Let _ ->
+    failwith "empty let?"
   | Let_cont { recursive = recu; body;
                handlers =
                  { name; params; stub; is_exn_handler; handler } :: rem_cont;
@@ -282,37 +298,8 @@ let rec expr ppf = function
       continuation ret
       exn_continuation ek
 
-  | Let_closure { closures = closure :: rem_closures; body } ->
-    let { name; params; closure_vars; ret_cont; exn_cont; ret_arity; expr = e } = closure in
-    Format.fprintf ppf "@[<v>@[<v 2>@[<hov 2>closure %a%a%a -> %a%a%a@] {@ %a@]@,}%a@ %a@]"
-      variable name
-      typed_parameters params
-      closed_elts closure_vars
-
-      continuation ret_cont
-      exn_continuationo exn_cont
-      return_arity ret_arity
-      expr e
-
-      andclosure rem_closures
-
-      expr body
   | _ ->
     failwith "TODO"
-
-and andclosure ppf l =
-  let closure { name; params; closure_vars; ret_cont; exn_cont; ret_arity; expr = e } =
-    Format.fprintf ppf "@[<v 2>@[<hov 2>@ and %a%a%a -> %a%a%a@] {@ %a@]@,}"
-      variable name
-      typed_parameters params
-      closed_elts closure_vars
-
-      continuation ret_cont
-      exn_continuationo exn_cont
-      return_arity ret_arity
-      expr e
-  in
-  List.iter closure l
 
 and andk ppf l =
   let cont { name; params; stub; is_exn_handler; handler } =
@@ -331,36 +318,9 @@ let args ppf = function
     Format.fprintf ppf "@ (@[<hov>%a@])"
       (pp_space_list kinded_variable) args
 
-let program_body_elt ppf = function
-  | Root s ->
-    Format.fprintf ppf "@[root@ %a@]" symbol s
-  | Define_symbol (recu, { computation = None; static_structure = s }) ->
-    Format.fprintf ppf "@[<v 2>@[<h>def%a@]@ %a@]"
-      recursive recu
-      (pp_space_list static_structure) s
-  | Define_symbol (Nonrecursive, { computation = Some computation; static_structure = [] }) ->
-    Format.fprintf ppf "@[<v 2>@[<hov 2>effect@ %a%a%a@]@ %a@]@]"
-      continuation computation.return_cont
-      exn_continuationo computation.exception_cont
-      args computation.computed_values
-      expr computation.expr
-  | Define_symbol (recu, { computation = Some computation; static_structure = s }) ->
-    Format.fprintf ppf "@[<v 2>@[<h>def%a%a@]@ @[<v>@[<v 2>@[<hov 2>letk %a%a@]@ {@[<hov>@ %a@ @]}@]@ %a@]@]"
-      recursive recu
-      exn_continuationo computation.exception_cont
-      continuation computation.return_cont
-      args computation.computed_values
-      (pp_space_list static_structure) s
-      expr computation.expr
+let flambda_unit ppf ({ return_cont; exception_cont; body } : flambda_unit) =
+  Format.fprintf ppf "@[<v>-> %a%a@ %a@]"
+    continuation return_cont
+    exn_continuationo exception_cont
+    expr body
 
-  | Let_code { name; params; ret_cont; exn_cont; ret_arity; expr = e } ->
-    Format.fprintf ppf "@[<v 2>@[<hov 2>let code %a%a -> %a%a%a =@]@ %a@]"
-      symbol name
-      typed_parameters params
-      continuation ret_cont
-      exn_continuationo exn_cont
-      return_arity ret_arity
-      expr e
-
-let program ppf elts =
-  List.iter (fun elt -> Format.fprintf ppf "%a@.@." program_body_elt elt) elts
