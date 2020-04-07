@@ -18,36 +18,36 @@
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
-  type t
+type t
 
-  val print : Format.formatter -> t -> unit
+val print : Format.formatter -> t -> unit
 
-  val invariant : t -> unit
+val invariant : t -> unit
 
-  val empty : t
+val empty : t
 
-  type add_result = private {
-    t : t;
-    canonical_element : Simple.t;
-    alias_of : Simple.t;
-  }
+type add_result = private {
+  t : t;
+  canonical_element : Simple.t;
+  alias_of : Simple.t;
+}
 
-  val add
-     : t
-    -> Simple.t
-    -> Binding_time.With_name_mode.t
-    -> Simple.t
-    -> Binding_time.With_name_mode.t
-    -> add_result
+val add
+   : t
+  -> Simple.t
+  -> Binding_time.With_name_mode.t
+  -> Simple.t
+  -> Binding_time.With_name_mode.t
+  -> add_result
 
-  (** [get_canonical_element] returns [None] only when the
-      [min_order_within_equiv_class] cannot be satisfied. *)
-  val get_canonical_element_exn
-     : t
-    -> Simple.t
-    -> Name_mode.t
-    -> min_name_mode:Name_mode.t
-    -> Simple.t
+(** [get_canonical_element] returns [None] only when the
+    [min_order_within_equiv_class] cannot be satisfied. *)
+val get_canonical_element_exn
+   : t
+  -> Simple.t
+  -> Name_mode.t
+  -> min_name_mode:Name_mode.t
+  -> Simple.t
 
-  (** [get_aliases] always returns the supplied element in the result set. *)
-  val get_aliases : t -> Simple.t -> Simple.Set.t
+(** [get_aliases] always returns the supplied element in the result set. *)
+val get_aliases : t -> Simple.t -> Simple.Set.t
