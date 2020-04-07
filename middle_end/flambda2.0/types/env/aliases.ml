@@ -370,6 +370,8 @@ let add_alias t element1 element2 =
 let add t element1 binding_time_and_mode1
       element2 binding_time_and_mode2 =
   let original_t = t in
+  let element1 = Simple.without_rec_info element1 in
+  let element2 = Simple.without_rec_info element2 in
   let t =
     { t with binding_times_and_modes =
                Simple.Map.add element1 binding_time_and_mode1
