@@ -9272,24 +9272,6 @@ middle_end/flambda2.0/types/basic/var_within_closure_set.cmx : \
 middle_end/flambda2.0/types/basic/var_within_closure_set.cmi : \
     middle_end/flambda2.0/basic/var_within_closure.cmi \
     utils/identifiable.cmi
-middle_end/flambda2.0/types/env/alias.cmo : \
-    middle_end/flambda2.0/basic/simple.cmi \
-    middle_end/flambda2.0/naming/name_mode.cmi \
-    utils/misc.cmi \
-    middle_end/flambda2.0/types/env/binding_time.cmi \
-    middle_end/flambda2.0/types/env/alias.cmi
-middle_end/flambda2.0/types/env/alias.cmx : \
-    middle_end/flambda2.0/basic/simple.cmx \
-    middle_end/flambda2.0/naming/name_mode.cmx \
-    utils/misc.cmx \
-    middle_end/flambda2.0/types/env/binding_time.cmx \
-    middle_end/flambda2.0/types/env/alias.cmi
-middle_end/flambda2.0/types/env/alias.cmi : \
-    middle_end/flambda2.0/compilenv_deps/symbol.cmi \
-    middle_end/flambda2.0/basic/simple.cmi \
-    middle_end/flambda2.0/naming/name_mode.cmi \
-    utils/identifiable.cmi \
-    middle_end/flambda2.0/types/env/binding_time.cmi
 middle_end/flambda2.0/types/env/aliases.cmo : \
     middle_end/flambda2.0/basic/simple.cmi \
     middle_end/flambda2.0/naming/name_mode.cmi \

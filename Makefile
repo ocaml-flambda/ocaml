@@ -290,7 +290,6 @@ MIDDLE_END_FLAMBDA2_TYPES=\
   middle_end/flambda2.0/types/basic/var_within_closure_set.cmo \
   middle_end/flambda2.0/types/kinds/flambda_arity.cmo \
   middle_end/flambda2.0/types/env/binding_time.cmo \
-  middle_end/flambda2.0/types/env/alias.cmo \
   middle_end/flambda2.0/types/env/aliases.cmo \
   middle_end/flambda2.0/types/basic/meet_or_join_op.cmo \
   middle_end/flambda2.0/types/basic/or_bottom.cmo \
