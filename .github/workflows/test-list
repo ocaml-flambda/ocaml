@@ -7,7 +7,7 @@
 # tests/asmgen                      FAIL
   tests/ast-invariants
 # tests/backtrace                   FAIL (FIXME)  there is practically no backtrace info
-  tests/basic                       FAIL (FIXME)  Map.remove (see flambdatest/mlexamples/map_remove.ml)
+  tests/basic
   tests/basic-float
   tests/basic-io
   tests/basic-io-2
@@ -40,7 +40,7 @@
   tests/lexing
   tests/lib-arg
   tests/lib-array
-# tests/lib-bigarray                TIMEOUT       `bigarrays.ml` >5min of compilation time (else the tests should pass)	
+  tests/lib-bigarray
   tests/lib-bigarray-2
   tests/lib-bigarray-file
   tests/lib-bool
@@ -61,7 +61,7 @@
   tests/lib-floatarray
   tests/lib-format
   tests/lib-fun
-# tests/lib-hashtbl                 FAIL (FIXME)  'htbl.ml'/Fatal error: exception Invalid_argument("Map.remove_min_elt")
+  tests/lib-hashtbl
   tests/lib-int
   tests/lib-int64
   tests/lib-internalformat
@@ -76,7 +76,7 @@
   tests/lib-scanf
   tests/lib-scanf-2
   tests/lib-seq
-# tests/lib-set                     FAIL (FIXME)  'testmap.ml'/Sefmentation fault (core dumped) (most likely related to Map.remove failure)
+  tests/lib-set
   tests/lib-stack
   tests/lib-stdlabels
   tests/lib-stdlib
@@ -101,7 +101,7 @@
   tests/no-alias-deps
 # tests/opaque                      FAIL          'test.ml' (cmx file loading)
   tests/output-complete-obj
-# tests/parsetree                   FAIL          'test.ml': Segmentation fault (in camlinternalFormat)
+  tests/parsetree
   tests/parse-errors
   tests/parsing
   tests/ppx-attributes
