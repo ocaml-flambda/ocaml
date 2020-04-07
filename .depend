@@ -8859,7 +8859,6 @@ middle_end/flambda2.0/types/flambda_type.cmo : \
     middle_end/flambda2.0/naming/bindable_variable_in_types.cmi \
     middle_end/flambda2.0/basic/apply_cont_rewrite_id.cmi \
     middle_end/flambda2.0/types/env/aliases.cmi \
-    middle_end/flambda2.0/types/env/alias.cmi \
     middle_end/flambda2.0/types/flambda_type.cmi
 middle_end/flambda2.0/types/flambda_type.cmx : \
     middle_end/flambda2.0/naming/with_delayed_permutation.cmx \
@@ -8919,7 +8918,6 @@ middle_end/flambda2.0/types/flambda_type.cmx : \
     middle_end/flambda2.0/naming/bindable_variable_in_types.cmx \
     middle_end/flambda2.0/basic/apply_cont_rewrite_id.cmx \
     middle_end/flambda2.0/types/env/aliases.cmx \
-    middle_end/flambda2.0/types/env/alias.cmx \
     middle_end/flambda2.0/types/flambda_type.cmi
 middle_end/flambda2.0/types/flambda_type.cmi : \
     middle_end/flambda2.0/compilenv_deps/variable.cmi \
@@ -9047,6 +9045,7 @@ middle_end/flambda2.0/types/type_grammar.rec.cmo : \
     middle_end/flambda2.0/compilenv_deps/immediate.cmi \
     middle_end/flambda2.0/types/kinds/flambda_kind.cmi \
     middle_end/flambda2.0/basic/closure_id.cmi \
+    middle_end/flambda2.0/types/env/binding_time.cmi \
     middle_end/flambda2.0/types/type_grammar.rec.cmi
 middle_end/flambda2.0/types/type_grammar.rec.cmx : \
     middle_end/flambda2.0/compilenv_deps/variable.cmx \
@@ -9069,6 +9068,7 @@ middle_end/flambda2.0/types/type_grammar.rec.cmx : \
     middle_end/flambda2.0/compilenv_deps/immediate.cmx \
     middle_end/flambda2.0/types/kinds/flambda_kind.cmx \
     middle_end/flambda2.0/basic/closure_id.cmx \
+    middle_end/flambda2.0/types/env/binding_time.cmx \
     middle_end/flambda2.0/types/type_grammar.rec.cmi
 middle_end/flambda2.0/types/type_grammar.rec.cmi : \
     middle_end/flambda2.0/compilenv_deps/variable.cmi \
@@ -9291,17 +9291,23 @@ middle_end/flambda2.0/types/env/alias.cmi : \
     utils/identifiable.cmi \
     middle_end/flambda2.0/types/env/binding_time.cmi
 middle_end/flambda2.0/types/env/aliases.cmo : \
+    middle_end/flambda2.0/naming/name_mode.cmi \
     utils/misc.cmi \
     utils/identifiable.cmi \
     utils/clflags.cmi \
+    middle_end/flambda2.0/types/env/binding_time.cmi \
     middle_end/flambda2.0/types/env/aliases.cmi
 middle_end/flambda2.0/types/env/aliases.cmx : \
+    middle_end/flambda2.0/naming/name_mode.cmx \
     utils/misc.cmx \
     utils/identifiable.cmx \
     utils/clflags.cmx \
+    middle_end/flambda2.0/types/env/binding_time.cmx \
     middle_end/flambda2.0/types/env/aliases.cmi
 middle_end/flambda2.0/types/env/aliases.cmi : \
-    utils/identifiable.cmi
+    middle_end/flambda2.0/naming/name_mode.cmi \
+    utils/identifiable.cmi \
+    middle_end/flambda2.0/types/env/binding_time.cmi
 middle_end/flambda2.0/types/env/binding_time.cmo : \
     utils/numbers.cmi \
     middle_end/flambda2.0/naming/name_mode.cmi \
@@ -9352,7 +9358,6 @@ middle_end/flambda2.0/types/env/typing_env.rec.cmo : \
     utils/clflags.cmi \
     middle_end/flambda2.0/types/env/binding_time.cmi \
     middle_end/flambda2.0/types/env/aliases.cmi \
-    middle_end/flambda2.0/types/env/alias.cmi \
     middle_end/flambda2.0/types/env/typing_env.rec.cmi
 middle_end/flambda2.0/types/env/typing_env.rec.cmx : \
     middle_end/flambda2.0/compilenv_deps/variable.cmx \
@@ -9375,7 +9380,6 @@ middle_end/flambda2.0/types/env/typing_env.rec.cmx : \
     utils/clflags.cmx \
     middle_end/flambda2.0/types/env/binding_time.cmx \
     middle_end/flambda2.0/types/env/aliases.cmx \
-    middle_end/flambda2.0/types/env/alias.cmx \
     middle_end/flambda2.0/types/env/typing_env.rec.cmi
 middle_end/flambda2.0/types/env/typing_env.rec.cmi : \
     middle_end/flambda2.0/compilenv_deps/symbol.cmi \
@@ -9431,6 +9435,7 @@ middle_end/flambda2.0/types/env/typing_env_level.rec.cmo : \
     middle_end/flambda2.0/basic/continuation_extra_params_and_args.cmi \
     middle_end/flambda2.0/types/structures/code_age_relation.cmi \
     utils/clflags.cmi \
+    middle_end/flambda2.0/types/env/binding_time.cmi \
     middle_end/flambda2.0/basic/apply_cont_rewrite_id.cmi \
     middle_end/flambda2.0/types/env/typing_env_level.rec.cmi
 middle_end/flambda2.0/types/env/typing_env_level.rec.cmx : \
@@ -9453,6 +9458,7 @@ middle_end/flambda2.0/types/env/typing_env_level.rec.cmx : \
     middle_end/flambda2.0/basic/continuation_extra_params_and_args.cmx \
     middle_end/flambda2.0/types/structures/code_age_relation.cmx \
     utils/clflags.cmx \
+    middle_end/flambda2.0/types/env/binding_time.cmx \
     middle_end/flambda2.0/basic/apply_cont_rewrite_id.cmx \
     middle_end/flambda2.0/types/env/typing_env_level.rec.cmi
 middle_end/flambda2.0/types/env/typing_env_level.rec.cmi : \
@@ -9466,6 +9472,7 @@ middle_end/flambda2.0/types/env/typing_env_level.rec.cmi : \
     middle_end/flambda2.0/simplify/env/continuation_use_kind.cmi \
     middle_end/flambda2.0/basic/continuation_extra_params_and_args.cmi \
     middle_end/flambda2.0/naming/contains_names.cmo \
+    middle_end/flambda2.0/types/env/binding_time.cmi \
     middle_end/flambda2.0/basic/apply_cont_rewrite_id.cmi
 middle_end/flambda2.0/types/kinds/flambda_arity.cmo : \
     utils/misc.cmi \

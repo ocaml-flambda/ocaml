@@ -16,7 +16,7 @@
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
-module Aliases = Aliases.Make (Alias)
+module Aliases = Aliases.Make (Simple)
 
 (* CR mshinwell: Add signatures to these submodules. *)
 module Cached : sig
@@ -351,6 +351,24 @@ let find t name =
 let find_params t params =
   List.map (fun param -> find t (Kinded_parameter.name param)) params
 
+let binding_time_and_mode t name =
+  Name.pattern_match name
+    ~var:(fun _var ->
+      let _typ, binding_time, name_mode =
+        find_with_binding_time_and_mode t name
+      in
+      Binding_time.With_name_mode.create binding_time name_mode)
+    ~symbol:(fun _sym ->
+      Binding_time.With_name_mode.create
+        Binding_time.symbols Name_mode.normal)
+
+let binding_time_and_mode_of_simple t simple =
+  Simple.pattern_match simple
+    ~const:(fun _ ->
+      Binding_time.With_name_mode.create
+        Binding_time.consts_and_discriminants Name_mode.normal)
+    ~name:(fun name -> binding_time_and_mode t name)
+
 let mem t name =
   Name.pattern_match name
     ~var:(fun _var -> Name.Map.mem name (names_to_types t))
@@ -383,6 +401,7 @@ let add_variable_definition t var kind name_mode =
   end;
   let level =
     Typing_env_level.add_definition (One_level.level t.current_level) var kind
+      t.next_binding_time
   in
   let just_after_level =
     Cached.add_or_replace_binding (cached t)
@@ -407,33 +426,13 @@ let add_symbol_definitions t syms =
     defined_symbols = Symbol.Set.union syms t.defined_symbols;
   }
 
-let alias_of_simple t simple =
+let kind_of_simple t simple =
   let [@inline always] const const =
-    let binding_time = Binding_time.consts_and_discriminants in
-    let mode = Name_mode.normal in
-    Alias.create (Simple.const const) binding_time mode
+    Type_grammar.kind (Type_grammar.type_for_const const)
   in
   let [@inline always] name name =
-    let _ty, binding_time, mode = find_with_binding_time_and_mode t name in
-    Name.pattern_match name
-      ~var:(fun _var -> Alias.create simple binding_time mode)
-      ~symbol:(fun sym -> Alias.create_symbol sym)
-  in
-  Simple.pattern_match simple ~const ~name
-
-let alias_of_simple_with_kind t simple =
-  let [@inline always] const const =
-    let binding_time = Binding_time.consts_and_discriminants in
-    let mode = Name_mode.normal in
-    Alias.create (Simple.const const) binding_time mode,
-      Type_grammar.kind (Type_grammar.type_for_const const)
-  in
-  let [@inline always] name name =
-    let ty, binding_time, mode = find_with_binding_time_and_mode t name in
-    let kind = Type_grammar.kind ty in
-    Name.pattern_match name
-      ~var:(fun _var -> Alias.create simple binding_time mode, kind)
-      ~symbol:(fun sym -> Alias.create_symbol sym, kind)
+    let ty = find t name in
+    Type_grammar.kind ty
   in
   Simple.pattern_match simple ~const ~name
 
@@ -561,27 +560,23 @@ and add_equation t name ty =
     match Type_grammar.get_alias_exn ty with
     | exception Not_found -> aliases, Simple.name name, None, t, ty
     | alias_of ->
-      let alias =
-        Name.pattern_match name
-          ~var:(fun _var ->
-            let _typ, binding_time, name_mode =
-              find_with_binding_time_and_mode t name
-            in
-            Alias.create (Simple.name name) binding_time name_mode)
-          ~symbol:(fun sym -> Alias.create_symbol sym)
+      let alias = Simple.name name in
+      let binding_time_and_mode_alias =
+        binding_time_and_mode t name
       in
       let rec_info = Simple.rec_info alias_of in
-      let alias_of = alias_of_simple t alias_of in
+      let binding_time_and_mode_alias_of =
+        binding_time_and_mode_of_simple t alias_of
+      in
       let ({ canonical_element; alias_of; t = aliases; } : Aliases.add_result) =
-        Aliases.add aliases alias alias_of
+        Aliases.add aliases alias binding_time_and_mode_alias
+          alias_of binding_time_and_mode_alias_of
       in
       let kind = Type_grammar.kind ty in
-      (* assert (K.equal kind (Alias.kind canonical_element)); *)
       let ty =
-        Type_grammar.alias_type_of kind
-          (Alias.simple canonical_element)
+        Type_grammar.alias_type_of kind canonical_element
       in
-      aliases, Alias.simple alias_of, rec_info, t, ty
+      aliases, alias_of, rec_info, t, ty
   in
   (* Beware: if we're about to add the equation on a name which is different
      from the one that the caller passed in, then we need to make sure that the
@@ -622,9 +617,9 @@ and add_equation t name ty =
 
 and add_env_extension_from_level t level : t =
   let t =
-    Variable.Map.fold (fun var kind t ->
+    Typing_env_level.fold_on_defined_vars (fun var kind t ->
         add_variable_definition t var kind Name_mode.in_types)
-      (Typing_env_level.defined_vars level)
+      level
       t
   in
   let t =
@@ -732,7 +727,7 @@ let cut_and_n_way_join definition_typing_env ts_and_use_ids ~params
   env_extension, extra_params_and_args
 
 let get_canonical_simple_with_kind_exn t ?min_name_mode simple =
-  let alias, kind = alias_of_simple_with_kind t simple in
+  let kind = kind_of_simple t simple in
   let newer_rec_info =
     let newer_rec_info = Simple.rec_info simple in
     match newer_rec_info with
@@ -749,14 +744,18 @@ let get_canonical_simple_with_kind_exn t ?min_name_mode simple =
             | Some rec_info ->
               Some (Rec_info.merge rec_info ~newer:newer_rec_info))
   in
-  let min_order_within_equiv_class =
+  let name_mode_simple =
+    Binding_time.With_name_mode.name_mode
+      (binding_time_and_mode_of_simple t simple)
+  in
+  let min_name_mode =
     match min_name_mode with
-    | None -> Alias.name_mode alias
+    | None -> name_mode_simple
     | Some name_mode -> name_mode
   in
   match
-    Aliases.get_canonical_element_exn (aliases t) alias
-      ~min_order_within_equiv_class
+    Aliases.get_canonical_element_exn (aliases t) simple name_mode_simple
+      ~min_name_mode
   with
   | exception Misc.Fatal_error ->
     if !Clflags.flambda2_context_on_error then begin
@@ -767,17 +766,15 @@ let get_canonical_simple_with_kind_exn t ?min_name_mode simple =
     end;
     raise Misc.Fatal_error
   | alias ->
-    let simple = Alias.simple alias in
     match newer_rec_info with
-    | None -> simple, kind
+    | None -> alias, kind
     | Some _ ->
-      match Simple.merge_rec_info simple ~newer_rec_info with
+      match Simple.merge_rec_info alias ~newer_rec_info with
       | None -> raise Not_found
       | Some simple -> simple, kind
 
 let get_canonical_simple_exn t ?min_name_mode simple =
   (* Duplicated from above to eliminate the allocation of the returned pair. *)
-  let alias = alias_of_simple t simple in
   let newer_rec_info =
     let newer_rec_info = Simple.rec_info simple in
     match newer_rec_info with
@@ -794,14 +791,18 @@ let get_canonical_simple_exn t ?min_name_mode simple =
             | Some rec_info ->
               Some (Rec_info.merge rec_info ~newer:newer_rec_info))
   in
-  let min_order_within_equiv_class =
+  let name_mode_simple =
+    Binding_time.With_name_mode.name_mode
+      (binding_time_and_mode_of_simple t simple)
+  in
+  let min_name_mode =
     match min_name_mode with
-    | None -> Alias.name_mode alias
+    | None -> name_mode_simple
     | Some name_mode -> name_mode
   in
   match
-    Aliases.get_canonical_element_exn (aliases t) alias
-      ~min_order_within_equiv_class
+    Aliases.get_canonical_element_exn (aliases t) simple name_mode_simple
+      ~min_name_mode
   with
   | exception Misc.Fatal_error ->
     if !Clflags.flambda2_context_on_error then begin
@@ -812,11 +813,10 @@ let get_canonical_simple_exn t ?min_name_mode simple =
     end;
     raise Misc.Fatal_error
   | alias ->
-    let simple = Alias.simple alias in
     match newer_rec_info with
-    | None -> simple
+    | None -> alias
     | Some _ ->
-      match Simple.merge_rec_info simple ~newer_rec_info with
+      match Simple.merge_rec_info alias ~newer_rec_info with
       | None -> raise Not_found
       | Some simple -> simple
 
@@ -826,14 +826,15 @@ let get_alias_then_canonical_simple_exn t ?min_name_mode typ =
 
 let aliases_of_simple t ~min_name_mode simple =
   let aliases =
-    alias_of_simple t simple
-    |> Aliases.get_aliases (aliases t)
-    |> Alias.Set.filter (fun alias ->
-      let name_mode = Alias.name_mode alias in
+    Aliases.get_aliases (aliases t) simple
+    |> Simple.Set.filter (fun alias ->
+      let name_mode =
+        Binding_time.With_name_mode.name_mode
+          (binding_time_and_mode_of_simple t alias)
+      in
       match Name_mode.compare_partial_order name_mode min_name_mode with
       | None -> false
       | Some c -> c >= 0)
-    |> Alias.set_to_simple_set
   in
   let newer_rec_info = Simple.rec_info simple in
   match newer_rec_info with
@@ -888,12 +889,3 @@ and free_names_transitive0 t typ ~result =
 
 let free_names_transitive t typ =
   free_names_transitive0 t typ ~result:Name_occurrences.empty
-
-let compare_binding_times t name1 name2 =
-  let (_ty1, binding_time1, _name_mode1) =
-    find_with_binding_time_and_mode t name1
-  in
-  let (_ty2, binding_time2, _name_mode2) =
-    find_with_binding_time_and_mode t name2
-  in
-  Binding_time.compare binding_time1 binding_time2

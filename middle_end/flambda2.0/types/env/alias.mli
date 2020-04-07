@@ -27,8 +27,6 @@ val create
 
 val create_symbol : Symbol.t -> t
 
-val defined_earlier : t -> than:t -> bool
-
 val simple : t -> Simple.t
 
 val name_mode : t -> Name_mode.t
@@ -37,8 +35,6 @@ module Order_within_equiv_class
   : module type of struct include Name_mode end
 
 val order_within_equiv_class : t -> Order_within_equiv_class.t
-
-module Set_ordered_by_binding_time : Set.S with type elt := t
 
 include Identifiable.S with type t := t
 

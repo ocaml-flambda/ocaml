@@ -21,24 +21,8 @@
 module Make (E : sig
   (* CR mshinwell: Add _intf.ml file. *)
   type t
-  type elt = t
   include Identifiable.S with type t := t
 
-  val defined_earlier : t -> than:t -> bool
-
-  module Order_within_equiv_class : sig
-    type t
-    include Identifiable.S with type t := t
-
-    (** The total order used by [Set], [Map] etc. must be a linear
-        extension of this partial order.  This enables [find_first] to be
-        used; see the .ml file. *)
-    val compare_partial_order : t -> t -> int option
-
-    val compare : t -> t -> [ `Be_explicit_about_total_or_partial_ordering ]
-  end
-
-  val order_within_equiv_class : t -> Order_within_equiv_class.t
 end) : sig
   type t
 
@@ -57,7 +41,9 @@ end) : sig
   val add
      : t
     -> E.t
+    -> Binding_time.With_name_mode.t
     -> E.t
+    -> Binding_time.With_name_mode.t
     -> add_result
 
   (** [get_canonical_element] returns [None] only when the
@@ -65,7 +51,8 @@ end) : sig
   val get_canonical_element_exn
      : t
     -> E.t
-    -> min_order_within_equiv_class:E.Order_within_equiv_class.t
+    -> Name_mode.t
+    -> min_name_mode:Name_mode.t
     -> E.t
 
   (** [get_aliases] always returns the supplied element in the result set. *)

@@ -18,6 +18,7 @@
 
 type t = {
   defined_vars : Flambda_kind.t Variable.Map.t;
+  binding_times : Variable.Set.t Binding_time.Map.t;
   equations : Type_grammar.t Name.Map.t;
   cse : Simple.t Flambda_primitive.Eligible_for_cse.Map.t;
 }
@@ -36,7 +37,8 @@ let defines_name_but_no_equations t name =
       && not (Name.Map.mem name t.equations)
 *)
 
-let print_with_cache ~cache ppf { defined_vars; equations; cse; } =
+let print_with_cache ~cache ppf
+      { defined_vars; binding_times = _; equations; cse; } =
   let print_equations ppf equations =
     let equations = Name.Map.bindings equations in
     match equations with
@@ -90,7 +92,17 @@ let print ppf t =
 
 let invariant _t = ()
 
-let apply_name_permutation ({ defined_vars; equations; cse; } as t)
+let fold_on_defined_vars f t init =
+  Binding_time.Map.fold (fun _bt vars acc ->
+      Variable.Set.fold (fun var acc ->
+          let kind = Variable.Map.find var t.defined_vars in
+          f var kind acc)
+        vars
+        acc)
+    t.binding_times
+    init
+
+let apply_name_permutation ({ defined_vars; binding_times; equations; cse; } as t)
       perm =
   let defined_vars_changed = ref false in
   let defined_vars' =
@@ -102,6 +114,20 @@ let apply_name_permutation ({ defined_vars; equations; cse; } as t)
         Variable.Map.add var' kind defined_vars)
       defined_vars
       Variable.Map.empty
+  in
+  let binding_times' =
+    if !defined_vars_changed then
+      Binding_time.Map.fold (fun binding_time vars binding_times ->
+          let vars' =
+            Variable.Set.map (fun var ->
+              Name_permutation.apply_variable perm var)
+              vars
+          in
+          Binding_time.Map.add binding_time vars' binding_times)
+        binding_times
+        Binding_time.Map.empty
+    else
+      binding_times
   in
   let equations_changed = ref false in
   let equations' =
@@ -135,11 +161,12 @@ let apply_name_permutation ({ defined_vars; equations; cse; } as t)
   then t
   else 
     { defined_vars = defined_vars';
+      binding_times = binding_times';
       equations = equations';
       cse = cse';
     }
 
-let free_names { defined_vars; equations; cse; } =
+let free_names { defined_vars; binding_times = _; equations; cse; } =
   let free_names_defined_vars =
     Name_occurrences.create_variables (Variable.Map.keys defined_vars)
       Name_mode.in_types
@@ -171,12 +198,14 @@ let free_names { defined_vars; equations; cse; } =
 
 let empty () =
   { defined_vars = Variable.Map.empty;
+    binding_times = Binding_time.Map.empty;
     equations = Name.Map.empty;
     cse = Flambda_primitive.Eligible_for_cse.Map.empty;
   }
 
-let is_empty { defined_vars; equations; cse; } =
+let is_empty { defined_vars; binding_times; equations; cse; } =
   Variable.Map.is_empty defined_vars
+    && Binding_time.Map.is_empty binding_times
     && Name.Map.is_empty equations
     && Flambda_primitive.Eligible_for_cse.Map.is_empty cse
 
@@ -184,7 +213,7 @@ let equations t = t.equations
 
 let cse t = t.cse
 
-let add_definition t var kind =
+let add_definition t var kind binding_time =
   if !Clflags.flambda_invariant_checks
     && Variable.Map.mem var t.defined_vars
   then begin
@@ -192,8 +221,19 @@ let add_definition t var kind =
       Variable.print var
       print t
   end;
+  let binding_times =
+    let vars =
+      match Binding_time.Map.find binding_time t.binding_times with
+      | exception Not_found ->
+        Variable.Set.singleton var
+      | prev_vars ->
+        Variable.Set.add var prev_vars
+    in
+    Binding_time.Map.add binding_time vars t.binding_times
+  in
   { t with
-    defined_vars = Variable.Map.add var kind t.defined_vars
+    defined_vars = Variable.Map.add var kind t.defined_vars;
+    binding_times;
   }
 
 let equation_is_directly_recursive name ty =
@@ -218,6 +258,7 @@ let check_equation t name ty =
 let one_equation name ty =
   check_equation (empty ()) name ty;
   { defined_vars = Variable.Map.empty;
+    binding_times = Binding_time.Map.empty;
     equations = Name.Map.singleton name ty;
     cse = Flambda_primitive.Eligible_for_cse.Map.empty;
   }
@@ -253,6 +294,21 @@ let concat (t1 : t) (t2 : t) =
       t1.defined_vars
       t2.defined_vars
   in
+  let binding_times =
+    Binding_time.Map.union (fun _binding_time vars1 vars2 ->
+      (* CR vlaviron: Technically this is feasible, as we can allow several
+         variables with the same binding time, but it should only come from
+         joins; concat arguments should always have disjoint binding time
+         domains *)
+        Misc.fatal_errorf "Cannot concatenate levels that have variables \
+            with overlapping binding times (e.g. %a and %a):@ %a@ and@ %a"
+          Variable.Set.print vars1
+          Variable.Set.print vars2
+          print t1
+          print t2)
+      t1.binding_times
+      t2.binding_times
+  in
   let equations =
     Name.Map.union (fun _ _ty1 ty2 -> Some ty2) t1.equations t2.equations
   in
@@ -262,6 +318,7 @@ let concat (t1 : t) (t2 : t) =
       t2.cse
   in
   { defined_vars;
+    binding_times;
     equations;
     cse;
   }
@@ -333,15 +390,29 @@ let meet0 env (t1 : t) (t2 : t) =
       t1.defined_vars
       t2.defined_vars
   in
+  let binding_times =
+    Binding_time.Map.union (fun _bt vars1 vars2 ->
+        Some (Variable.Set.union vars1 vars2))
+      t1.binding_times
+      t2.binding_times
+  in
   let env =
-    (* CR mshinwell: Should the binding time be ignored? *)
     let typing_env =
-      Variable.Map.fold (fun var kind typing_env ->
-          let name =
-            Name_in_binding_pos.create (Name.var var) Name_mode.in_types
-          in
-          Typing_env.add_definition typing_env name kind)
-        defined_vars
+      (* Iterating on binding_times ensures that the resulting typing env
+         is compatible with both inputs regarding binding times.
+         When several variables have the same binding time, we assume they
+         come from distinct contexts and that their relative ordering does not
+         matter. *)
+      Binding_time.Map.fold (fun _bt vars typing_env ->
+          Variable.Set.fold (fun var typing_env ->
+              let kind = Variable.Map.find var defined_vars in
+              let name =
+                Name_in_binding_pos.create (Name.var var) Name_mode.in_types
+              in
+              Typing_env.add_definition typing_env name kind)
+            vars
+            typing_env)
+        binding_times
         (Meet_env.env env)
     in
     Meet_env.with_typing_env env typing_env
@@ -349,6 +420,7 @@ let meet0 env (t1 : t) (t2 : t) =
   let t =
     { (empty ()) with
       defined_vars;
+      binding_times;
     }
   in
   let t, env =
@@ -449,6 +521,7 @@ let join_types ~env_at_fork ~params envs_with_levels =
       let left_env =
         let level =
           { defined_vars = Variable.Map.empty;
+            binding_times = Binding_time.Map.empty;
             equations = joined_types;
             cse = Flambda_primitive.Eligible_for_cse.Map.empty;
           }
@@ -721,24 +794,45 @@ let join_cse envs_with_levels cse ~allowed =
 
 let construct_joined_level envs_with_levels ~allowed ~joined_types ~cse =
   let module EP = Flambda_primitive.Eligible_for_cse in
-  let defined_vars =
-    List.fold_left (fun defined_vars (_env_at_use, _id, _use_kind, t) ->
+  let defined_vars, binding_times =
+    List.fold_left (fun (defined_vars, binding_times)
+                     (_env_at_use, _id, _use_kind, t) ->
         let defined_vars_this_level =
           Variable.Map.filter (fun var _ ->
               Name_occurrences.mem_var allowed var)
             t.defined_vars
         in
-        Variable.Map.union (fun var kind1 kind2 ->
-            if Flambda_kind.equal kind1 kind2 then Some kind1
-            else
-              Misc.fatal_errorf "Cannot join levels that disagree on the kind \
-                  of [defined_vars] (%a and %a for %a)"
-                Flambda_kind.print kind1
-                Flambda_kind.print kind2
-                Variable.print var)
-          defined_vars
-          defined_vars_this_level)
-      Variable.Map.empty
+        let defined_vars =
+          Variable.Map.union (fun var kind1 kind2 ->
+              if Flambda_kind.equal kind1 kind2 then Some kind1
+              else
+                Misc.fatal_errorf "Cannot join levels that disagree on the kind \
+                    of [defined_vars] (%a and %a for %a)"
+                  Flambda_kind.print kind1
+                  Flambda_kind.print kind2
+                  Variable.print var)
+            defined_vars
+            defined_vars_this_level
+        in
+        let binding_times_this_level =
+          Binding_time.Map.filter_map t.binding_times
+            ~f:(fun _ vars ->
+              let vars =
+                Variable.Set.filter (fun var ->
+                    Name_occurrences.mem_var allowed var)
+                  vars
+              in
+              if Variable.Set.is_empty vars then None
+              else Some vars)
+        in
+        let binding_times =
+          Binding_time.Map.union (fun _bt vars1 vars2 ->
+              Some (Variable.Set.union vars1 vars2))
+            binding_times
+            binding_times_this_level
+        in
+        (defined_vars, binding_times))
+      (Variable.Map.empty, Binding_time.Map.empty)
       envs_with_levels
   in
   let equations =
@@ -756,6 +850,7 @@ let construct_joined_level envs_with_levels ~allowed ~joined_types ~cse =
       cse
   in
   { defined_vars;
+    binding_times;
     equations;
     cse;
   }
@@ -768,23 +863,24 @@ let join ~env_at_fork envs_with_levels ~params =
       Format.eprintf "One level:@ %a\n%!" print t)
     envs_with_levels;
   *)
+  (* Add all the variables defined by the branches as existentials.
+     Iterating on binding_times instead of defined_vars ensures
+     consistency of binding time order in the branches and the result. *)
   let env_at_fork_with_existentials_defined =
-    List.fold_left (fun env_at_fork (env_at_use, _, _, level) ->
-        let defined_vars_sorted =
-          List.sort (fun (var1, _kind1) (var2, _kind2) ->
-              Typing_env.compare_binding_times env_at_use
-                (Name.var var1) (Name.var var2))
-            (Variable.Map.bindings level.defined_vars)
-        in
-        List.fold_left (fun env (var, kind) ->
-            if Typing_env.mem env (Name.var var) then env
-            else
-              Typing_env.add_definition env
-                (Name_in_binding_pos.var
-                   (Var_in_binding_pos.create var Name_mode.in_types))
-                kind)
-          env_at_fork
-          defined_vars_sorted)
+    List.fold_left (fun env_at_fork (_, _, _, level) ->
+        Binding_time.Map.fold (fun _ vars env ->
+            Variable.Set.fold (fun var env ->
+                if Typing_env.mem env (Name.var var) then env
+                else
+                  let kind = Variable.Map.find var level.defined_vars in
+                  Typing_env.add_definition env
+                    (Name_in_binding_pos.var
+                       (Var_in_binding_pos.create var Name_mode.in_types))
+                    kind)
+              vars
+              env)
+          level.binding_times
+          env_at_fork)
       env_at_fork
       envs_with_levels
   in

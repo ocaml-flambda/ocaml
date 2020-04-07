@@ -53,4 +53,8 @@ module With_name_mode = struct
     | 1 -> Name_mode.in_types
     | 2 -> Name_mode.phantom
     | _ -> assert false
+
+  let print ppf t =
+    Format.fprintf ppf "(bound at time %d %a)" (binding_time t)
+      Name_mode.print (name_mode t)
 end

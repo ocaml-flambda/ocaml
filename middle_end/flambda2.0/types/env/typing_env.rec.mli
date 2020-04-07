@@ -127,5 +127,3 @@ val cut_and_n_way_join
 val free_names_transitive : t -> Type_grammar.t -> Name_occurrences.t
 
 val defined_symbols : t -> Symbol.Set.t
-
-val compare_binding_times : t -> Name.t -> Name.t -> int

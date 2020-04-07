@@ -40,11 +40,17 @@ val defined_names : t -> Name.Set.t
 val defines_name_but_no_equations : t -> Name.t -> bool
 *)
 
+val fold_on_defined_vars
+   : (Variable.t -> Flambda_kind.t -> 'a -> 'a)
+  -> t
+  -> 'a
+  -> 'a
+
 val equations : t -> Type_grammar.t Name.Map.t
 
 val one_equation : Name.t -> Type_grammar.t -> t
 
-val add_definition : t -> Variable.t -> Flambda_kind.t -> t
+val add_definition : t -> Variable.t -> Flambda_kind.t -> Binding_time.t -> t
 
 val add_or_replace_equation : t -> Name.t -> Type_grammar.t -> t
 

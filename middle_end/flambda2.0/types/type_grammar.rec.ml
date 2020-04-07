@@ -741,7 +741,11 @@ let rec make_suitable_for_environment0_core t env ~depth ~suitable_for level =
                 let fresh_var = Variable.rename to_erase in
                 let fresh_var_name = Name.var fresh_var in
                 let result_level =
+                  (* The binding time doesn't matter here, as the extension
+                     created from the resulting level will only contain
+                     fresh variables whose relative order isn't important *)
                   TEL.add_definition result_level fresh_var kind
+                    Binding_time.earliest_var
                 in
                 let result_level =
                   let level, ty =

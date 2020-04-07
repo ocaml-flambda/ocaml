@@ -36,4 +36,6 @@ module With_name_mode : sig
   val binding_time : t -> binding_time
 
   val name_mode : t -> Name_mode.t
+
+  val print : Format.formatter -> t -> unit
 end

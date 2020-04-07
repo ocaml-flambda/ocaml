@@ -434,7 +434,7 @@ end) = struct
     | [t] -> singleton t
     | t :: q -> List.fold_left (fun acc e -> add e acc) (singleton t) q
 
-  let map _ _ = Misc.fatal_error "map not yet implemented"
+  let map f t = fold (fun elt acc -> add (f elt) acc) t empty
 
   let rec union_list ts =
     match ts with

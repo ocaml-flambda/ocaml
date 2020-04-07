@@ -72,31 +72,9 @@ let print ppf t =
 
 let output _ _ = Misc.fatal_error "Not implemented"
 
-let defined_earlier t ~than =
-  if Simple.equal t than then false
-  else
-    let time1 = binding_time t in
-    let time2 = binding_time than in
-    if Binding_time.equal time1 time2 then begin
-      Misc.fatal_errorf "Unequal [Alias]es with same binding time: \
-          %a and %a"
-        print t
-        print than
-    end;
-    Binding_time.strictly_earlier time1 ~than:time2
-
 module Order_within_equiv_class = Name_mode
 
 let order_within_equiv_class t = name_mode t
-
-module Set_ordered_by_binding_time = Stdlib.Set.Make (struct
-  type nonrec t = t
-
-  let compare t1 t2 =
-    if equal t1 t2 then 0
-    else if defined_earlier t1 ~than:t2 then -1
-    else 1
-end)
 
 module T0 = struct
   let compare = compare

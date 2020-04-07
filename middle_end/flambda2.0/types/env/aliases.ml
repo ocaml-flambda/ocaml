@@ -17,22 +17,7 @@
 module Make (E : sig
   type t
   include Identifiable.S with type t := t
-
-  val defined_earlier : t -> than:t -> bool
-
-  module Order_within_equiv_class : sig
-    type t
-    include Identifiable.S with type t := t
-
-    val compare_partial_order : t -> t -> int option
-
-    val compare : t -> t -> [ `Be_explicit_about_total_or_partial_ordering ]
-  end
-
-  val order_within_equiv_class : t -> Order_within_equiv_class.t
 end) = struct
-  let _ = E.Order_within_equiv_class.compare
-
   module Aliases_of_canonical_element : sig
     type t
 
@@ -43,12 +28,12 @@ end) = struct
     val empty : t
     val is_empty : t -> bool
 
-    val add : t -> E.t -> t
+    val add : t -> E.t -> Name_mode.t -> t
 
-    val find_earliest_exn
+    val find_earliest_mode_exn
        : t
-      -> min_order_within_equiv_class:E.Order_within_equiv_class.t
-      -> E.t
+      -> min_name_mode:Name_mode.t
+      -> E.Set.t
 
     val all : t -> E.Set.t
 
@@ -58,23 +43,23 @@ end) = struct
     val inter : t -> t -> t
   end = struct
     type t = {
-      aliases : E.Set.t E.Order_within_equiv_class.Map.t;
+      aliases : E.Set.t Name_mode.Map.t;
       all : E.Set.t;
     }
 
     let invariant _t = ()
 
     let print ppf { aliases; all = _; } =
-      E.Order_within_equiv_class.Map.print E.Set.print ppf aliases
+      Name_mode.Map.print E.Set.print ppf aliases
 
     let empty = {
-      aliases = E.Order_within_equiv_class.Map.empty;
+      aliases = Name_mode.Map.empty;
       all = E.Set.empty;
     }
 
     let is_empty t = E.Set.is_empty t.all
 
-    let add t elt =
+    let add t elt name_mode =
       if E.Set.mem elt t.all then begin
         Misc.fatal_errorf "%a already added to [Aliases_of_canonical_element]: \
             %a"
@@ -82,7 +67,7 @@ end) = struct
           print t
       end;
       let aliases =
-        E.Order_within_equiv_class.Map.update (E.order_within_equiv_class elt)
+        Name_mode.Map.update name_mode
           (function
             | None -> Some (E.Set.singleton elt)
             | Some elts ->
@@ -97,18 +82,18 @@ end) = struct
         all;
       }
 
-    let find_earliest_exn t ~min_order_within_equiv_class =
+    let find_earliest_mode_exn t ~min_name_mode =
       let _order, elts =
-        E.Order_within_equiv_class.Map.find_first (fun order ->
+        Name_mode.Map.find_first (fun order ->
             match
-              E.Order_within_equiv_class.compare_partial_order
-                order min_order_within_equiv_class
+              Name_mode.compare_partial_order
+                order min_name_mode
             with
             | None -> false
             | Some result -> result >= 0)
           t.aliases
       in
-      E.Set.min_elt elts
+      elts
 
     let mem t elt =
       E.Set.mem elt t.all
@@ -117,7 +102,7 @@ end) = struct
 
     let union t1 t2 =
       let aliases =
-        E.Order_within_equiv_class.Map.union (fun _order elts1 elts2 ->
+        Name_mode.Map.union (fun _order elts1 elts2 ->
             Some (E.Set.union elts1 elts2))
           t1.aliases t2.aliases
       in
@@ -131,7 +116,7 @@ end) = struct
 
     let inter t1 t2 =
       let aliases =
-        E.Order_within_equiv_class.Map.merge (fun _order elts1 elts2 ->
+        Name_mode.Map.merge (fun _order elts1 elts2 ->
             match elts1, elts2 with
             | None, None | Some _, None | None, Some _ -> None
             | Some elts1, Some elts2 -> Some (E.Set.inter elts1 elts2))
@@ -154,17 +139,37 @@ end) = struct
     (* For [elt |-> aliases] in [aliases_of_canonical_elements], then
        [aliases] never includes [elt]. *)
     (* CR mshinwell: check this always holds *)
+    binding_times_and_modes : Binding_time.With_name_mode.t E.Map.t;
+    (* Binding times and name modes define an order on the elements.
+       The canonical element for a set of aliases is always the minimal
+       element for this order, which is different from the order used
+       for creating sets and maps. *)
   }
 
-  let print ppf { canonical_elements; aliases_of_canonical_elements; } =
+  let print ppf { canonical_elements; aliases_of_canonical_elements;
+                  binding_times_and_modes; } =
     Format.fprintf ppf
       "@[<hov 1>(\
         @[<hov 1>(canonical_elements@ %a)@]@ \
         @[<hov 1>(aliases_of_canonical_elements@ %a)@]\
+        @[<hov 1>(binding_times_and_modes@ %a)@]\
         )@]"
       (E.Map.print E.print) canonical_elements
       (E.Map.print Aliases_of_canonical_element.print)
       aliases_of_canonical_elements
+      (E.Map.print Binding_time.With_name_mode.print)
+      binding_times_and_modes
+
+  let defined_earlier t alias ~than =
+    let info1 = E.Map.find alias t.binding_times_and_modes in
+    let info2 = E.Map.find than t.binding_times_and_modes in
+    Binding_time.strictly_earlier
+      (Binding_time.With_name_mode.binding_time info1)
+      ~than:(Binding_time.With_name_mode.binding_time info2)
+
+  let name_mode t elt =
+    Binding_time.With_name_mode.name_mode
+      (E.Map.find elt t.binding_times_and_modes)
 
   let invariant t =
     if !Clflags.flambda_invariant_checks then begin
@@ -173,7 +178,7 @@ end) = struct
             Aliases_of_canonical_element.invariant aliases;
             let aliases = Aliases_of_canonical_element.all aliases in
             if not (E.Set.for_all (fun elt ->
-              E.defined_earlier canonical_element ~than:elt) aliases)
+              defined_earlier t canonical_element ~than:elt) aliases)
             then begin
               Misc.fatal_errorf "Canonical element %a is not earlier than \
                   all of its aliases:@ %a"
@@ -201,6 +206,7 @@ end) = struct
        aliases_to_canonical_elements. *)
     canonical_elements = E.Map.empty;
     aliases_of_canonical_elements = E.Map.empty;
+    binding_times_and_modes = E.Map.empty;
   }
 
   type canonical =
@@ -253,7 +259,7 @@ end) = struct
         Aliases_of_canonical_element.add
           (Aliases_of_canonical_element.union aliases_of_to_be_demoted
             aliases_of_canonical_element)
-          to_be_demoted
+          to_be_demoted (name_mode t to_be_demoted)
       in
       let aliases_of_canonical_elements =
         t.aliases_of_canonical_elements
@@ -262,6 +268,7 @@ end) = struct
       in
       { canonical_elements;
         aliases_of_canonical_elements;
+        binding_times_and_modes = t.binding_times_and_modes;
       }
 
   type to_be_demoted = {
@@ -269,9 +276,9 @@ end) = struct
     to_be_demoted : E.t;
   }
 
-  let choose_canonical_element_to_be_demoted ~canonical_element1
+  let choose_canonical_element_to_be_demoted t ~canonical_element1
         ~canonical_element2 =
-    if E.defined_earlier canonical_element1 ~than:canonical_element2
+    if defined_earlier t canonical_element1 ~than:canonical_element2
     then
       { canonical_element = canonical_element1;
         to_be_demoted = canonical_element2;
@@ -292,7 +299,7 @@ end) = struct
     if !Clflags.flambda_invariant_checks then begin
       invariant t;
       if not (E.equal canonical_element alias_of) then begin
-        if not (E.defined_earlier canonical_element ~than:alias_of) then begin
+        if not (defined_earlier t canonical_element ~than:alias_of) then begin
           Misc.fatal_errorf "Canonical element %a should be defined earlier \
               than %a after alias addition.@ Original alias tracker:@ %a@ \
               Resulting alias tracker:@ %a"
@@ -308,7 +315,7 @@ end) = struct
     match canonical t element1, canonical t element2 with
     | Is_canonical canonical_element1, Is_canonical canonical_element2 ->
       let { canonical_element; to_be_demoted; } =
-        choose_canonical_element_to_be_demoted ~canonical_element1
+        choose_canonical_element_to_be_demoted t ~canonical_element1
           ~canonical_element2
       in
       let t =
@@ -327,7 +334,7 @@ end) = struct
         Alias_of_canonical
           { element = element1; canonical_element = canonical_element1; } ->
       let { canonical_element; to_be_demoted; } =
-        choose_canonical_element_to_be_demoted ~canonical_element1
+        choose_canonical_element_to_be_demoted t ~canonical_element1
           ~canonical_element2
       in
       let alias_of =
@@ -348,7 +355,7 @@ end) = struct
           { element = element2; canonical_element = canonical_element2; }
         ->
       let { canonical_element; to_be_demoted; } =
-        choose_canonical_element_to_be_demoted ~canonical_element1
+        choose_canonical_element_to_be_demoted t ~canonical_element1
           ~canonical_element2
       in
       let alias_of =
@@ -364,14 +371,16 @@ end) = struct
         alias_of;
       }
 
-  let add t element1 element2 =
-(*
-Format.eprintf "add element1 %a element2 %a:\n%s\n%!"
-  E.print element1
-  E.print element2
-  (Printexc.raw_backtrace_to_string (Printexc.get_callstack 20));
-*)
+  let add t element1 binding_time_and_mode1
+        element2 binding_time_and_mode2 =
     let original_t = t in
+    let t =
+      { t with binding_times_and_modes =
+                 E.Map.add element1 binding_time_and_mode1
+                   (E.Map.add element2 binding_time_and_mode2
+                      t.binding_times_and_modes);
+      }
+    in
     let add_result = add_alias t element1 element2 in
     if !Clflags.flambda_invariant_checks then begin
       invariant_add_result ~original_t add_result
@@ -385,11 +394,11 @@ Format.eprintf "add element1 %a element2 %a:\n%s\n%!"
        arise. *)
     (*
     let canonical_mode =
-      E.order_within_equiv_class add_result.canonical_element
+      name_mode t add_result.canonical_element
     in
-    let alias_of_mode = E.order_within_equiv_class add_result.alias_of in
+    let alias_of_mode = name_mode t add_result.alias_of in
     match
-      E.Order_within_equiv_class.compare_partial_order
+      Name_mode.compare_partial_order
         canonical_mode alias_of_mode
     with
     | Some _ -> add_result
@@ -400,13 +409,13 @@ Format.eprintf "add element1 %a element2 %a:\n%s\n%!"
         print t
     *)
 
-  let get_canonical_element_exn t element ~min_order_within_equiv_class =
+  let get_canonical_element_exn t element elt_name_mode ~min_name_mode =
     let [@inline always] fail _case =
     (*
       Format.eprintf "FAIL %d: Aliases.get_canonical_element_exn %a %a in:@ %a\n%!"
         case
         E.print element
-        E.Order_within_equiv_class.print min_order_within_equiv_class
+        Name_mode.print min_name_mode
         print t;
     *)
       raise Not_found
@@ -414,9 +423,7 @@ Format.eprintf "add element1 %a element2 %a:\n%s\n%!"
     match E.Map.find element t.canonical_elements with
     | exception Not_found ->
       begin match
-        E.Order_within_equiv_class.compare_partial_order
-          (E.order_within_equiv_class element)
-          min_order_within_equiv_class
+        Name_mode.compare_partial_order elt_name_mode min_name_mode
       with
       | None -> fail 1
       | Some c ->
@@ -428,19 +435,27 @@ Format.eprintf "add element1 %a element2 %a:\n%s\n%!"
 Format.eprintf "looking for canonical for %a, candidate canonical %a, min order %a\n%!"
   E.print element
   E.print canonical_element
-  E.Order_within_equiv_class.print min_order_within_equiv_class;
+  Name_mode.print min_name_mode;
   *)
       let find_earliest () =
         let aliases = get_aliases_of_canonical_element t ~canonical_element in
         try
-        Aliases_of_canonical_element.find_earliest_exn aliases
-          ~min_order_within_equiv_class
+          let at_earliest_mode =
+            Aliases_of_canonical_element.find_earliest_mode_exn aliases
+              ~min_name_mode
+          in
+          E.Set.fold (fun elt min_elt ->
+              if defined_earlier t elt ~than:min_elt
+              then elt
+              else min_elt)
+            at_earliest_mode
+            (E.Set.min_elt at_earliest_mode)
         with Not_found -> fail 3
       in
       match
-        E.Order_within_equiv_class.compare_partial_order
-          (E.order_within_equiv_class canonical_element)
-          min_order_within_equiv_class
+        Name_mode.compare_partial_order
+          (name_mode t canonical_element)
+          min_name_mode
       with
       | None -> find_earliest ()
       | Some c ->
