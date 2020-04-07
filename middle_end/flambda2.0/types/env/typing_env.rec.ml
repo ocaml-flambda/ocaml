@@ -16,8 +16,6 @@
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
-module Aliases = Aliases.Make (Simple)
-
 (* CR mshinwell: Add signatures to these submodules. *)
 module Cached : sig
   type t

@@ -18,12 +18,6 @@
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
-module Make (E : sig
-  (* CR mshinwell: Add _intf.ml file. *)
-  type t
-  include Identifiable.S with type t := t
-
-end) : sig
   type t
 
   val print : Format.formatter -> t -> unit
@@ -34,15 +28,15 @@ end) : sig
 
   type add_result = private {
     t : t;
-    canonical_element : E.t;
-    alias_of : E.t;
+    canonical_element : Simple.t;
+    alias_of : Simple.t;
   }
 
   val add
      : t
-    -> E.t
+    -> Simple.t
     -> Binding_time.With_name_mode.t
-    -> E.t
+    -> Simple.t
     -> Binding_time.With_name_mode.t
     -> add_result
 
@@ -50,11 +44,10 @@ end) : sig
       [min_order_within_equiv_class] cannot be satisfied. *)
   val get_canonical_element_exn
      : t
-    -> E.t
+    -> Simple.t
     -> Name_mode.t
     -> min_name_mode:Name_mode.t
-    -> E.t
+    -> Simple.t
 
   (** [get_aliases] always returns the supplied element in the result set. *)
-  val get_aliases : t -> E.t -> E.Set.t
-end
+  val get_aliases : t -> Simple.t -> Simple.Set.t
