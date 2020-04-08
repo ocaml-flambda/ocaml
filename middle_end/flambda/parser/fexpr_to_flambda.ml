@@ -568,17 +568,21 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
         env =
       let process_segment env (seg : Fexpr.segment)
             : (Symbol.t Closure_id.Map.t * Set_of_closures.t) * env =
-        let code_ids = List.map snd seg.closures in
+        let code_ids =
+          List.map (fun ({ code_id; _ } : Fexpr.static_closure_binding) ->
+            code_id
+          ) seg.closure_bindings
+        in
         let set = set_of_closures env code_ids seg.closure_elements in
         let map, env =
-          let make_pair env (symbol, code_id)
+          let make_pair env ({ symbol; code_id } : Fexpr.static_closure_binding)
                 : (Closure_id.t * Symbol.t) * env =
             let code_id = find_code_id env code_id in
             let { closure_id; _ } : fun_decl_info = find_fun_decl env code_id in
             let symbol, env = declare_symbol env symbol in
             (closure_id, symbol), env
           in
-          let pairs, env = map_accum_left make_pair env seg.closures in
+          let pairs, env = map_accum_left make_pair env seg.closure_bindings in
           Closure_id.Map.of_list pairs, env
         in
         (map, set), env

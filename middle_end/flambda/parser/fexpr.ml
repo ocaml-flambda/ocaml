@@ -216,7 +216,7 @@ and symbol_bindings =
 
 and segment = {
   code_bindings : code_binding list;
-  closures : (symbol * code_id) list;
+  closure_bindings : static_closure_binding list;
   closure_elements : closure_elements option;
 }
 
@@ -233,6 +233,11 @@ and code_binding = {
   ret_arity : flambda_arity option;
   recursive : is_recursive;
   expr : expr;
+}
+
+and static_closure_binding = {
+  symbol : symbol;
+  code_id : code_id;
 }
 
 type flambda_unit = {

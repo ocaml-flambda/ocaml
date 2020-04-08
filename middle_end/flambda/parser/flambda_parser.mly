@@ -30,6 +30,28 @@ let make_const_float (i, m) =
   match m with
   | None -> Naked_float (float_of_string i)
   | Some c -> failwith (Printf.sprintf "Unknown float modifier %c" c)
+
+let partition_map (f : 'a -> [ `Left of 'b | `Right of 'c ]) (l : 'a list)
+    : 'b list * 'c list =
+  let next (acc_l, acc_r) x =
+    match f x with
+    | `Left b -> b :: acc_l, acc_r
+    | `Right c -> acc_l, c :: acc_r
+  in
+  let rev_l, rev_r = List.fold_left next ([], []) l in
+  List.rev rev_l, List.rev rev_r
+
+let make_segment
+      (bindings : [ `Code of code_binding
+                  | `Closure of static_closure_binding ] list)
+      (closure_elements : closure_element list option) =
+  let code_bindings, closure_bindings =
+    partition_map (function
+    | `Code code_binding -> `Left code_binding
+    | `Closure closure_binding -> `Right closure_binding
+    ) bindings
+  in
+  { code_bindings; closure_bindings; closure_elements }
 %}
 
 /* Tokens */
@@ -116,25 +138,63 @@ symbol_bindings:
 ;
 
 segments:
-  | seg = segment { [ seg ] }
-  | segs = separated_nonempty_list(AND, SEGMENT; seg = segment { seg }) { segs }
+  | seg = single_segment { [ seg ] }
+  | SEGMENT; seg_and_segs = segment_and_more_segments
+    { let bindings, elts, segs = seg_and_segs in
+      let seg = make_segment bindings elts in
+      seg :: segs }
 ;
 
-segment:
-  | cbcs = code_bindings_and_closures;
-    closure_elements = with_closure_elements_opt;
-    { let (code_bindings, closures) = cbcs in
-      { code_bindings; closures; closure_elements } }
+single_segment:
+  | bindings = separated_nonempty_list(AND, code_or_closure_binding);
+    closure_elements = with_closure_elements_opt;  
+    { make_segment bindings closure_elements }
 ;
 
-code_bindings_and_closures:
-  | cbs = code_bindings { cbs, [] }
-  | closures = static_closures { [], closures }
-  | cbs = code_bindings; AND; closures = static_closures { cbs, closures; }
+(* 
+ * This odd arrangement is needed to avoid a LALR(1) ambiguity.  We have
+ * bindings separated by AND and segments separated by AND SEGMENT.  So if we
+ * try to do the obvious thing, namely something more like:
+ * 
+ *   segments: segment | segment AND segments
+ *   segment: SEGMENT segment_body
+ *   segment_body: binding | binding AND segment_body 
+ *
+ * we end up with a shift/reduce conflict between (shift):
+ *
+ *   segment_body: binding . AND segment_body
+ *
+ * and (reduce):
+ *
+ *   segment: SEGMENT segment_body .
+ *   segments: segment . AND segments
+ *
+ * Only the presence of SEGMENT after AND disambiguates, and we have only the
+ * one token of lookahead.
+ *
+ * So the solution is to avoid committing to anything upon seeing an AND by
+ * having one nonterminal cover both the remainder of the current segment and
+ * all the following segments.  That way, AND can be followed by *either* the
+ * rest of the segment *or* the beginning of some more segments.
+ *
+ * (I've glossed over the optional "with" clause in each segment, which just
+ * makes everything painful.)
+ *)
+segment_and_more_segments:
+  | binding = code_or_closure_binding; AND; more = segment_and_more_segments
+    { let bindings, elts, segs = more in binding :: bindings, elts, segs }
+  | elts = with_closure_elements_opt; SEGMENT; more = segment_and_more_segments
+    { let more_bindings, more_elts, segs = more in
+      (* Careful! [elts] goes with the *previous* segment, not the one we're
+       * building now. *)
+      let seg = make_segment more_bindings more_elts in
+      [], elts, seg :: segs }
+  | elts = with_closure_elements_opt; { [], elts, [] }
 ;
 
-code_bindings:
-  | cbs = separated_nonempty_list(AND, code_binding) { cbs }
+code_or_closure_binding:
+  | code_binding = code_binding { `Code code_binding }
+  | closure_binding = static_closure_binding { `Closure closure_binding }
 ;
 
 code_binding:
@@ -155,12 +215,8 @@ code_binding:
        : code_binding }
 ;
 
-static_closures:
-  | scs = separated_nonempty_list(AND, static_closure) { scs }
-;
-
-static_closure:
-  | SYMBOL; sym = symbol; EQUAL; clo = closure; { sym, clo }
+static_closure_binding:
+  | SYMBOL; symbol = symbol; EQUAL; code_id = closure; { { symbol; code_id } }
 ;
 
 recursive:

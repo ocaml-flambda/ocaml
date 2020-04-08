@@ -172,7 +172,7 @@ let named ppf = function
     simple ppf s
   | Prim p ->
     prim ppf p
-  | Closure { code_id = c } ->
+  | (Closure { code_id = c } : named) ->
     closure ppf c
 
 let parameter ppf { param; kind = k } =
