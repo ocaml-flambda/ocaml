@@ -46,3 +46,5 @@ val add
   -> extra_param:Kinded_parameter.t
   -> extra_args:Extra_arg.t Apply_cont_rewrite_id.Map.t
   -> t
+
+val concat : t -> t -> t

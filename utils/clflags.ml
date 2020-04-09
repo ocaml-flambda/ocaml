@@ -428,6 +428,7 @@ module Flambda_2 = struct
   let unbox_along_intra_function_control_flow = ref true
   let lift_inconstants = ref true
   let backend_cse_at_toplevel = ref false
+  let cse_depth = ref 2
 
   module Expert = struct
     let denest_at_toplevel = ref false

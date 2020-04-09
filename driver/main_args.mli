@@ -228,6 +228,7 @@ module type Optcommon_options = sig
   val _no_flambda2_lift_inconstants : unit -> unit
   val _flambda2_backend_cse_at_toplevel : unit -> unit
   val _no_flambda2_backend_cse_at_toplevel : unit -> unit
+  val _flambda2_cse_depth : int -> unit
   val _flambda2_expert_denest_at_toplevel : unit -> unit
   val _no_flambda2_expert_denest_at_toplevel : unit -> unit
   val _flambda2_expert_code_id_and_symbol_scoping_checks : unit -> unit

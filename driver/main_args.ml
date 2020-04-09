@@ -922,6 +922,11 @@ let mk_no_flambda2_lift_inconstants f =
       initialize"
 ;;
 
+let mk_flambda2_cse_depth f =
+  "-flambda2-cse-depth", Arg.Int f,
+    " Depth threshold for eager tracking of CSE equations (default 2)"
+;;
+
 let mk_flambda2_expert_denest_at_toplevel f =
   "-flambda2-expert-denest-at-toplevel", Arg.Unit f,
     " Denest continuations during Closure_conversion even at toplevel"
@@ -1163,6 +1168,7 @@ module type Optcommon_options = sig
   val _no_flambda2_lift_inconstants : unit -> unit
   val _flambda2_backend_cse_at_toplevel : unit -> unit
   val _no_flambda2_backend_cse_at_toplevel : unit -> unit
+  val _flambda2_cse_depth : int -> unit
   val _flambda2_expert_denest_at_toplevel : unit -> unit
   val _no_flambda2_expert_denest_at_toplevel : unit -> unit
   val _flambda2_expert_code_id_and_symbol_scoping_checks : unit -> unit
@@ -1505,6 +1511,7 @@ struct
     mk_flambda2_backend_cse_at_toplevel F._flambda2_backend_cse_at_toplevel;
     mk_no_flambda2_backend_cse_at_toplevel
       F._no_flambda2_backend_cse_at_toplevel;
+    mk_flambda2_cse_depth F._flambda2_cse_depth;
     mk_flambda2_expert_denest_at_toplevel
       F._flambda2_expert_denest_at_toplevel;
     mk_no_flambda2_expert_denest_at_toplevel
@@ -1643,6 +1650,7 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_flambda2_backend_cse_at_toplevel F._flambda2_backend_cse_at_toplevel;
     mk_no_flambda2_backend_cse_at_toplevel
       F._no_flambda2_backend_cse_at_toplevel;
+    mk_flambda2_cse_depth F._flambda2_cse_depth;
     mk_flambda2_expert_denest_at_toplevel
       F._flambda2_expert_denest_at_toplevel;
     mk_no_flambda2_expert_denest_at_toplevel
@@ -1947,6 +1955,7 @@ module Default = struct
       set Flambda_2.backend_cse_at_toplevel
     let _no_flambda2_backend_cse_at_toplevel =
       clear Flambda_2.backend_cse_at_toplevel
+    let _flambda2_cse_depth n = Flambda_2.cse_depth := n
     let _flambda2_expert_denest_at_toplevel =
       set Flambda_2.Expert.denest_at_toplevel
     let _no_flambda2_expert_denest_at_toplevel =

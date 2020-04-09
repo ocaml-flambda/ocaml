@@ -19,6 +19,7 @@ let unbox_along_intra_function_control_flow () =
   !Clflags.Flambda_2.unbox_along_intra_function_control_flow
 let lift_inconstants () = !Clflags.Flambda_2.lift_inconstants
 let backend_cse_at_toplevel () = !Clflags.Flambda_2.backend_cse_at_toplevel
+let cse_depth () = !Clflags.Flambda_2.cse_depth
 
 module Expert = struct
   let denest_at_toplevel () = !Clflags.Flambda_2.Expert.denest_at_toplevel

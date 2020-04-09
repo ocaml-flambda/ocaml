@@ -659,10 +659,36 @@ module Rhs_kind = struct
   end)
 end
 
-let cse_with_eligible_lhs ~env_at_fork envs_with_levels ~params =
+let cse_with_eligible_lhs ~env_at_fork envs_with_levels ~params prev_cse
+      (extra_bindings: Continuation_extra_params_and_args.t) =
   let module EP = Flambda_primitive.Eligible_for_cse in
   let params = Kinded_parameter.List.simple_set params in
   List.fold_left (fun eligible (env_at_use, id, _, t) ->
+      let find_new_name =
+        if Continuation_extra_params_and_args.is_empty extra_bindings
+        then (fun _arg -> None)
+        else begin
+          let extra_args =
+            Apply_cont_rewrite_id.Map.find id
+              extra_bindings.extra_args
+          in
+          let rec find_name simple params args =
+            match args, params with
+            | [], [] -> None
+            | [], _ | _, [] ->
+              Misc.fatal_error "Mismatching params and args arity"
+            | arg :: args, param :: params ->
+              begin
+              match (arg : Continuation_extra_params_and_args.Extra_arg.t) with
+              | Already_in_scope arg when Simple.equal arg simple ->
+                Some (Kinded_parameter.simple param)
+              | Already_in_scope _ | New_let_binding _ ->
+                find_name simple params args
+              end
+          in
+          (fun arg -> find_name arg extra_bindings.extra_params extra_args)
+        end
+      in
       EP.Map.fold (fun prim bound_to eligible ->
         let prim =
           EP.filter_map_args prim ~f:(fun arg ->
@@ -672,12 +698,19 @@ let cse_with_eligible_lhs ~env_at_fork envs_with_levels ~params =
             with
             | exception Not_found -> None
             | arg ->
-              if Typing_env.mem_simple env_at_fork arg
-              then Some arg
-              else None)
+              begin match find_new_name arg with
+              | None ->
+                if Typing_env.mem_simple env_at_fork arg
+                then Some arg
+                else None
+              | Some _ as arg_opt -> arg_opt
+              end)
         in
         match prim with
         | None -> eligible
+        | Some prim when EP.Map.mem prim prev_cse ->
+          (* We've already got it from a previous round *)
+          eligible
         | Some prim ->
           match
             Typing_env.get_canonical_simple_exn env_at_use bound_to
@@ -856,6 +889,7 @@ let construct_joined_level envs_with_levels ~allowed ~joined_types ~cse =
   }
 
 let join ~env_at_fork envs_with_levels ~params =
+  let module EP = Flambda_primitive.Eligible_for_cse in
   (*
   Format.eprintf "JOIN\n%!";
   Format.eprintf "At fork:@ %a\n%!" Typing_env.print env_at_fork;
@@ -895,24 +929,6 @@ let join ~env_at_fork envs_with_levels ~params =
   (*
   Format.eprintf "joined_types:@ %a\n%!"
     (Name.Map.print Type_grammar.print) joined_types;
-  *)
-  (* CSE equations have a left-hand side specifying a primitive and a
-     right-hand side specifying a [Simple].  The left-hand side is matched
-     against portions of terms.  As such, the [Simple]s therein must have
-     name mode [Normal], since we do not do CSE for phantom bindings (see
-     [Simplify_common]).  It follows that any CSE equation whose left-hand side
-     involves a name not defined at the fork point, having canonicalised such
-     name, cannot be propagated.  This step also canonicalises the right-hand
-     sides of the CSE equations. *)
-  (*
-  Format.eprintf "params:@ %a\n%!" Kinded_parameter.List.print params;
-  *)
-  let cse = cse_with_eligible_lhs ~env_at_fork envs_with_levels ~params in
-  (*
-  Format.eprintf "CSE with eligible LHS:@ %a\n%!"
-    (Flambda_primitive.Eligible_for_cse.Map.print
-      (Apply_cont_rewrite_id.Map.print Rhs_kind.print))
-    cse;
   *)
   (* Next calculate which equations (describing joined types) to propagate to
      the join point.  (Recall that the environment at the fork point includes
@@ -969,14 +985,69 @@ let join ~env_at_fork envs_with_levels ~params =
   (*
   Format.eprintf "allowed (1):@ %a\n%!" Name_occurrences.print allowed;
   *)
+  let compute_cse_one_round prev_cse extra_params extra_equations allowed =
+  (* CSE equations have a left-hand side specifying a primitive and a
+     right-hand side specifying a [Simple].  The left-hand side is matched
+     against portions of terms.  As such, the [Simple]s therein must have
+     name mode [Normal], since we do not do CSE for phantom bindings (see
+     [Simplify_common]).  It follows that any CSE equation whose left-hand side
+     involves a name not defined at the fork point, having canonicalised such
+     name, cannot be propagated.  This step also canonicalises the right-hand
+     sides of the CSE equations. *)
+  (*
+  Format.eprintf "params:@ %a\n%!" Kinded_parameter.List.print params;
+  *)
+    let new_cse =
+      cse_with_eligible_lhs ~env_at_fork envs_with_levels ~params
+        prev_cse extra_params
+    in
+  (*
+  Format.eprintf "CSE with eligible LHS:@ %a\n%!"
+    (Flambda_primitive.Eligible_for_cse.Map.print
+      (Apply_cont_rewrite_id.Map.print Rhs_kind.print))
+    cse;
+  *)
   (* To make use of a CSE equation at or after the join point, its right-hand
      side must have the same value, no matter which path is taken from the
      fork point to the join point.  We filter out equations that do not
      satisfy this.  Sometimes we can force an equation to satisfy the
      property by explicitly passing the value of the right-hand side as an
      extra parameter to the continuation at the join point. *)
+    let cse', extra_params', extra_equations', allowed =
+      join_cse envs_with_levels new_cse ~allowed
+    in
+    let need_other_round =
+      (* If we introduce new parameters, then CSE equations involving the
+         corresponding arguments can be considered again, so we need
+         another round. *)
+      not (Continuation_extra_params_and_args.is_empty extra_params')
+    in
+    let cse = EP.Map.disjoint_union prev_cse cse' in
+    let extra_params =
+      Continuation_extra_params_and_args.concat extra_params' extra_params
+    in
+    let extra_equations =
+      Name.Map.disjoint_union extra_equations extra_equations'
+    in
+    cse, extra_params, extra_equations, allowed, need_other_round
+  in
   let cse, extra_params, extra_equations, allowed =
-    join_cse envs_with_levels cse ~allowed
+    let rec do_rounds current_round cse extra_params extra_equations allowed =
+      let cse, extra_params, extra_equations, allowed, need_other_round =
+        compute_cse_one_round cse extra_params extra_equations allowed
+      in
+      if need_other_round && current_round < Flambda_features.cse_depth ()
+      then begin
+        do_rounds (succ current_round)
+          cse extra_params extra_equations allowed
+      end else begin
+        (* Either a fixpoint has been reached or we've already explored far
+           enough *)
+        cse, extra_params, extra_equations, allowed
+      end
+    in
+    do_rounds 1 EP.Map.empty Continuation_extra_params_and_args.empty
+      Name.Map.empty allowed
   in
   let joined_types =
     Name.Map.union (fun name _ty_join _ty_cse ->

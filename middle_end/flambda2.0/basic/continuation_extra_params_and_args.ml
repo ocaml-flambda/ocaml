@@ -87,3 +87,25 @@ let add t ~extra_param ~extra_args =
   { extra_params = extra_param :: t.extra_params;
     extra_args;
   }
+
+let concat t1 t2 =
+  if is_empty t2 then t1
+  else if is_empty t1 then t2
+  else begin
+    let extra_args =
+      Apply_cont_rewrite_id.Map.merge (fun id extra_args1 extra_args2 ->
+          match extra_args1, extra_args2 with
+          | None, None -> None
+          | Some _, None
+          | None, Some _ ->
+            Misc.fatal_errorf "concat: mismatching domains on id %a"
+              Apply_cont_rewrite_id.print id
+          | Some extra_args1, Some extra_args2 ->
+            Some (extra_args1 @ extra_args2))
+        t1.extra_args
+        t2.extra_args
+    in
+    { extra_params = t1.extra_params @ t2.extra_params;
+      extra_args;
+    }
+  end
