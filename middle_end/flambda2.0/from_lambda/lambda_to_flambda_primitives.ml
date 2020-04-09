@@ -180,7 +180,7 @@ let bigarray_dim_bound b dimension =
 let bigarray_check_bound idx bound =
   H.Binary (Int_comp (I.Naked_immediate, Unsigned, Lt), idx, bound)
 
-(* CR Gbury: this function in effect duplicates the bigarray_lenght access:
+(* CR Gbury: this function in effect duplicates the bigarray_length access:
              one is done in the validity check, and one in the final offset
              computation, whereas cmmgen let-binds this access. It might
              matter for the performance, although the processor cache might
@@ -210,10 +210,10 @@ let bigarray_indexing layout b args =
       in
       check :: checks, offset
   in
-  match layout with
-  | P.C ->
+  match (layout : P.bigarray_layout) with
+  | C ->
     aux num_dim (-1) (List.rev args)
-  | P.Fortran ->
+  | Fortran ->
     aux 1 1 (List.map (fun idx ->
       H.Prim (Binary (Int_arith (I.Tagged_immediate, Sub), idx,
                       H.Simple (Simple.const_int Targetint.OCaml.one)))
@@ -889,10 +889,10 @@ let convert_lprim ~backend (prim : L.primitive) (args : Simple.t list)
       let b, indexes =
         match args with
         | b :: indexes ->
-          if num_dimensions <> List.length indexes then
-            Misc.fatal_errorf "Bad typing for Pbigarrayref";
+          if List.compare_length_with indexes num_dimensions <> 0 then
+            Misc.fatal_errorf "Bad index arity for Pbigarrayref";
           b, indexes
-        | [] -> Misc.fatal_errorf "Wrong arity for Pbigarrayref"
+        | [] -> Misc.fatal_errorf "Pbigarrayref is missing its arguments"
       in
       let box = bigarray_box_raw_value_read kind in
       box (bigarray_ref ~dbg ~unsafe kind layout b indexes)
@@ -913,10 +913,10 @@ let convert_lprim ~backend (prim : L.primitive) (args : Simple.t list)
         match args with
         | b :: args ->
           let indexes, value = Misc.split_last args in
-          if num_dimensions <> List.length indexes then
-            Misc.fatal_errorf "Bad typing for Pbigarrayset";
+          if List.compare_length_with indexes num_dimensions <> 0 then
+            Misc.fatal_errorf "Bad index arity for Pbigarrayset";
           b, indexes, value
-        | [] -> Misc.fatal_errorf "Wrong arity for Pbigarrayset"
+        | [] -> Misc.fatal_errorf "Pbigarrayset is missing its arguments"
       in
       let unbox = bigarray_unbox_value_to_store kind in
       bigarray_set ~dbg ~unsafe kind layout b indexes (unbox value)

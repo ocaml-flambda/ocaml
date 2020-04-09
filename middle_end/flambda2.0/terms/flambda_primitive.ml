@@ -247,17 +247,13 @@ let reading_from_an_array_like_thing =
   let effects = effects_of_operation Reading in
   effects, Coeffects.Has_coeffects
 
-(* CR-someday mshinwell: Change this when [Obj.truncate] is removed (although
-   beware, bigarrays will still be resizable). *)
+(* CR-someday mshinwell: Change this when [Obj.truncate] is removed *)
 let writing_to_an_array_like_thing =
   let effects = effects_of_operation Writing in
-  (* Care: the bounds check may read a mutable place---namely the size of
-     the block (for [Bytes_set] and [Array_set]) or the dimension of the
-     bigarray.  As such these primitives have coeffects. *)
-  (* XXX But there are no bounds checks now *)
-  effects, Coeffects.Has_coeffects
+  effects, Coeffects.No_coeffects
 
 let array_like_thing_index_kind = K.value
+
 
 (* CR mshinwell: Improve naming *)
 let bigarray_kind = K.value
@@ -310,7 +306,6 @@ let print_equality_comparison ppf op =
   | Neq -> Format.pp_print_string ppf "Neq"
 
 type bigarray_kind =
-  (* | Unknown *)
   | Float32 | Float64
   | Sint8 | Uint8
   | Sint16 | Uint16
@@ -320,7 +315,6 @@ type bigarray_kind =
 
 let element_kind_of_bigarray_kind k =
   match k with
-  (* | Unknown -> K.value *)
   | Float32
   | Float64 -> K.naked_float
   | Sint8
@@ -339,7 +333,6 @@ let element_kind_of_bigarray_kind k =
 let print_bigarray_kind ppf k =
   let fprintf = Format.fprintf in
   match k with
-  (* | Unknown -> fprintf ppf "Unknown" *)
   | Float32 -> fprintf ppf "Float32"
   | Float64 -> fprintf ppf "Float64"
   | Sint8 -> fprintf ppf "Sint8"
@@ -353,14 +346,35 @@ let print_bigarray_kind ppf k =
   | Complex32 -> fprintf ppf "Complex32"
   | Complex64 -> fprintf ppf "Complex64"
 
-type bigarray_layout = (* Unknown | *) C | Fortran
+type bigarray_layout = C | Fortran
 
 let print_bigarray_layout ppf l =
   let fprintf = Format.fprintf in
   match l with
-  (* | Unknown -> fprintf ppf "Unknown" *)
   | C -> fprintf ppf "C"
   | Fortran -> fprintf ppf "Fortran"
+
+let reading_from_a_bigarray kind =
+  match (kind: bigarray_kind) with
+  | Complex32 | Complex64 ->
+    Effects.Only_generative_effects Immutable, Coeffects.Has_coeffects
+  | _ ->
+    Effects.No_effects, Coeffects.Has_coeffects
+
+(* The bound checks are taken care of outisde the array primitive (using an
+   explicit test and switch in the flambda code), for bigarrays (see
+   lambda_to_flambda_primitives.ml). *)
+let writing_to_a_bigarray kind =
+  match (kind: bigarray_kind) with
+  | Complex32 | Complex64 ->
+    (* Technically, the write of complex reads fields from the given
+       complex, but since thos reads are immutable, there is no observable
+       coeffect. *)
+    Effects.Arbitrary_effects, Coeffects.No_coeffects
+  | _ ->
+    Effects.Arbitrary_effects, Coeffects.No_coeffects
+
+let bigarray_index_kind = K.value
 
 type string_like_value =
   | String
@@ -706,6 +720,10 @@ let effects_and_coeffects_of_unary_primitive p =
   | Array_length _ ->
     Effects.No_effects, Coeffects.No_coeffects
   | Bigarray_length { dimension = _; } ->
+    (* This is pretty much a direct access to a field of the bigarray,
+       different from reading one of the values actually stored inside
+       the array, hence the array_like_thing (i.e. this has the same
+       behaviro as a regular Block_load). *)
     reading_from_an_array_like_thing
   | Unbox_number _ ->
     Effects.No_effects, Coeffects.No_coeffects
@@ -906,7 +924,7 @@ let args_kind_of_binary_primitive p =
   | String_or_bigstring_load (Bigstring, _) ->
     bigstring_kind, array_like_thing_index_kind
   | Bigarray_load (_, _, _) ->
-    bigarray_kind, array_like_thing_index_kind
+    bigarray_kind, bigarray_index_kind
   | Phys_equal (kind, _) -> kind, kind
   | Int_arith (kind, _) ->
     let kind = K.Standard_int.to_kind kind in
@@ -949,12 +967,7 @@ let effects_and_coeffects_of_binary_primitive p =
   | Float_arith (Add | Sub | Mul | Div) -> Effects.No_effects, Coeffects.No_coeffects
   | Float_comp _ -> Effects.No_effects, Coeffects.No_coeffects
   | String_or_bigstring_load _ -> reading_from_an_array_like_thing
-  | Bigarray_load (_, ((*Unknown | *) Complex32 | Complex64), _) ->
-    (* XXX Need to check the is_safe flag *)
-    Effects.Only_generative_effects Immutable, Coeffects.Has_coeffects
-  | Bigarray_load (_, _, _) ->
-    (* XXX Need to check the is_safe flag *)
-    reading_from_an_array_like_thing
+  | Bigarray_load (_, kind, _) -> reading_from_a_bigarray kind
 
 let binary_classify_for_printing p =
   match p with
@@ -1057,7 +1070,7 @@ let args_kind_of_ternary_primitive p =
       K.naked_int64
   | Bigarray_set (_, kind, _) ->
     let new_value = element_kind_of_bigarray_kind kind in
-    bigarray_kind, array_like_thing_index_kind, new_value
+    bigarray_kind, bigarray_index_kind, new_value
 
 let result_kind_of_ternary_primitive p : result_kind =
   match p with
@@ -1068,8 +1081,8 @@ let result_kind_of_ternary_primitive p : result_kind =
 let effects_and_coeffects_of_ternary_primitive p =
   match p with
   | Block_set _
-  | Bytes_or_bigstring_set _
-  | Bigarray_set _ -> writing_to_an_array_like_thing
+  | Bytes_or_bigstring_set _ -> writing_to_an_array_like_thing
+  | Bigarray_set (_, kind, _) -> writing_to_a_bigarray kind
 
 let ternary_classify_for_printing p =
   match p with
