@@ -660,7 +660,7 @@ module Rhs_kind = struct
 end
 
 let cse_with_eligible_lhs ~env_at_fork envs_with_levels ~params prev_cse
-      (extra_bindings: Continuation_extra_params_and_args.t) =
+      (extra_bindings: Continuation_extra_params_and_args.t) extra_equations =
   let module EP = Flambda_primitive.Eligible_for_cse in
   let params = Kinded_parameter.List.simple_set params in
   List.fold_left (fun eligible (env_at_use, id, _, t) ->
@@ -681,7 +681,12 @@ let cse_with_eligible_lhs ~env_at_fork envs_with_levels ~params prev_cse
               begin
               match (arg : Continuation_extra_params_and_args.Extra_arg.t) with
               | Already_in_scope arg when Simple.equal arg simple ->
-                Some (Kinded_parameter.simple param)
+                (* If [param] has an extra equation associated to it,
+                   we shouldn't propagate equations on it as it will mess
+                   with the application of constraints later *)
+                if Name.Map.mem (Kinded_parameter.name param) extra_equations
+                then None
+                else Some (Kinded_parameter.simple param)
               | Already_in_scope _ | New_let_binding _ ->
                 find_name simple params args
               end
@@ -999,7 +1004,7 @@ let join ~env_at_fork envs_with_levels ~params =
   *)
     let new_cse =
       cse_with_eligible_lhs ~env_at_fork envs_with_levels ~params
-        prev_cse extra_params
+        prev_cse extra_params extra_equations
     in
   (*
   Format.eprintf "CSE with eligible LHS:@ %a\n%!"
