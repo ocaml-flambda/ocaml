@@ -324,7 +324,7 @@ val curry_function_sym : int -> string
 
 (** Returns the size (in number of bytes) of a single element contained
     in a bigarray. *)
-val bigarray_elt_size : Lambda.bigarray_kind -> int
+val bigarray_elt_size_in_bytes : Lambda.bigarray_kind -> int
 
 (** Returns the memory chunk corresponding to the kind of elements stored
     in a bigarray. *)

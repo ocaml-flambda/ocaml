@@ -799,7 +799,7 @@ let curry_function_sym n =
 
 (* Big arrays *)
 
-let bigarray_elt_size : Lambda.bigarray_kind -> int = function
+let bigarray_elt_size_in_bytes : Lambda.bigarray_kind -> int = function
     Pbigarray_unknown -> assert false
   | Pbigarray_float32 -> 4
   | Pbigarray_float64 -> 8
@@ -866,7 +866,7 @@ let bigarray_indexing unsafe elt_kind layout b args dbg =
         ba_indexing 5 1
           (List.map (fun idx -> sub_int idx (Cconst_int (2, dbg)) dbg) args)
   and elt_size =
-    bigarray_elt_size elt_kind in
+    bigarray_elt_size_in_bytes elt_kind in
   (* [array_indexing] can simplify the given expressions *)
   array_indexing ~typ:Addr (Misc.log2 elt_size)
                  (Cop(Cload (Word_int, Mutable),
@@ -892,7 +892,7 @@ let bigarray_get unsafe elt_kind layout b args dbg =
     match (elt_kind : Lambda.bigarray_kind) with
       Pbigarray_complex32 | Pbigarray_complex64 ->
         let kind = bigarray_word_kind elt_kind in
-        let sz = bigarray_elt_size elt_kind / 2 in
+        let sz = bigarray_elt_size_in_bytes elt_kind / 2 in
         bind "addr"
           (bigarray_indexing unsafe elt_kind layout b args dbg) (fun addr ->
             bind "reval"
@@ -911,7 +911,7 @@ let bigarray_set unsafe elt_kind layout b args newval dbg =
     match (elt_kind : Lambda.bigarray_kind) with
       Pbigarray_complex32 | Pbigarray_complex64 ->
         let kind = bigarray_word_kind elt_kind in
-        let sz = bigarray_elt_size elt_kind / 2 in
+        let sz = bigarray_elt_size_in_bytes elt_kind / 2 in
         bind "newval" newval (fun newv ->
         bind "addr" (bigarray_indexing unsafe elt_kind layout b args dbg)
           (fun addr ->

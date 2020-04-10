@@ -194,8 +194,12 @@ type unary_primitive =
   | Is_int
   | Get_tag
   | Array_length of Block_access_kind.t
-    (* XXX Bigarray_length needs layout & total num. of dimensions *)
   | Bigarray_length of { dimension : int; }
+    (** This primitive is restricted by type-checking to bigarrays that have
+        at least the correct number of dimensions. More specificaly, they
+        come from `%caml_ba_dim_x` primitives (for x=1,2,3), and only exposed
+        in the Bigarray.ArrayX modules (incidentally, `dimension` should then
+        be one of 1,2,3). *)
     (* CR mshinwell/xclerc: Invariant check: dimension >= 0 *)
   | String_length of string_or_bytes
   (* XCR pchambart: There are 32 and 64 bits swap, that probably need

@@ -259,7 +259,6 @@ let primitive_can_raise = function
   | Pbigarrayset (_, _, Pbigarray_unknown, _)
   | Pbigarrayref (_, _, _, Pbigarray_unknown_layout)
   | Pbigarrayset (_, _, _, Pbigarray_unknown_layout)
-    (* CR mshinwell: some more need to go here too *)
     -> true
   | Pidentity
   | Pbytes_to_string
@@ -314,9 +313,9 @@ let primitive_can_raise = function
   | Plsrbint _
   | Pasrbint _
   | Pbintcomp _
-  | Pbigarrayref _
-  | Pbigarrayset _
   | Pbigarraydim _
+  | Pbigarrayref (true, _, _, _)
+  | Pbigarrayset (true, _, _, _)
   | Pstring_load_16 true
   | Pstring_load_32 true
   | Pstring_load_64 true

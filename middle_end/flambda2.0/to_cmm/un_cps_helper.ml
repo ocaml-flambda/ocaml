@@ -392,7 +392,7 @@ let lambda_ba_kind k : Lambda.bigarray_kind =
 
 let bigarray_load ?(dbg=Debuginfo.none) _dims kind _layout ba offset =
   let elt_kind = lambda_ba_kind kind in
-  let elt_size = bigarray_elt_size elt_kind in
+  let elt_size = bigarray_elt_size_in_bytes elt_kind in
   let elt_chunk = bigarray_word_kind elt_kind in
   let ba_data_f = field_address ba 1 dbg in
   let ba_data_p = load ~dbg Word_int Mutable ba_data_f in
@@ -402,7 +402,7 @@ let bigarray_load ?(dbg=Debuginfo.none) _dims kind _layout ba offset =
   match (elt_kind : Lambda.bigarray_kind) with
   | Pbigarray_complex32
   | Pbigarray_complex64 ->
-    let addr' = binary Cmm.Cadda ~dbg addr (int (elt_size / 2)) in
+    let addr' = binary Cadda ~dbg addr (int (elt_size / 2)) in
     box_complex dbg
       (load ~dbg elt_chunk Mutable addr)
       (load ~dbg elt_chunk Mutable addr')
@@ -411,25 +411,25 @@ let bigarray_load ?(dbg=Debuginfo.none) _dims kind _layout ba offset =
 
 let bigarray_store ?(dbg=Debuginfo.none) _dims kind _layout ba offset v =
   let elt_kind = lambda_ba_kind kind in
-  let elt_size = bigarray_elt_size elt_kind in
+  let elt_size = bigarray_elt_size_in_bytes elt_kind in
   let elt_chunk = bigarray_word_kind elt_kind in
   let ba_data_f = field_address ba 1 dbg in
-  let ba_data_p = load ~dbg Cmm.Word_int Asttypes.Mutable ba_data_f in
+  let ba_data_p = load ~dbg Word_int Mutable ba_data_f in
   let addr =
-    array_indexing ~typ:Cmm.Addr (Misc.log2 elt_size) ba_data_p offset dbg
+    array_indexing ~typ:Addr (Misc.log2 elt_size) ba_data_p offset dbg
   in
   match elt_kind with
   | Pbigarray_complex32
   | Pbigarray_complex64 ->
-    let addr' = binary Cmm.Cadda ~dbg addr (int (elt_size / 2)) in
+    let addr' = binary Cadda ~dbg addr (int (elt_size / 2)) in
     return_unit dbg (
       sequence
-        (store ~dbg elt_chunk Lambda.Assignment addr (complex_re v dbg))
-        (store ~dbg elt_chunk Lambda.Assignment addr' (complex_im v dbg))
+        (store ~dbg elt_chunk Assignment addr (complex_re v dbg))
+        (store ~dbg elt_chunk Assignment addr' (complex_im v dbg))
     )
   | _ ->
     return_unit dbg
-      (store ~dbg elt_chunk Lambda.Assignment addr v)
+      (store ~dbg elt_chunk Assignment addr v)
 
 
 (* try-with blocks *)
