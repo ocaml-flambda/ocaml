@@ -308,9 +308,9 @@ let binary_prim_size prim =
   | Block_load (kind, _) -> block_load kind
   | String_or_bigstring_load (kind, width) ->
     string_or_bigstring_load kind width
-  | Bigarray_load (dims, (Complex32 | Complex64) , _layout) ->
+  | Bigarray_load (_dims, (Complex32 | Complex64) , _layout) ->
     5 (* ~ 5 block_loads *) + alloc_size (* complex allocation *)
-  | Bigarray_load (dims, _kind, _layout) ->
+  | Bigarray_load (_dims, _kind, _layout) ->
     2 (* ~ 2 block loads *)
   | Phys_equal (kind, op) ->
     binary_phys_comparison kind op
@@ -331,9 +331,9 @@ let ternary_prim_size prim =
     block_set block_access init
   | Bytes_or_bigstring_set (kind, width) ->
     bytes_like_set kind width
-  | Bigarray_set (dims, (Complex32 | Complex64), _layout) ->
-    5 (* ~ 3 block_load + 2 blokc_set *)
-  | Bigarray_set (dims, _kind, _layout) ->
+  | Bigarray_set (_dims, (Complex32 | Complex64), _layout) ->
+    5 (* ~ 3 block_load + 2 block_set *)
+  | Bigarray_set (_dims, _kind, _layout) ->
     2 (* ~ 1 block_load + 1 block_set *)
 
 let variadic_prim_size prim args =
