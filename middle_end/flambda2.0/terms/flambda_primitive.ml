@@ -243,11 +243,15 @@ let effects_of_operation operation =
   | Reading -> Effects.No_effects
   | Writing -> Effects.Arbitrary_effects
 
-let reading_from_an_array_like_thing =
+let reading_from_an_array_like_thing mutable_or_immutable =
   let effects = effects_of_operation Reading in
-  effects, Coeffects.Has_coeffects
+  let coeffects =
+    match (mutable_or_immutable : Effects.mutable_or_immutable) with
+    | Immutable -> Coeffects.No_coeffects
+    | Mutable -> Coeffects.Has_coeffects
+  in
+  effects, coeffects
 
-(* CR-someday mshinwell: Change this when [Obj.truncate] is removed *)
 let writing_to_an_array_like_thing =
   let effects = effects_of_operation Writing in
   effects, Coeffects.No_coeffects
@@ -368,7 +372,7 @@ let writing_to_a_bigarray kind =
   match (kind: bigarray_kind) with
   | Complex32 | Complex64 ->
     (* Technically, the write of complex reads fields from the given
-       complex, but since thos reads are immutable, there is no observable
+       complex, but since those reads are immutable, there is no observable
        coeffect. *)
     Effects.Arbitrary_effects, Coeffects.No_coeffects
   | _ ->
@@ -723,8 +727,8 @@ let effects_and_coeffects_of_unary_primitive p =
     (* This is pretty much a direct access to a field of the bigarray,
        different from reading one of the values actually stored inside
        the array, hence the array_like_thing (i.e. this has the same
-       behaviro as a regular Block_load). *)
-    reading_from_an_array_like_thing
+       behaviour as a regular Block_load). *)
+    reading_from_an_array_like_thing Mutable
   | Unbox_number _ ->
     Effects.No_effects, Coeffects.No_coeffects
   | Box_number _ ->
@@ -958,7 +962,12 @@ let result_kind_of_binary_primitive p : result_kind =
 
 let effects_and_coeffects_of_binary_primitive p =
   match p with
-  | Block_load _ -> reading_from_an_array_like_thing
+  | Block_load (_, mut) -> reading_from_an_array_like_thing mut
+  | Bigarray_load (_, kind, _) -> reading_from_a_bigarray kind
+  | String_or_bigstring_load (String, _) ->
+    reading_from_an_array_like_thing Immutable
+  | String_or_bigstring_load ((Bytes | Bigstring), _) ->
+    reading_from_an_array_like_thing Mutable
   | Phys_equal _ -> Effects.No_effects, Coeffects.No_coeffects
   | Int_arith (_kind, (Add | Sub | Mul | Div | Mod | And | Or | Xor)) ->
     Effects.No_effects, Coeffects.No_coeffects
@@ -966,8 +975,6 @@ let effects_and_coeffects_of_binary_primitive p =
   | Int_comp _ -> Effects.No_effects, Coeffects.No_coeffects
   | Float_arith (Add | Sub | Mul | Div) -> Effects.No_effects, Coeffects.No_coeffects
   | Float_comp _ -> Effects.No_effects, Coeffects.No_coeffects
-  | String_or_bigstring_load _ -> reading_from_an_array_like_thing
-  | Bigarray_load (_, kind, _) -> reading_from_a_bigarray kind
 
 let binary_classify_for_printing p =
   match p with
