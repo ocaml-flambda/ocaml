@@ -308,6 +308,10 @@ let binary_prim_size prim =
   | Block_load (kind, _) -> block_load kind
   | String_or_bigstring_load (kind, width) ->
     string_or_bigstring_load kind width
+  | Bigarray_load (dims, (Complex32 | Complex64) , _layout) ->
+    5 (* ~ 5 block_loads *) + alloc_size (* complex allocation *)
+  | Bigarray_load (dims, _kind, _layout) ->
+    2 (* ~ 2 block loads *)
   | Phys_equal (kind, op) ->
     binary_phys_comparison kind op
   | Int_arith (kind, op) ->
@@ -327,20 +331,14 @@ let ternary_prim_size prim =
     block_set block_access init
   | Bytes_or_bigstring_set (kind, width) ->
     bytes_like_set kind width
+  | Bigarray_set (dims, (Complex32 | Complex64), _layout) ->
+    5 (* ~ 3 block_load + 2 blokc_set *)
+  | Bigarray_set (dims, _kind, _layout) ->
+    2 (* ~ 1 block_load + 1 block_set *)
 
 let variadic_prim_size prim args =
   match (prim : Flambda_primitive.variadic_primitive) with
   | Make_block (_kind, _mut) -> alloc_size + List.length args
-  | Bigarray_load (_is_safe, _dimensions, Unknown, _)
-  | Bigarray_load (_is_safe, _dimensions, _, Unknown) ->
-    alloc_extcall_size + List.length args
-  | Bigarray_set (_is_safe, _dimensions, Unknown, _)
-  | Bigarray_set (_is_safe, _dimensions, _, Unknown) ->
-    alloc_extcall_size + List.length args
-  (* CR Gbury: this is assuming that the modification to the
-     generation of code for indexing into bigarray is done *)
-  | Bigarray_load (_is_safe, dims, _kind, _layout) -> 4 + dims * 6
-  | Bigarray_set (_is_safe, dims, _kind, _layout) -> 4 + dims * 6
 
 let prim_size (prim : Flambda_primitive.t) =
   match prim with
