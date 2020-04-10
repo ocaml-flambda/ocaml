@@ -360,23 +360,30 @@ let print_bigarray_layout ppf l =
 
 let reading_from_a_bigarray kind =
   match (kind: bigarray_kind) with
-  | Complex32 | Complex64 ->
-    Effects.Only_generative_effects Immutable, Coeffects.Has_coeffects
-  | _ ->
-    Effects.No_effects, Coeffects.Has_coeffects
+  | Complex32 | Complex64
+    -> Effects.Only_generative_effects Immutable, Coeffects.Has_coeffects
+  | Float32 | Float64
+  | Sint8 | Uint8
+  | Sint16 | Uint16
+  | Int32 | Int64
+  | Int_width_int | Targetint_width_int
+    -> Effects.No_effects, Coeffects.Has_coeffects
 
-(* The bound checks are taken care of outisde the array primitive (using an
-   explicit test and switch in the flambda code), for bigarrays (see
+(* The bound checks are taken care of outside the array primitive (using an
+   explicit test and switch in the flambda code, see
    lambda_to_flambda_primitives.ml). *)
 let writing_to_a_bigarray kind =
   match (kind: bigarray_kind) with
-  | Complex32 | Complex64 ->
-    (* Technically, the write of complex reads fields from the given
-       complex, but since those reads are immutable, there is no observable
-       coeffect. *)
-    Effects.Arbitrary_effects, Coeffects.No_coeffects
-  | _ ->
-    Effects.Arbitrary_effects, Coeffects.No_coeffects
+  | Float32 | Float64
+  | Sint8 | Uint8
+  | Sint16 | Uint16
+  | Int32 | Int64
+  | Int_width_int | Targetint_width_int
+  | Complex32 | Complex64
+    (* Technically, the write of a complex generates read of fields from the
+       given complex, but since those reads are immutable, there is no
+       observable coeffect. *)
+    -> Effects.Arbitrary_effects, Coeffects.No_coeffects
 
 let bigarray_index_kind = K.value
 
@@ -1109,22 +1116,11 @@ let variadic_primitive_eligible_for_cse p ~args =
   | Make_block (_, Mutable) -> false
 
 let compare_variadic_primitive p1 p2 =
-  (*
-  let variadic_primitive_numbering p =
-    match p with
-    | Make_block _ -> 0
-     in
-  *)
   match p1, p2 with
   | Make_block (kind1, mut1), Make_block (kind2, mut2) ->
     let c = compare_make_block_kind kind1 kind2 in
     if c <> 0 then c
     else Stdlib.compare mut1 mut2
-  (*
-  | (Make_block _), _ ->
-    Stdlib.compare (variadic_primitive_numbering p1)
-     (variadic_primitive_numbering p2)
-  *)
 
 let print_variadic_primitive ppf p =
   let fprintf = Format.fprintf in
