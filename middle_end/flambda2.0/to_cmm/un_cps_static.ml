@@ -31,6 +31,16 @@ module R = Un_cps_result
 module BSCSC = Bound_symbols.Code_and_set_of_closures
 module SCCSC = Static_const.Code_and_set_of_closures
 
+exception Unreachable_code
+(* This exception is raise when code is encountered that is unused
+    but hasn't been removed by flambda2. This typically happens for
+    code of functions for which newer version have been generated and
+    used instead, but that flambda2 didn't have the needed precision to
+    remove in its one pass. Un_cps can detect such unused code when it
+    finds closure ids with no associated offset.
+    If it occurs in a function's body, the the function declaration
+    is ignored, i.e. no cmm is generated for that function. *)
+
 (* CR mshinwell: Share these next functions with Un_cps.  Unfortunately
    there's a name clash with at least one of them ("symbol") with functions
    already in Un_cps_helper. *)
@@ -278,8 +288,9 @@ let add_function env r ~params_and_body code_id p =
   let fun_name =
     Linkage_name.to_string (Symbol.linkage_name fun_symbol)
   in
-  let fundecl = params_and_body env fun_name p in
-  R.add_function r fundecl
+  match params_and_body env fun_name p with
+  | fundecl -> R.add_function r fundecl
+  | exception Unreachable_code -> r
 
 let add_functions
     env ~params_and_body r { SCCSC.code; set_of_closures = _; }  =

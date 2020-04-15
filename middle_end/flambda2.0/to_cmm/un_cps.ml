@@ -426,17 +426,21 @@ let unary_primitive env dbg f arg =
   | Box_number kind ->
       C.box_number ~dbg kind arg
   | Select_closure { move_from = c1; move_to = c2} ->
-      begin match Env.closure_offset env c1, Env.closure_offset env c2 with
-      | Some c1_offset, Some c2_offset ->
-        let diff = c2_offset - c1_offset in
-        C.infix_field_address ~dbg arg diff
-      | Some _, None | None, Some _ | None, None -> C.unreachable
-      end
+    begin match Env.closure_offset env c1, Env.closure_offset env c2 with
+    | Some c1_offset, Some c2_offset ->
+      let diff = c2_offset - c1_offset in
+      C.infix_field_address ~dbg arg diff
+    | Some _, None | None, Some _ | None, None ->
+      raise Un_cps_static.Unreachable_code
+    end
   | Project_var { project_from; var; } ->
-      match Env.env_var_offset env var, Env.closure_offset env project_from with
-      | Some offset, Some base ->
-        C.get_field_gen Asttypes.Immutable arg (offset - base) dbg
-      | Some _, None | None, Some _ | None, None -> C.unreachable
+    begin match Env.env_var_offset env var,
+                Env.closure_offset env project_from with
+    | Some offset, Some base ->
+      C.get_field_gen Asttypes.Immutable arg (offset - base) dbg
+    | Some _, None | None, Some _ | None, None ->
+      raise Un_cps_static.Unreachable_code
+    end
 
 let binary_primitive env dbg f x y =
   match (f : Flambda_primitive.binary_primitive) with
