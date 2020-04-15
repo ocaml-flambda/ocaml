@@ -1223,17 +1223,6 @@ and params_and_body env fun_name p =
 
 (* Compilation units *)
 
-(* let program_functions offsets used_closure_vars p =
- *   let aux = function_decl offsets used_closure_vars in
- *   let fmap = Un_cps_closure.map_on_function_decl aux p in
- *   let all_functions = Closure_id.Map.fold (fun _ x acc -> x :: acc) fmap [] in
- *   (\* This is to keep the current cmmgen behaviour which sorts functions by
- *      debuginfo (and thus keeps the order of declaration). *\)
- *   let sorted = List.sort
- *       (fun f f' -> Debuginfo.compare f.Cmm.fun_dbg f'.Cmm.fun_dbg) all_functions
- *   in
- *   List.map (fun decl -> C.cfunction decl) sorted *)
-
 let unit (unit : Flambda_unit.t) =
   result := R.empty;
   Profile.record_call "flambda2_to_cmm" (fun () ->
@@ -1282,6 +1271,4 @@ let unit (unit : Flambda_unit.t) =
       let cmm_data = C.flush_cmmgen_state () in
       let roots = List.map symbol gc_roots in
       (C.gc_root_table roots) :: data @ cmm_data @ functions @ [entry]
-      (* Misc.fatal_error "To be continued" *)
-      (* let functions = program_functions offsets used_closure_vars unit in *)
     )
