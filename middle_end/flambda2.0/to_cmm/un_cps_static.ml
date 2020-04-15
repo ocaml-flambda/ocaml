@@ -169,12 +169,21 @@ let rec static_set_of_closures env symbs set prev_update =
   let env, l, updates, length =
     fill_static_layout clos_symb symbs decls elts env [] prev_update 0 layout
   in
-  let header = C.cint (C.black_closure_header length) in
-  let sdef = match !clos_symb with
-    | None -> []
-    | Some s -> C.define_symbol ~global:false (symbol s)
+  let block =
+    match l with
+    (* Closures can be deleted by flambda2 but still appear in let_symbols,
+       hence we may end up with empty sets of closures. *)
+    | [] -> []
+    (* Regular case. *)
+    | _ ->
+      let header = C.cint (C.black_closure_header length) in
+      let sdef = match !clos_symb with
+        | None -> []
+        | Some s -> C.define_symbol ~global:false (symbol s)
+      in
+      header :: sdef @ l
   in
-  env, header :: sdef @ l, updates
+  env, block, updates
 
 and fill_static_layout s symbs decls elts env acc updates i = function
   | [] -> env, List.rev acc, updates, i
@@ -386,23 +395,36 @@ let static_const
     env r ~params_and_body
     (bound_symbols : Bound_symbols.t)
     (static_const : Static_const.t) =
-  (* Gc roots: statically allocated blocks themselves do not need to be scanned,
-     however if statically allocated blocks contain dynamically allocated
-     contents, then that block has to be registered as Gc roots for the Gc to
-     correctly patch it if/when it moves some of the dynamically allocated
-     blocks. As a safe over-approximation, we thus register as gc_roots all
-     symbols who have an associated computation (and thus are not
-     fully_static). *)
-  let roots =
-    if Static_const.is_fully_static static_const then []
-    else Symbol.Set.elements (Bound_symbols.being_defined bound_symbols)
-  in
-  let r = R.add_gc_roots r roots in
-  let env, r, update_opt =
-    static_const0 env r ~params_and_body bound_symbols static_const
-  in
-  (* [R.archive_data] helps keep definitions of separate symbols in different
-     [data_item] lists and this increases readability of the generated Cmm. *)
-  env, R.archive_data r, update_opt
-
+  try
+    (* Gc roots: statically allocated blocks themselves do not need to be scanned,
+       however if statically allocated blocks contain dynamically allocated
+       contents, then that block has to be registered as Gc roots for the Gc to
+       correctly patch it if/when it moves some of the dynamically allocated
+       blocks. As a safe over-approximation, we thus register as gc_roots all
+       symbols who have an associated computation (and thus are not
+       fully_static). *)
+    let roots =
+      if Static_const.is_fully_static static_const then []
+      else Symbol.Set.elements (Bound_symbols.being_defined bound_symbols)
+    in
+    let r = R.add_gc_roots r roots in
+    let env, r, update_opt =
+      static_const0 env r ~params_and_body bound_symbols static_const
+    in
+    (* [R.archive_data] helps keep definitions of separate symbols in different
+       [data_item] lists and this increases readability of the generated Cmm. *)
+    env, R.archive_data r, update_opt
+  with Misc.Fatal_error as e ->
+    (* Create a new let_symbol with a dummy body to better
+       print the ound symbols and static const. *)
+    let dummy_body = Expr.create_invalid () in
+    let tmp_let_symbol =
+      Let_symbol.create bound_symbols static_const dummy_body
+    in
+    Format.eprintf
+      "\n@[<v 0>%sContext is:%s translating let_symbol to Cmm:@ %a@."
+      (Flambda_colours.error ())
+      (Flambda_colours.normal ())
+      Let_symbol.print tmp_let_symbol;
+    raise e
 

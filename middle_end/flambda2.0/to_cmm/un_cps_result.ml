@@ -33,10 +33,21 @@ let empty = {
   current_data = [];
 }
 
+let defines_a_symbol data =
+  match (data : Cmm.data_item) with
+  | Cdefine_symbol _
+  | Cglobal_symbol _ -> true
+  | _ -> false
+
 let add_to_data_list x l =
   match x with
   | [] -> l
-  | _ :: _ -> C.cdata x :: l
+  | _ :: _ ->
+    if not (List.exists defines_a_symbol x) then
+      Misc.fatal_errorf "data list does not define any symbol, \
+                         its elements will be unusable: %a"
+        Printcmm.data x;
+    C.cdata x :: l
 
 let archive_data r =
   { r with current_data = [];
