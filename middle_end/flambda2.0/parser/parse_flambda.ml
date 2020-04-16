@@ -27,7 +27,10 @@ let parse_fexpr filename =
                 let s =
                   Parser.MenhirInterpreter.current_state_number error_state
                 in
-                let msg = Flambda_parser_messages.message s in
+                let msg =
+                  try Flambda_parser_messages.message s
+                  with Not_found -> Format.sprintf "Unknown error in state %d" s
+                in
                 let loc =
                   make_loc (Parser.MenhirInterpreter.positions error_state)
                 in

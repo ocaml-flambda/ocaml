@@ -1,6 +1,6 @@
 k
-let code f (x) myclosure -> k1 : , = cont k1 (x)
-in let symbol F = closure f
+let code f (x) myclosure -> k1 : val = cont k1 (x)
+and symbol F = closure f
 in
-let symbol B = block 0 (F) in
-cont k B
+let symbol B = Block 0 (F) in
+cont k (B)
