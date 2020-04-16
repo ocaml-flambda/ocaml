@@ -1,7 +1,7 @@
 
-let foo a b = a + b [@@inline never]
+let foo a b = a + b [@@inline never][@@local never]
 
-let bar i = foo (foo i i) i [@@inline always]
+let bar i = foo i i [@@inline always][@@local never]
 
-let foobar i = bar (bar i)
+let foobar i = bar i
 
