@@ -87,7 +87,7 @@ let message =
     | 38 ->
         "Expected \"stub\" or an identifier for a continuation.\n"
     | 62 ->
-        "Expected a definition.\nExamples of let expressions:\n  let x = 42 in cont k (x)\n  let code f (arg1) my_closure -> k : val, val = cont k (arg1 arg1)\n    and symbol F = closure f in ...\n"
+        "Expected a definition.\nExamples of let expressions:\n  let x = 42 in cont k (x)\n  let code f (arg1) my_closure -> k : val * val = cont k (arg1 arg1)\n    and symbol F = closure f in ...\n"
     | 219 ->
         "Expected = followed by a named expression.\n"
     | 220 ->
@@ -167,13 +167,13 @@ let message =
     | 96 ->
         "Expected an identifier for a closure argument.\nExample of a code definition:\n  code f my_closure -> k : () = cont k ()\n"
     | 97 ->
-        "Expected < followed by variables within a closure, or -> followed by a\ncontinuation.\nExamples of code definitions:\n  code f (arg) my_closure -> k : val = cont k (arg)\n  code f (arg1 (arg2 : imm)) my_closure -> k : val, imm = cont k (arg1 arg2)\n  code f my_closure <var1, (var2 : imm)> -> k : () = cont k ()\n"
+        "Expected < followed by variables within a closure, or -> followed by a\ncontinuation.\nExamples of code definitions:\n  code f (arg) my_closure -> k : val = cont k (arg)\n  code f (arg1 (arg2 : imm)) my_closure -> k : val * imm = cont k (arg1 arg2)\n  code f my_closure <var1, (var2 : imm)> -> k : () = cont k ()\n"
     | 110 ->
         "Expected a name for a return continuation.\nExample of a code definition:\n  code f my_closure -> k : () = cont k ()\n"
     | 111 ->
-        "Expected * followed by a name for an exception continuation, or : followed by a\nreturn arity, or = followed by an expression. \nExamples of code definitions:\n  code f my_closure -> k * e : () = cont k ()\n  code f my_closure -> k : val, val = cont k (23 42)\n  code f my_closure -> k = cont k (42)\n"
+        "Expected * followed by a name for an exception continuation, or : followed by a\nreturn arity, or = followed by an expression. \nExamples of code definitions:\n  code f my_closure -> k * e : () = cont k ()\n  code f my_closure -> k : val * val = cont k (23 42)\n  code f my_closure -> k = cont k (42)\n"
     | 112 ->
-        "Expected : followed by a return arity, or = followed by an expression.\nExamples of code definitions:\n  code f my_closure -> k * e = cont k (42)\n  code f my_closure -> k * e : () = cont k ()\n  code f my_closure -> k * e : val, val = cont k (23 42)\n"
+        "Expected : followed by a return arity, or = followed by an expression.\nExamples of code definitions:\n  code f my_closure -> k * e = cont k (42)\n  code f my_closure -> k * e : () = cont k ()\n  code f my_closure -> k * e : val * val = cont k (23 42)\n"
     | 122 ->
         "Expected an expression.\nExample of a code definition:\n  code f my_closure -> k = cont k (42)\n"
     | 121 ->
@@ -195,7 +195,7 @@ let message =
     | 89 ->
         "Expected a closure id.\nExample of a code definition specifying a closure id:\n  code f @closure_id my_closure -> k * e = cont k arg1\n"
     | 92 ->
-        "Expected a new_version_of declaration, an argument list, or a closure argument.\nExamples of code definitions:\n  code f2 @closure_id newer_version_of f1 arg1 arg2 my_closure <var1 var2>\n    -> k * e : , = cont k arg1 arg2\n  code f2 my_closure -> k * e = cont k arg1\n"
+        "Expected a new_version_of declaration, an argument list, or a closure argument.\nExamples of code definitions:\n  code f2 @closure_id newer_version_of f1 arg1 arg2 my_closure <var1 var2>\n    -> k * e : val * val = cont k (arg1 arg2)\n  code f2 my_closure -> k * e = cont k (arg1)\n"
     | 124 ->
         "Expected a continuation to call.\nExample of a continuation call:\n  cont k\n"
     | 125 ->
@@ -223,7 +223,7 @@ let message =
     | 113 ->
         "Expected an arity.\nExamples of arities:\n  ()\n  val\n  int32, val, imm\n"
     | 118 ->
-        "Expected one of the following: , -> =\nExamples of arities:\n  ()\n  val\n  int32, val, imm\n"
+        "Expected one of the following: * -> =\nExamples of arities:\n  ()\n  val\n  int32, val, imm\n"
     | 119 ->
         "Expected a kind.\n"
     | 114 ->

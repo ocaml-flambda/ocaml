@@ -121,8 +121,6 @@ rule token = parse
   | "let"
       { LET }
   | "_" { UNDERSCORE }
-  | ","
-      { COMMA }
   | ":"
       { COLON }
   | "."

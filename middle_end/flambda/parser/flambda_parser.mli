@@ -49,7 +49,6 @@ type token =
   | END
   | DOT
   | CONT
-  | COMMA
   | COLON
   | CODE
   | CLOSURE

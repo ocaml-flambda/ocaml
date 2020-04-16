@@ -64,7 +64,6 @@ let make_segment
 %token CLOSURE  [@symbol "closure"]
 %token CODE  [@symbol "code"]
 %token COLON  [@symbol ":"]
-%token COMMA  [@symbol ","]
 %token CONT  [@symbol "cont"]
 %token DOT   [@symbol "."]
 %token END   [@symbol "end"]
@@ -235,7 +234,7 @@ kind:
 ;
 kinds:
   | LPAREN RPAREN { [] }
-  | ks = separated_nonempty_list(COMMA, kind) { ks }
+  | ks = separated_nonempty_list(STAR, kind) { ks }
 ;
 return_arity:
   | { None }
