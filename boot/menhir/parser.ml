@@ -2,7 +2,7 @@
 (* This generated code requires the following version of MenhirLib: *)
 
 let () =
-  MenhirLib.StaticVersion.require_20181113
+  MenhirLib.StaticVersion.require_20200211
 
 module MenhirBasics = struct
   
@@ -1902,7 +1902,7 @@ module Tables = struct
             let tys =
               let tys =
                 let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 1908 "parsing/parser.ml"
                  in
@@ -2243,7 +2243,7 @@ module Tables = struct
             let tys =
               let tys =
                 let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 2249 "parsing/parser.ml"
                  in
@@ -2381,7 +2381,7 @@ module Tables = struct
             let _3 =
               let _1 =
                 let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 2387 "parsing/parser.ml"
                  in
@@ -2471,7 +2471,7 @@ module Tables = struct
             let _4 =
               let _1 =
                 let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 2477 "parsing/parser.ml"
                  in
@@ -2554,7 +2554,7 @@ module Tables = struct
             let _3 =
               let _1 =
                 let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 2560 "parsing/parser.ml"
                  in
@@ -2685,7 +2685,7 @@ module Tables = struct
             let _3 =
               let _1 =
                 let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 2691 "parsing/parser.ml"
                  in
@@ -2783,7 +2783,7 @@ module Tables = struct
               let xs = xs_inlined1 in
               let _1 =
                 let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 2789 "parsing/parser.ml"
                  in
@@ -2802,7 +2802,7 @@ module Tables = struct
             let _3 =
               let _1 =
                 let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 2808 "parsing/parser.ml"
                  in
@@ -3393,7 +3393,7 @@ module Tables = struct
           let _1 =
             let _2 =
               let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 3399 "parsing/parser.ml"
                in
@@ -5059,7 +5059,7 @@ module Tables = struct
               let tys =
                 let params =
                   let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 5065 "parsing/parser.ml"
                    in
@@ -5195,7 +5195,7 @@ module Tables = struct
           let _2 =
             let _1 =
               let _1 = 
-# 260 "menhir/standard.mly"
+# 260 "<standard.mly>"
     ( List.flatten xss )
 # 5201 "parsing/parser.ml"
                in
@@ -5289,7 +5289,7 @@ module Tables = struct
           let _2 =
             let _1 =
               let _1 = 
-# 260 "menhir/standard.mly"
+# 260 "<standard.mly>"
     ( List.flatten xss )
 # 5295 "parsing/parser.ml"
                in
@@ -5753,7 +5753,7 @@ module Tables = struct
               let tys =
                 let params =
                   let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 5759 "parsing/parser.ml"
                    in
@@ -5851,7 +5851,7 @@ module Tables = struct
               let _2 =
                 let _1 =
                   let _1 = 
-# 260 "menhir/standard.mly"
+# 260 "<standard.mly>"
     ( List.flatten xss )
 # 5857 "parsing/parser.ml"
                    in
@@ -6102,7 +6102,7 @@ module Tables = struct
           let _2 =
             let _1 =
               let _1 = 
-# 260 "menhir/standard.mly"
+# 260 "<standard.mly>"
     ( List.flatten xss )
 # 6108 "parsing/parser.ml"
                in
@@ -7197,7 +7197,7 @@ module Tables = struct
 # 7198 "parsing/parser.ml"
              in
             
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 7203 "parsing/parser.ml"
             
@@ -7255,7 +7255,7 @@ module Tables = struct
 # 7256 "parsing/parser.ml"
              in
             
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 7261 "parsing/parser.ml"
             
@@ -8014,7 +8014,7 @@ module Tables = struct
           let _3 =
             let xs =
               let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 8020 "parsing/parser.ml"
                in
@@ -8313,7 +8313,7 @@ module Tables = struct
           let _5 =
             let xs =
               let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 8319 "parsing/parser.ml"
                in
@@ -8420,7 +8420,7 @@ module Tables = struct
           let _5 =
             let xs =
               let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 8426 "parsing/parser.ml"
                in
@@ -9173,7 +9173,7 @@ module Tables = struct
             let _2 =
               let _1 =
                 let _1 = 
-# 260 "menhir/standard.mly"
+# 260 "<standard.mly>"
     ( List.flatten xss )
 # 9179 "parsing/parser.ml"
                  in
@@ -9291,7 +9291,7 @@ module Tables = struct
             let _2 =
               let _1 =
                 let _1 = 
-# 260 "menhir/standard.mly"
+# 260 "<standard.mly>"
     ( List.flatten xss )
 # 9297 "parsing/parser.ml"
                  in
@@ -9381,7 +9381,7 @@ module Tables = struct
           let _1 =
             let _2 =
               let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 9387 "parsing/parser.ml"
                in
@@ -9437,7 +9437,7 @@ module Tables = struct
             let _1 =
               let es =
                 let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 9443 "parsing/parser.ml"
                  in
@@ -12594,7 +12594,7 @@ module Tables = struct
         let _v : ((Parsetree.core_type * Asttypes.variance) list) = let params =
           let params =
             let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 12600 "parsing/parser.ml"
              in
@@ -13593,7 +13593,7 @@ module Tables = struct
         let cstrs =
           let _1 =
             let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 13599 "parsing/parser.ml"
              in
@@ -13756,7 +13756,7 @@ module Tables = struct
         let cstrs =
           let _1 =
             let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 13762 "parsing/parser.ml"
              in
@@ -13911,7 +13911,7 @@ module Tables = struct
         let cstrs =
           let _1 =
             let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 13917 "parsing/parser.ml"
              in
@@ -14059,7 +14059,7 @@ module Tables = struct
         let cstrs =
           let _1 =
             let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 14065 "parsing/parser.ml"
              in
@@ -15571,7 +15571,7 @@ module Tables = struct
         let _v : (Parsetree.pattern * Parsetree.expression) = let _3 =
           let _1 =
             let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 15577 "parsing/parser.ml"
              in
@@ -16460,7 +16460,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.class_declaration list) = 
-# 211 "menhir/standard.mly"
+# 211 "<standard.mly>"
     ( [] )
 # 16466 "parsing/parser.ml"
          in
@@ -16582,7 +16582,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 16588 "parsing/parser.ml"
          in
@@ -16600,7 +16600,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.class_description list) = 
-# 211 "menhir/standard.mly"
+# 211 "<standard.mly>"
     ( [] )
 # 16606 "parsing/parser.ml"
          in
@@ -16729,7 +16729,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 16735 "parsing/parser.ml"
          in
@@ -16747,7 +16747,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.class_type_declaration list) = 
-# 211 "menhir/standard.mly"
+# 211 "<standard.mly>"
     ( [] )
 # 16753 "parsing/parser.ml"
          in
@@ -16876,7 +16876,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 16882 "parsing/parser.ml"
          in
@@ -16894,7 +16894,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.module_binding list) = 
-# 211 "menhir/standard.mly"
+# 211 "<standard.mly>"
     ( [] )
 # 16900 "parsing/parser.ml"
          in
@@ -16998,7 +16998,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 17004 "parsing/parser.ml"
          in
@@ -17016,7 +17016,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.module_declaration list) = 
-# 211 "menhir/standard.mly"
+# 211 "<standard.mly>"
     ( [] )
 # 17022 "parsing/parser.ml"
          in
@@ -17127,7 +17127,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 17133 "parsing/parser.ml"
          in
@@ -17145,7 +17145,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.attributes) = 
-# 211 "menhir/standard.mly"
+# 211 "<standard.mly>"
     ( [] )
 # 17151 "parsing/parser.ml"
          in
@@ -17177,7 +17177,7 @@ module Tables = struct
         let _startpos = _startpos_x_ in
         let _endpos = _endpos_xs_ in
         let _v : (Parsetree.attributes) = 
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 17183 "parsing/parser.ml"
          in
@@ -17195,7 +17195,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.type_declaration list) = 
-# 211 "menhir/standard.mly"
+# 211 "<standard.mly>"
     ( [] )
 # 17201 "parsing/parser.ml"
          in
@@ -17286,7 +17286,7 @@ module Tables = struct
           let cstrs =
             let _1 =
               let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 17292 "parsing/parser.ml"
                in
@@ -17338,7 +17338,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 17344 "parsing/parser.ml"
          in
@@ -17356,7 +17356,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.type_declaration list) = 
-# 211 "menhir/standard.mly"
+# 211 "<standard.mly>"
     ( [] )
 # 17362 "parsing/parser.ml"
          in
@@ -17454,7 +17454,7 @@ module Tables = struct
           let cstrs =
             let _1 =
               let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 17460 "parsing/parser.ml"
                in
@@ -17514,7 +17514,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 17520 "parsing/parser.ml"
          in
@@ -17532,7 +17532,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.attributes) = 
-# 211 "menhir/standard.mly"
+# 211 "<standard.mly>"
     ( [] )
 # 17538 "parsing/parser.ml"
          in
@@ -17564,7 +17564,7 @@ module Tables = struct
         let _startpos = _startpos_x_ in
         let _endpos = _endpos_xs_ in
         let _v : (Parsetree.attributes) = 
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 17570 "parsing/parser.ml"
          in
@@ -17582,7 +17582,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.signature_item list list) = 
-# 211 "menhir/standard.mly"
+# 211 "<standard.mly>"
     ( [] )
 # 17588 "parsing/parser.ml"
          in
@@ -17629,7 +17629,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 17635 "parsing/parser.ml"
          in
@@ -17676,7 +17676,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 17682 "parsing/parser.ml"
          in
@@ -17694,7 +17694,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.structure_item list list) = 
-# 211 "menhir/standard.mly"
+# 211 "<standard.mly>"
     ( [] )
 # 17700 "parsing/parser.ml"
          in
@@ -17748,7 +17748,7 @@ module Tables = struct
               
             in
             
-# 267 "menhir/standard.mly"
+# 267 "<standard.mly>"
     ( xs @ ys )
 # 17754 "parsing/parser.ml"
             
@@ -17760,7 +17760,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 17766 "parsing/parser.ml"
          in
@@ -17863,7 +17863,7 @@ module Tables = struct
               
             in
             
-# 267 "menhir/standard.mly"
+# 267 "<standard.mly>"
     ( xs @ ys )
 # 17869 "parsing/parser.ml"
             
@@ -17875,7 +17875,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 17881 "parsing/parser.ml"
          in
@@ -17922,7 +17922,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 17928 "parsing/parser.ml"
          in
@@ -17940,7 +17940,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.class_type_field list list) = 
-# 211 "menhir/standard.mly"
+# 211 "<standard.mly>"
     ( [] )
 # 17946 "parsing/parser.ml"
          in
@@ -17980,7 +17980,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 17986 "parsing/parser.ml"
          in
@@ -17998,7 +17998,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.class_field list list) = 
-# 211 "menhir/standard.mly"
+# 211 "<standard.mly>"
     ( [] )
 # 18004 "parsing/parser.ml"
          in
@@ -18038,7 +18038,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 18044 "parsing/parser.ml"
          in
@@ -18056,7 +18056,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.structure_item list list) = 
-# 211 "menhir/standard.mly"
+# 211 "<standard.mly>"
     ( [] )
 # 18062 "parsing/parser.ml"
          in
@@ -18096,7 +18096,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 18102 "parsing/parser.ml"
          in
@@ -18114,7 +18114,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.toplevel_phrase list list) = 
-# 211 "menhir/standard.mly"
+# 211 "<standard.mly>"
     ( [] )
 # 18120 "parsing/parser.ml"
          in
@@ -18160,7 +18160,7 @@ module Tables = struct
               
             in
             
-# 183 "menhir/standard.mly"
+# 183 "<standard.mly>"
     ( x )
 # 18166 "parsing/parser.ml"
             
@@ -18172,7 +18172,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 18178 "parsing/parser.ml"
          in
@@ -18263,7 +18263,7 @@ module Tables = struct
               
             in
             
-# 183 "menhir/standard.mly"
+# 183 "<standard.mly>"
     ( x )
 # 18269 "parsing/parser.ml"
             
@@ -18275,7 +18275,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 18281 "parsing/parser.ml"
          in
@@ -18327,7 +18327,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 18333 "parsing/parser.ml"
          in
@@ -18384,7 +18384,7 @@ module Tables = struct
           
         in
         
-# 213 "menhir/standard.mly"
+# 213 "<standard.mly>"
     ( x :: xs )
 # 18390 "parsing/parser.ml"
          in
@@ -18423,7 +18423,7 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos_opat_ in
         let _v : ((Longident.t Asttypes.loc * Parsetree.pattern) list * unit option) = let _2 = 
-# 124 "menhir/standard.mly"
+# 124 "<standard.mly>"
     ( None )
 # 18429 "parsing/parser.ml"
          in
@@ -18504,7 +18504,7 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos_x_ in
         let _v : ((Longident.t Asttypes.loc * Parsetree.pattern) list * unit option) = let _2 = 
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 18510 "parsing/parser.ml"
          in
@@ -21818,7 +21818,7 @@ module Tables = struct
           let _1 =
             let _3 =
               let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 21824 "parsing/parser.ml"
                in
@@ -22298,7 +22298,7 @@ module Tables = struct
           
         in
         
-# 221 "menhir/standard.mly"
+# 221 "<standard.mly>"
     ( [ x ] )
 # 22304 "parsing/parser.ml"
          in
@@ -22344,7 +22344,7 @@ module Tables = struct
           
         in
         
-# 223 "menhir/standard.mly"
+# 223 "<standard.mly>"
     ( x :: xs )
 # 22350 "parsing/parser.ml"
          in
@@ -22378,7 +22378,7 @@ module Tables = struct
 # 22379 "parsing/parser.ml"
          in
         
-# 221 "menhir/standard.mly"
+# 221 "<standard.mly>"
     ( [ x ] )
 # 22384 "parsing/parser.ml"
          in
@@ -22419,7 +22419,7 @@ module Tables = struct
 # 22420 "parsing/parser.ml"
          in
         
-# 223 "menhir/standard.mly"
+# 223 "<standard.mly>"
     ( x :: xs )
 # 22425 "parsing/parser.ml"
          in
@@ -22517,7 +22517,7 @@ module Tables = struct
          in
         let oty =
           let _1 = 
-# 124 "menhir/standard.mly"
+# 124 "<standard.mly>"
     ( None )
 # 22523 "parsing/parser.ml"
            in
@@ -22566,7 +22566,7 @@ module Tables = struct
          in
         let oty =
           let _1 = 
-# 124 "menhir/standard.mly"
+# 124 "<standard.mly>"
     ( None )
 # 22572 "parsing/parser.ml"
            in
@@ -22623,12 +22623,12 @@ module Tables = struct
         let oty =
           let _1 =
             let x = 
-# 191 "menhir/standard.mly"
+# 191 "<standard.mly>"
     ( x )
 # 22629 "parsing/parser.ml"
              in
             
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 22634 "parsing/parser.ml"
             
@@ -22693,12 +22693,12 @@ module Tables = struct
         let oty =
           let _1 =
             let x = 
-# 191 "menhir/standard.mly"
+# 191 "<standard.mly>"
     ( x )
 # 22699 "parsing/parser.ml"
              in
             
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 22704 "parsing/parser.ml"
             
@@ -22741,7 +22741,7 @@ module Tables = struct
          in
         let oty =
           let _1 = 
-# 124 "menhir/standard.mly"
+# 124 "<standard.mly>"
     ( None )
 # 22747 "parsing/parser.ml"
            in
@@ -22790,7 +22790,7 @@ module Tables = struct
          in
         let oty =
           let _1 = 
-# 124 "menhir/standard.mly"
+# 124 "<standard.mly>"
     ( None )
 # 22796 "parsing/parser.ml"
            in
@@ -22847,12 +22847,12 @@ module Tables = struct
         let oty =
           let _1 =
             let x = 
-# 191 "menhir/standard.mly"
+# 191 "<standard.mly>"
     ( x )
 # 22853 "parsing/parser.ml"
              in
             
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 22858 "parsing/parser.ml"
             
@@ -22917,12 +22917,12 @@ module Tables = struct
         let oty =
           let _1 =
             let x = 
-# 191 "menhir/standard.mly"
+# 191 "<standard.mly>"
     ( x )
 # 22923 "parsing/parser.ml"
              in
             
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 22928 "parsing/parser.ml"
             
@@ -22979,7 +22979,7 @@ module Tables = struct
          in
         let oty =
           let _1 = 
-# 124 "menhir/standard.mly"
+# 124 "<standard.mly>"
     ( None )
 # 22985 "parsing/parser.ml"
            in
@@ -23042,7 +23042,7 @@ module Tables = struct
          in
         let oty =
           let _1 = 
-# 124 "menhir/standard.mly"
+# 124 "<standard.mly>"
     ( None )
 # 23048 "parsing/parser.ml"
            in
@@ -23113,12 +23113,12 @@ module Tables = struct
         let oty =
           let _1 =
             let x = 
-# 191 "menhir/standard.mly"
+# 191 "<standard.mly>"
     ( x )
 # 23119 "parsing/parser.ml"
              in
             
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 23124 "parsing/parser.ml"
             
@@ -23197,12 +23197,12 @@ module Tables = struct
         let oty =
           let _1 =
             let x = 
-# 191 "menhir/standard.mly"
+# 191 "<standard.mly>"
     ( x )
 # 23203 "parsing/parser.ml"
              in
             
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 23208 "parsing/parser.ml"
             
@@ -24731,7 +24731,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (unit option) = 
-# 114 "menhir/standard.mly"
+# 114 "<standard.mly>"
     ( None )
 # 24737 "parsing/parser.ml"
          in
@@ -24756,7 +24756,7 @@ module Tables = struct
         let _startpos = _startpos_x_ in
         let _endpos = _endpos_x_ in
         let _v : (unit option) = 
-# 116 "menhir/standard.mly"
+# 116 "<standard.mly>"
     ( Some x )
 # 24762 "parsing/parser.ml"
          in
@@ -24774,7 +24774,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (unit option) = 
-# 114 "menhir/standard.mly"
+# 114 "<standard.mly>"
     ( None )
 # 24780 "parsing/parser.ml"
          in
@@ -24799,7 +24799,7 @@ module Tables = struct
         let _startpos = _startpos_x_ in
         let _endpos = _endpos_x_ in
         let _v : (unit option) = 
-# 116 "menhir/standard.mly"
+# 116 "<standard.mly>"
     ( Some x )
 # 24805 "parsing/parser.ml"
          in
@@ -24817,7 +24817,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (string Asttypes.loc option) = 
-# 114 "menhir/standard.mly"
+# 114 "<standard.mly>"
     ( None )
 # 24823 "parsing/parser.ml"
          in
@@ -24865,13 +24865,13 @@ module Tables = struct
             
           in
           
-# 183 "menhir/standard.mly"
+# 183 "<standard.mly>"
     ( x )
 # 24871 "parsing/parser.ml"
           
         in
         
-# 116 "menhir/standard.mly"
+# 116 "<standard.mly>"
     ( Some x )
 # 24877 "parsing/parser.ml"
          in
@@ -24889,7 +24889,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.core_type option) = 
-# 114 "menhir/standard.mly"
+# 114 "<standard.mly>"
     ( None )
 # 24895 "parsing/parser.ml"
          in
@@ -24921,12 +24921,12 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos_x_ in
         let _v : (Parsetree.core_type option) = let x = 
-# 183 "menhir/standard.mly"
+# 183 "<standard.mly>"
     ( x )
 # 24927 "parsing/parser.ml"
          in
         
-# 116 "menhir/standard.mly"
+# 116 "<standard.mly>"
     ( Some x )
 # 24932 "parsing/parser.ml"
          in
@@ -24944,7 +24944,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.expression option) = 
-# 114 "menhir/standard.mly"
+# 114 "<standard.mly>"
     ( None )
 # 24950 "parsing/parser.ml"
          in
@@ -24976,12 +24976,12 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos_x_ in
         let _v : (Parsetree.expression option) = let x = 
-# 183 "menhir/standard.mly"
+# 183 "<standard.mly>"
     ( x )
 # 24982 "parsing/parser.ml"
          in
         
-# 116 "menhir/standard.mly"
+# 116 "<standard.mly>"
     ( Some x )
 # 24987 "parsing/parser.ml"
          in
@@ -24999,7 +24999,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.module_type option) = 
-# 114 "menhir/standard.mly"
+# 114 "<standard.mly>"
     ( None )
 # 25005 "parsing/parser.ml"
          in
@@ -25031,12 +25031,12 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos_x_ in
         let _v : (Parsetree.module_type option) = let x = 
-# 183 "menhir/standard.mly"
+# 183 "<standard.mly>"
     ( x )
 # 25037 "parsing/parser.ml"
          in
         
-# 116 "menhir/standard.mly"
+# 116 "<standard.mly>"
     ( Some x )
 # 25042 "parsing/parser.ml"
          in
@@ -25054,7 +25054,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.pattern option) = 
-# 114 "menhir/standard.mly"
+# 114 "<standard.mly>"
     ( None )
 # 25060 "parsing/parser.ml"
          in
@@ -25086,12 +25086,12 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos_x_ in
         let _v : (Parsetree.pattern option) = let x = 
-# 183 "menhir/standard.mly"
+# 183 "<standard.mly>"
     ( x )
 # 25092 "parsing/parser.ml"
          in
         
-# 116 "menhir/standard.mly"
+# 116 "<standard.mly>"
     ( Some x )
 # 25097 "parsing/parser.ml"
          in
@@ -25109,7 +25109,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : (Parsetree.expression option) = 
-# 114 "menhir/standard.mly"
+# 114 "<standard.mly>"
     ( None )
 # 25115 "parsing/parser.ml"
          in
@@ -25141,12 +25141,12 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos_x_ in
         let _v : (Parsetree.expression option) = let x = 
-# 183 "menhir/standard.mly"
+# 183 "<standard.mly>"
     ( x )
 # 25147 "parsing/parser.ml"
          in
         
-# 116 "menhir/standard.mly"
+# 116 "<standard.mly>"
     ( Some x )
 # 25152 "parsing/parser.ml"
          in
@@ -25164,7 +25164,7 @@ module Tables = struct
         let _startpos = _menhir_stack.MenhirLib.EngineTypes.endp in
         let _endpos = _startpos in
         let _v : ((Parsetree.core_type option * Parsetree.core_type option) option) = 
-# 114 "menhir/standard.mly"
+# 114 "<standard.mly>"
     ( None )
 # 25170 "parsing/parser.ml"
          in
@@ -25189,7 +25189,7 @@ module Tables = struct
         let _startpos = _startpos_x_ in
         let _endpos = _endpos_x_ in
         let _v : ((Parsetree.core_type option * Parsetree.core_type option) option) = 
-# 116 "menhir/standard.mly"
+# 116 "<standard.mly>"
     ( Some x )
 # 25195 "parsing/parser.ml"
          in
@@ -28027,7 +28027,7 @@ module Tables = struct
             let _1 =
               let _1 =
                 let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 28033 "parsing/parser.ml"
                  in
@@ -28138,7 +28138,7 @@ module Tables = struct
             let _1 =
               let _1 =
                 let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 28144 "parsing/parser.ml"
                  in
@@ -28590,7 +28590,7 @@ module Tables = struct
         let _endpos = _endpos_fields_ in
         let _v : (Parsetree.expression option *
   (Longident.t Asttypes.loc * Parsetree.expression) list) = let eo = 
-# 124 "menhir/standard.mly"
+# 124 "<standard.mly>"
     ( None )
 # 28596 "parsing/parser.ml"
          in
@@ -28636,12 +28636,12 @@ module Tables = struct
         let _v : (Parsetree.expression option *
   (Longident.t Asttypes.loc * Parsetree.expression) list) = let eo =
           let x = 
-# 191 "menhir/standard.mly"
+# 191 "<standard.mly>"
     ( x )
 # 28642 "parsing/parser.ml"
            in
           
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 28647 "parsing/parser.ml"
           
@@ -29184,7 +29184,7 @@ module Tables = struct
             
           in
           
-# 183 "menhir/standard.mly"
+# 183 "<standard.mly>"
     ( x )
 # 29190 "parsing/parser.ml"
           
@@ -29493,7 +29493,7 @@ module Tables = struct
         let _startpos = _startpos_x_ in
         let _endpos = _endpos_x_ in
         let _v : (Parsetree.case list) = let _1 = 
-# 124 "menhir/standard.mly"
+# 124 "<standard.mly>"
     ( None )
 # 29499 "parsing/parser.ml"
          in
@@ -29532,7 +29532,7 @@ module Tables = struct
         let _v : (Parsetree.case list) = let _1 =
           let x = x_inlined1 in
           
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 29538 "parsing/parser.ml"
           
@@ -30347,7 +30347,7 @@ module Tables = struct
         let _startpos = _startpos_x_ in
         let _endpos = _endpos_x_ in
         let _v : (Parsetree.expression list) = let _2 = 
-# 124 "menhir/standard.mly"
+# 124 "<standard.mly>"
     ( None )
 # 30353 "parsing/parser.ml"
          in
@@ -30386,7 +30386,7 @@ module Tables = struct
         let _v : (Parsetree.expression list) = let _2 =
           let x = x_inlined1 in
           
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 30392 "parsing/parser.ml"
           
@@ -30467,7 +30467,7 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos_oe_ in
         let _v : ((Asttypes.label Asttypes.loc * Parsetree.expression) list) = let _2 = 
-# 124 "menhir/standard.mly"
+# 124 "<standard.mly>"
     ( None )
 # 30473 "parsing/parser.ml"
          in
@@ -30549,7 +30549,7 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos_x_ in
         let _v : ((Asttypes.label Asttypes.loc * Parsetree.expression) list) = let _2 = 
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 30555 "parsing/parser.ml"
          in
@@ -30697,7 +30697,7 @@ module Tables = struct
         let _startpos = _startpos_x_ in
         let _endpos = _endpos_x_ in
         let _v : (Parsetree.pattern list) = let _2 = 
-# 124 "menhir/standard.mly"
+# 124 "<standard.mly>"
     ( None )
 # 30703 "parsing/parser.ml"
          in
@@ -30736,7 +30736,7 @@ module Tables = struct
         let _v : (Parsetree.pattern list) = let _2 =
           let x = x_inlined1 in
           
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 30742 "parsing/parser.ml"
           
@@ -30820,7 +30820,7 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos_eo_ in
         let _v : ((Longident.t Asttypes.loc * Parsetree.expression) list) = let _2 = 
-# 124 "menhir/standard.mly"
+# 124 "<standard.mly>"
     ( None )
 # 30826 "parsing/parser.ml"
          in
@@ -30900,7 +30900,7 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos_x_ in
         let _v : ((Longident.t Asttypes.loc * Parsetree.expression) list) = let _2 = 
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 30906 "parsing/parser.ml"
          in
@@ -31323,7 +31323,7 @@ module Tables = struct
         let _endpos = _endpos_xss_ in
         let _v : (Parsetree.signature) = let _1 =
           let _1 = 
-# 260 "menhir/standard.mly"
+# 260 "<standard.mly>"
     ( List.flatten xss )
 # 31329 "parsing/parser.ml"
            in
@@ -41212,7 +41212,7 @@ module Tables = struct
         let _v : (Parsetree.structure) = let _1 =
           let _1 =
             let ys = 
-# 260 "menhir/standard.mly"
+# 260 "<standard.mly>"
     ( List.flatten xss )
 # 41218 "parsing/parser.ml"
              in
@@ -41229,7 +41229,7 @@ module Tables = struct
               
             in
             
-# 267 "menhir/standard.mly"
+# 267 "<standard.mly>"
     ( xs @ ys )
 # 41235 "parsing/parser.ml"
             
@@ -41285,7 +41285,7 @@ module Tables = struct
         let _v : (Parsetree.structure) = let _1 =
           let _1 =
             let ys = 
-# 260 "menhir/standard.mly"
+# 260 "<standard.mly>"
     ( List.flatten xss )
 # 41291 "parsing/parser.ml"
              in
@@ -41336,7 +41336,7 @@ module Tables = struct
               
             in
             
-# 267 "menhir/standard.mly"
+# 267 "<standard.mly>"
     ( xs @ ys )
 # 41342 "parsing/parser.ml"
             
@@ -42767,7 +42767,7 @@ module Tables = struct
         let _4 =
           let _1 =
             let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 42773 "parsing/parser.ml"
              in
@@ -42887,7 +42887,7 @@ module Tables = struct
         let _startpos = _startpos__1_ in
         let _endpos = _endpos__1_inlined1_ in
         let _v : (Parsetree.toplevel_phrase) = let arg = 
-# 124 "menhir/standard.mly"
+# 124 "<standard.mly>"
     ( None )
 # 42893 "parsing/parser.ml"
          in
@@ -42967,7 +42967,7 @@ module Tables = struct
             
           in
           
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 42973 "parsing/parser.ml"
           
@@ -43048,7 +43048,7 @@ module Tables = struct
             
           in
           
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 43054 "parsing/parser.ml"
           
@@ -43125,7 +43125,7 @@ module Tables = struct
             
           in
           
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 43131 "parsing/parser.ml"
           
@@ -43202,7 +43202,7 @@ module Tables = struct
             
           in
           
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 43208 "parsing/parser.ml"
           
@@ -43279,7 +43279,7 @@ module Tables = struct
             
           in
           
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 43285 "parsing/parser.ml"
           
@@ -43356,7 +43356,7 @@ module Tables = struct
             
           in
           
-# 126 "menhir/standard.mly"
+# 126 "<standard.mly>"
     ( Some x )
 # 43362 "parsing/parser.ml"
           
@@ -43488,7 +43488,7 @@ module Tables = struct
 # 43489 "parsing/parser.ml"
         ) = let _1 =
           let _1 = 
-# 260 "menhir/standard.mly"
+# 260 "<standard.mly>"
     ( List.flatten xss )
 # 43494 "parsing/parser.ml"
            in
@@ -43620,7 +43620,7 @@ module Tables = struct
           let _1 =
             let tys =
               let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 43626 "parsing/parser.ml"
                in
@@ -44058,7 +44058,7 @@ module Tables = struct
         let _endpos = _endpos__3_ in
         let _v : ((Parsetree.core_type * Asttypes.variance) list) = let ps =
           let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 44064 "parsing/parser.ml"
            in
@@ -44263,7 +44263,7 @@ module Tables = struct
         ) = let _1 =
           let _1 =
             let ys = 
-# 260 "menhir/standard.mly"
+# 260 "<standard.mly>"
     ( List.flatten xss )
 # 44269 "parsing/parser.ml"
              in
@@ -44280,7 +44280,7 @@ module Tables = struct
               
             in
             
-# 267 "menhir/standard.mly"
+# 267 "<standard.mly>"
     ( xs @ ys )
 # 44286 "parsing/parser.ml"
             
@@ -44347,7 +44347,7 @@ module Tables = struct
         ) = let _1 =
           let _1 =
             let ys = 
-# 260 "menhir/standard.mly"
+# 260 "<standard.mly>"
     ( List.flatten xss )
 # 44353 "parsing/parser.ml"
              in
@@ -44394,7 +44394,7 @@ module Tables = struct
               
             in
             
-# 267 "menhir/standard.mly"
+# 267 "<standard.mly>"
     ( xs @ ys )
 # 44400 "parsing/parser.ml"
             
@@ -45532,7 +45532,7 @@ module Tables = struct
         let _v : (Parsetree.with_constraint) = let _6 =
           let _1 =
             let xs = 
-# 253 "menhir/standard.mly"
+# 253 "<standard.mly>"
     ( List.rev xs )
 # 45538 "parsing/parser.ml"
              in
@@ -46004,7 +46004,7 @@ end
 
 # 46006 "parsing/parser.ml"
 
-# 269 "menhir/standard.mly"
+# 269 "<standard.mly>"
   
 
 # 46011 "parsing/parser.ml"

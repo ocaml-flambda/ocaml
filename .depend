@@ -5550,14 +5550,17 @@ middle_end/flambda/parser/flambda_parser.cmo : \
     parsing/location.cmi \
     lambda/lambda.cmi \
     middle_end/flambda/parser/fexpr.cmo \
+    parsing/camlinternalMenhirLib.cmi \
     middle_end/flambda/parser/flambda_parser.cmi
 middle_end/flambda/parser/flambda_parser.cmx : \
     parsing/location.cmx \
     lambda/lambda.cmx \
     middle_end/flambda/parser/fexpr.cmx \
+    parsing/camlinternalMenhirLib.cmx \
     middle_end/flambda/parser/flambda_parser.cmi
 middle_end/flambda/parser/flambda_parser.cmi : \
-    middle_end/flambda/parser/fexpr.cmo
+    middle_end/flambda/parser/fexpr.cmo \
+    parsing/camlinternalMenhirLib.cmi
 middle_end/flambda/parser/print_fexpr.cmo : \
     middle_end/flambda/parser/fexpr.cmo
 middle_end/flambda/parser/print_fexpr.cmx : \

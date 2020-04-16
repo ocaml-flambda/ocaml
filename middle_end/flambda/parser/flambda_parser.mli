@@ -3,10 +3,10 @@
 
 type token = 
   | WITH
+  | VAL
   | UNREACHABLE
   | UNDERSCORE
   | UIDENT of (string)
-  | TAG
   | SYMBOL
   | SWITCH
   | STUB
@@ -23,6 +23,7 @@ type token =
   | PLUS
   | OPAQUE
   | NEWER_VERSION_OF
+  | NATIVEINT
   | MINUSGREATER
   | MINUSDOT
   | MINUS
@@ -33,14 +34,19 @@ type token =
   | LBRACKET
   | LBRACE
   | LANGLE
-  | IS_INT
+  | INT64
+  | INT32
   | INT of (string * char option)
   | IN
+  | IMM
   | HCF
+  | FLOAT_KIND
   | FLOAT of (string * char option)
+  | FABRICATED
   | EXN
   | EQUAL
   | EOF
+  | END
   | DOT
   | CONT
   | COMMA
@@ -60,3 +66,20 @@ exception Error
 (* The monolithic API. *)
 
 val flambda_unit: (Lexing.lexbuf -> token) -> Lexing.lexbuf -> (Fexpr.flambda_unit)
+
+module MenhirInterpreter : sig
+  
+  (* The incremental API. *)
+  
+  include CamlinternalMenhirLib.IncrementalEngine.INCREMENTAL_ENGINE
+    with type token = token
+  
+end
+
+(* The entry point(s) to the incremental API. *)
+
+module Incremental : sig
+  
+  val flambda_unit: Lexing.position -> (Fexpr.flambda_unit) MenhirInterpreter.checkpoint
+  
+end

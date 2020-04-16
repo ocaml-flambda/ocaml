@@ -45,18 +45,25 @@ let keyword_table =
     "closure", CLOSURE;
     "code", CODE;
     "cont", CONT;
+    "end", END;
     "exn", EXN;
+    "fabricated", FABRICATED;
+    "float", FLOAT_KIND;
+    "imm", IMM;
     "in", IN;
-    "is_int", IS_INT;
+    "int32", INT32;
+    "int64", INT64;
     "let", LET;
     "letk", LETK;
+    "nativeint", NATIVEINT;
     "newer_version_of", NEWER_VERSION_OF;
+    "project_var", PROJECT_VAR;
     "rec", REC;
     "segment", SEGMENT;
     "stub", STUB;
     "switch", SWITCH;
     "symbol", SYMBOL;
-    "tag", TAG;
+    "val", VAL;
     "with", WITH;
 ]
 
@@ -66,7 +73,6 @@ let ukeyword_table =
     "Block", BLOCK;
     "HCF", HCF;
     "Unreachable", UNREACHABLE;
-    "Project_var", PROJECT_VAR;
 ]
 
 }

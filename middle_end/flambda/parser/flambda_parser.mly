@@ -67,12 +67,17 @@ let make_segment
 %token COMMA  [@symbol ","]
 %token CONT  [@symbol "cont"]
 %token DOT   [@symbol "."]
+%token END   [@symbol "end"]
 %token EQUAL [@symbol "="]
 %token EXN   [@symbol "exn"]
+%token FABRICATED [@symbol "fabricated"]
 %token <string * char option> FLOAT
+%token FLOAT_KIND [@symbol "float"]
 %token HCF   [@symbol "HCF"]
+%token IMM   [@symbol "imm" ]
 %token IN    [@symbol "in"]
-%token IS_INT  [@symbol "is_int"]
+%token INT32 [@symbol "int32"]
+%token INT64 [@symbol "int64"]
 %token <string * char option> INT
 %token LANGLE [@symbol "<"]
 %token LBRACE [@symbol "{"]
@@ -84,11 +89,12 @@ let make_segment
 %token MINUS    [@symbol "-"]
 %token MINUSDOT [@symbol "-."]
 %token MINUSGREATER [@symbol "->"]
+%token NATIVEINT [@symbol "nativeint"]
 %token NEWER_VERSION_OF [@symbol "newer_version_of"]
 %token OPAQUE [@symbol "opaque_identity"]
 %token PLUS     [@symbol "+"]
 %token PLUSDOT  [@symbol "+."]
-%token PROJECT_VAR [@symbol "Project_var"]
+%token PROJECT_VAR [@symbol "project_var"]
 %token RANGLE [@symbol ">"]
 %token RBRACE [@symbol "}"]
 %token RBRACKET [@symbol "]"]
@@ -100,11 +106,11 @@ let make_segment
 %token STAR   [@symbol "*"]
 %token SWITCH [@symbol "switch"]
 %token SYMBOL [@symbol "symbol"]
-%token TAG    [@symbol "tag"]
 %token <string> UIDENT
 %token UNDERSCORE [@symbol "_"]
 %token UNREACHABLE [@symbol "Unreachable"]
-%token WITH [@symbol "with"]
+%token VAL    [@symbol "val"]
+%token WITH   [@symbol "with"]
 %token EOF
 
 %start flambda_unit
@@ -112,6 +118,7 @@ let make_segment
 %type <Fexpr.static_structure> static_structure
 %type <Fexpr.expr> expr
 (* %type <Fexpr.name> name *)
+%type <Fexpr.kind> kind
 %type <Fexpr.named> named
 %type <Fexpr.of_kind_value> of_kind_value
 %%
@@ -138,58 +145,18 @@ symbol_bindings:
 ;
 
 segments:
-  | seg = single_segment { [ seg ] }
-  | SEGMENT; seg_and_segs = segment_and_more_segments
-    { let bindings, elts, segs = seg_and_segs in
-      let seg = make_segment bindings elts in
-      seg :: segs }
+  | seg = segment_body { [ seg ] }
+  | segs = separated_nonempty_list(AND, segment) { segs }
 ;
 
-single_segment:
+segment:
+  | SEGMENT; seg = segment_body; END { seg }
+;
+
+segment_body:
   | bindings = separated_nonempty_list(AND, code_or_closure_binding);
     closure_elements = with_closure_elements_opt;  
     { make_segment bindings closure_elements }
-;
-
-(* 
- * This odd arrangement is needed to avoid a LALR(1) ambiguity.  We have
- * bindings separated by AND and segments separated by AND SEGMENT.  So if we
- * try to do the obvious thing, namely something more like:
- * 
- *   segments: segment | segment AND segments
- *   segment: SEGMENT segment_body
- *   segment_body: binding | binding AND segment_body 
- *
- * we end up with a shift/reduce conflict between (shift):
- *
- *   segment_body: binding . AND segment_body
- *
- * and (reduce):
- *
- *   segment: SEGMENT segment_body .
- *   segments: segment . AND segments
- *
- * Only the presence of SEGMENT after AND disambiguates, and we have only the
- * one token of lookahead.
- *
- * So the solution is to avoid committing to anything upon seeing an AND by
- * having one nonterminal cover both the remainder of the current segment and
- * all the following segments.  That way, AND can be followed by *either* the
- * rest of the segment *or* the beginning of some more segments.
- *
- * (I've glossed over the optional "with" clause in each segment, which just
- * makes everything painful.)
- *)
-segment_and_more_segments:
-  | binding = code_or_closure_binding; AND; more = segment_and_more_segments
-    { let bindings, elts, segs = more in binding :: bindings, elts, segs }
-  | elts = with_closure_elements_opt; SEGMENT; more = segment_and_more_segments
-    { let more_bindings, more_elts, segs = more in
-      (* Careful! [elts] goes with the *previous* segment, not the one we're
-       * building now. *)
-      let seg = make_segment more_bindings more_elts in
-      [], elts, seg :: segs }
-  | elts = with_closure_elements_opt; { [], elts, [] }
 ;
 
 code_or_closure_binding:
@@ -222,24 +189,6 @@ static_closure_binding:
 recursive:
   | { Nonrecursive }
   | REC { Recursive }
-;
-
-tag_to_size:
-  | tag = INT COLON size = INT {
-  let (tag, _) = tag in
-  let (size, _) = size in
-  int_of_string tag, int_of_string size
-}
-
-tags_to_sizes:
-  | { [] }
-  | tag_to_size = tag_to_size { [ tag_to_size ] }
-  | tag_to_size = tag_to_size COMMA tags_to_sizes = tags_to_sizes { tag_to_size :: tags_to_sizes }
-
-switch_sort:
-  | TAG LBRACKET tags_to_sizes = tags_to_sizes RBRACKET { Tag { tags_to_sizes } }
-  | { Int }
-  | IS_INT { Is_int }
 ;
 
 unop:
@@ -276,11 +225,17 @@ switch:
   | h = switch_case SEMICOLON t = switch { h :: t }
 ;
 kind:
-  | { None }
+  | VAL { Value }
+  | IMM { Naked_number Naked_immediate }
+  | FLOAT_KIND { Naked_number Naked_float }
+  | INT32 { Naked_number Naked_int32 }
+  | INT64 { Naked_number Naked_int64 }
+  | NATIVEINT { Naked_number Naked_nativeint }
+  | FABRICATED { Fabricated }
 ;
 kinds:
-  | { [] }
-  | k = kind COMMA t = kinds { k :: t }
+  | LPAREN RPAREN { [] }
+  | ks = separated_nonempty_list(COMMA, kind) { ks }
 ;
 return_arity:
   | { None }
@@ -291,14 +246,14 @@ expr:
   | HCF { Invalid Halt_and_catch_fire }
   | UNREACHABLE { Invalid Treat_as_unreachable }
   | CONT c = continuation s = simple_args { Apply_cont (c, None, s) }
-  | SWITCH sort = switch_sort scrutinee = simple LBRACE cases = switch RBRACE
-    { Switch {scrutinee; sort; cases} }
+  | SWITCH scrutinee = simple LBRACE cases = switch RBRACE
+    { Switch {scrutinee; cases} }
   | LET l = let_ { Let l }
   | defining_expr = named SEMICOLON body = expr
       { Let { bindings = [ { var = None; kind = None; defining_expr; } ];
               closure_elements = None; 
               body } }
-  | LETK recursive = recursive handler = continuation_handler t = andk body = expr
+  | LETK recursive = recursive handler = continuation_handler t = andk IN body = expr
      { let handlers = handler :: t in
        Let_cont { recursive; body; handlers } }
   | ls = let_symbol; { Let_symbol ls }
@@ -398,14 +353,20 @@ of_kind_value:
 
 kinded_variable:
   | param = variable { { param; kind = None } }
+  | LPAREN; param = variable; COLON; kind = kind; RPAREN
+    { { param; kind = Some kind } }
 ;
 
 kinded_variable_opt:
   | v = variable_opt { v, None }
+  | LPAREN; v = variable_opt; COLON; kind = kind; RPAREN
+    { v, Some kind }
 ;
 
 kinded_var_within_closure:
   | var = var_within_closure { { var; kind = None } }
+  | LPAREN; var = var_within_closure; COLON; kind = kind; RPAREN
+    { { var; kind = Some kind } }
 ;
 
 simple_args:

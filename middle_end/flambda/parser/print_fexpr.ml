@@ -196,17 +196,6 @@ let switch_case ppf (v, c) =
     v
     continuation c
 
-let switch_sort ppf = function
-  | Int -> ()
-  | Is_int -> Format.fprintf ppf " is_int"
-  | Tag { tags_to_sizes } ->
-    let s ppf (tag, size) =
-      Format.fprintf ppf "%i:%i" tag size
-    in
-    Format.fprintf ppf " tag[%a]"
-      (pp_comma_list s)
-      tags_to_sizes
-
 let simple_args ppf = function
   | [] -> ()
   | args ->
@@ -264,9 +253,8 @@ let rec expr ppf = function
       andk rem_cont
       expr body
 
-  | Switch { scrutinee; sort; cases } ->
-    Format.fprintf ppf "@[<v>@[<v 2>switch%a %a {%a@]@ }@]"
-      switch_sort sort
+  | Switch { scrutinee; cases } ->
+    Format.fprintf ppf "@[<v>@[<v 2>switch%a {%a@]@ }@]"
       simple scrutinee
       (pp_semi_list switch_case) cases
       (* (fun ppf () -> if cases <> [] then Format.pp_print_cut ppf ()) () *)

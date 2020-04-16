@@ -1,6 +1,6 @@
 type error =
   | Lexing_error of Flambda_lex.error * Location.t
-  | Parsing_error of Location.t
+  | Parsing_error of string * Location.t
 
 val parse_fexpr
    : string

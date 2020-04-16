@@ -22,11 +22,12 @@ let parse_flambda ~backend file =
       fl2'
     | Error e ->
       begin match e with
-      | Parsing_error loc ->
+      | Parsing_error (msg, loc) ->
         Format.eprintf
           "%a:@.\
-           Syntax error@."
+           Syntax error: %s@."
           Location.print_loc loc
+          msg
       | Lexing_error (error, loc) ->
         Format.eprintf
           "%a:@.\

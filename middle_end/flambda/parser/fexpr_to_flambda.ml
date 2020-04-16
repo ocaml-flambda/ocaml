@@ -339,7 +339,22 @@ let defining_expr env (named:Fexpr.named) : Flambda.Named.t =
     Flambda.Named.create_prim prim Debuginfo.none
   | _ -> assert false
 
-let value_kind _ = Flambda_kind.value (* TODO *)
+let value_kind : Fexpr.kind -> Flambda_kind.t = function
+  | Value -> Flambda_kind.value
+  | Naked_number naked_number_kind ->
+    begin
+      match naked_number_kind with
+      | Naked_immediate -> Flambda_kind.naked_immediate
+      | Naked_float -> Flambda_kind.naked_float
+      | Naked_int32 -> Flambda_kind.naked_int32
+      | Naked_int64 -> Flambda_kind.naked_int64
+      | Naked_nativeint -> Flambda_kind.naked_nativeint
+    end
+  | Fabricated -> Flambda_kind.fabricated
+
+let value_kind_opt : Fexpr.okind -> Flambda_kind.t = function
+  | Some kind -> value_kind kind
+  | None -> Flambda_kind.value
 
 let arity a = Flambda_arity.create (List.map value_kind a)
 
@@ -379,7 +394,9 @@ let add_fun_decl_info env (code_binding : Fexpr.code_binding) : env =
   let closure_id, env = fresh_or_existing_closure_id env closure_id in
   let params_arity =
     let param_kinds =
-      List.map (fun (p : Fexpr.kinded_parameter) -> p.kind) code_binding.params
+      List.map (fun ({ kind; _ } : Fexpr.kinded_parameter) ->
+        Option.value kind ~default:(Value : Fexpr.kind)
+      ) code_binding.params
     in
     arity param_kinds
   in
@@ -487,7 +504,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
           (fun ({ param; kind }:Fexpr.kinded_parameter)
             (env, args) ->
             let var, env = fresh_var env param in
-            let param = Kinded_parameter.create var (value_kind kind) in
+            let param = Kinded_parameter.create var (value_kind_opt kind) in
             env, param :: args)
           handler.params (env, [])
       in
@@ -621,7 +638,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
             map_accum_left
               (fun env ({ param; kind }:Fexpr.kinded_parameter) ->
                 let var, env = fresh_var env param in
-                let param = Kinded_parameter.create var (value_kind kind) in
+                let param = Kinded_parameter.create var (value_kind_opt kind) in
                 param, env)
               env params
           in

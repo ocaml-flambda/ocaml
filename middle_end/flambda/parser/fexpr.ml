@@ -110,7 +110,7 @@ type prim =
 type is_fabricated =
   | Value | Fabricated
 
-type flambda_arity = okind list
+type flambda_arity = kind list
 
 type function_call =
   | Direct of {
@@ -147,11 +147,6 @@ type apply = {
 
 type size = int
 
-type switch_sort =
-  | Int
-  | Tag of { tags_to_sizes : (tag_scannable * size) list; }
-  | Is_int
-
 type expr =
   | Let of let_
   | Let_cont of let_cont
@@ -160,7 +155,6 @@ type expr =
   | Apply_cont of continuation * trap_action option * simple list
   | Switch of {
       scrutinee : simple;
-      sort : switch_sort;
       cases : (int * continuation) list;
     }
   | Invalid of invalid_term_semantics
