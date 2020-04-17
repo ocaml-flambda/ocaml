@@ -2,6 +2,8 @@
 
 type location = Lambda.scoped_location
 
+(* CR lwhite: There is a ['a Location.loc] type that would be slightly better than using
+   tuples for these. *)
 type variable = string * location
 type variable_opt = (string * location) option
 type continuation = string * location
@@ -50,9 +52,19 @@ type kind =
   | Naked_number of Naked_number_kind.t
   | Fabricated
 
+(* CR lwhite: I know this was already here, but [okind] is not really idionmatic for OCaml
+   -- type constructors are postfix and the default is snake_case. So [kind_opt] would be
+   more usual.
+
+   Although I personally dislike these kinds of aliases anyway. If the type is
+   semantically meaningful then it probably deserves its own constructors rather than
+   [None] and [Some], if it isn't semantically meaningful then it doesn't deserve a name
+   other than [kind option]. But that's really a matter of taste, feel free to leave it
+   here. *)
 type okind = kind option
 type flambda_type = unit
 
+(* CR lwhite: records are better than tuples *)
 type static_structure = (symbol * okind * static_part)
 
 type invalid_term_semantics =
