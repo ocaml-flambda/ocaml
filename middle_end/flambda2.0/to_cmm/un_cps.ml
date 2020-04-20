@@ -27,10 +27,8 @@ module R = Un_cps_result
      hence most operations on them will actually need to call C primitive
      that can handle them.
    - int32 on 64 bits are represented as an int64 in the range of
-     32-bit integers. Currently we trust flambda2 to insert
-     double shifts to clear the higher order 32-bits between operations.
-     Once the small_arith PR comes, we can use dedicated 32-bits
-     cmm arithmetic operations.
+     32-bit integers. Thus we insert sign extensions after every operation
+     on 32-bits integers that may have a result outside of the range.
 *)
 
 (* TODO: remove all uses of this, ^^ *)
@@ -181,22 +179,24 @@ let arithmetic_conversion dbg src dst arg =
       |> C.unbox_number ~dbg Flambda_kind.Boxable_number.Naked_int64
   (* Identity on floats *)
   | Naked_float, Naked_float -> arg
-  (* general cases between integers *)
+  (* Conversions to and from tagged ints  *)
   | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate),
     Tagged_immediate ->
       C.tag_int arg dbg
-  | Tagged_immediate,
-    (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate) ->
-      C.untag_int arg dbg
-  (* TODO: insert shifts to zero-out higher-order bits during
-           the 64 to 32 bit conversion ? *)
+  | Tagged_immediate, (Naked_int64 | Naked_nativeint | Naked_immediate) ->
+    C.untag_int arg dbg
+  (* Operations resulting in int32s must take care to sign_extend the res *)
+  | Tagged_immediate, Naked_int32 ->
+    C.sign_extend_32 dbg (C.untag_int arg dbg)
+  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate),
+    Naked_int32 ->
+    C.sign_extend_32 dbg arg
+  (* No-op conversions *)
   | Tagged_immediate, Tagged_immediate
-  | Naked_int32, (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate)
-  | Naked_int64, (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate)
-  | Naked_nativeint,
-    (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate)
-  | Naked_immediate,
-    (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate) ->
+  | Naked_int32, (Naked_int64 | Naked_nativeint | Naked_immediate)
+  | Naked_int64, (Naked_int64 | Naked_nativeint | Naked_immediate)
+  | Naked_nativeint, (Naked_int64 | Naked_nativeint | Naked_immediate)
+  | Naked_immediate, (Naked_int64 | Naked_nativeint | Naked_immediate) ->
       arg
   (* Int-Float conversions *)
   | Tagged_immediate, Naked_float ->
@@ -206,9 +206,10 @@ let arithmetic_conversion dbg src dst arg =
       C.float_of_int ~dbg arg
   | Naked_float, Tagged_immediate ->
       C.tag_int (C.int_of_float ~dbg arg) dbg
-  | Naked_float,
-    (Naked_immediate | Naked_int32 | Naked_int64 | Naked_nativeint) ->
-      C.int_of_float ~dbg arg
+  | Naked_float, (Naked_immediate | Naked_int64 | Naked_nativeint) ->
+    C.int_of_float ~dbg arg
+  | Naked_float, Naked_int32 ->
+    C.sign_extend_32 dbg (C.int_of_float ~dbg arg)
 
 let binary_phys_comparison _env dbg kind op x y =
   match (kind : Flambda_kind.t),
@@ -257,26 +258,46 @@ let binary_int_arith_primitive _env dbg kind op x y =
   | Tagged_immediate, And -> C.and_int_caml x y dbg
   | Tagged_immediate, Or  -> C.or_int_caml x y dbg
   | Tagged_immediate, Xor -> C.xor_int_caml x y dbg
+  (* Operations on 32-bits integers arguments must return something in
+     the range of 32-bits integers, hence the sign_extensions here *)
+  | Naked_int32, Add ->
+    C.sign_extend_32 dbg (C.add_int (C.low_32 dbg x) (C.low_32 dbg y) dbg)
+  | Naked_int32, Sub ->
+    C.sign_extend_32 dbg (C.sub_int (C.low_32 dbg x) (C.low_32 dbg y) dbg)
+  | Naked_int32, Mul ->
+    C.sign_extend_32 dbg (C.mul_int (C.low_32 dbg x) (C.low_32 dbg y) dbg)
+  | Naked_int32, Xor ->
+    C.sign_extend_32 dbg (C.xor_ ~dbg (C.low_32 dbg x) (C.low_32 dbg y))
+  | Naked_int32, And ->
+    C.sign_extend_32 dbg (C.and_ ~dbg (C.low_32 dbg x) (C.low_32 dbg y))
+  | Naked_int32, Or ->
+    C.sign_extend_32 dbg (C.or_ ~dbg (C.low_32 dbg x) (C.low_32 dbg y))
   (* Naked ints *)
-  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Add ->
+  | (Naked_int64 | Naked_nativeint | Naked_immediate), Add ->
       C.add_int x y dbg
-  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Sub ->
+  | (Naked_int64 | Naked_nativeint | Naked_immediate), Sub ->
       C.sub_int x y dbg
-  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Mul ->
+  | (Naked_int64 | Naked_nativeint | Naked_immediate), Mul ->
       C.mul_int x y dbg
-  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), And ->
+  | (Naked_int64 | Naked_nativeint | Naked_immediate), And ->
       C.and_ ~dbg x y
-  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Or ->
+  | (Naked_int64 | Naked_nativeint | Naked_immediate), Or ->
       C.or_ ~dbg x y
-  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Xor ->
+  | (Naked_int64 | Naked_nativeint | Naked_immediate), Xor ->
       C.xor_ ~dbg x y
   (* Division and modulo need some extra care *)
-  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Div ->
+  | (Naked_int64 | Naked_nativeint | Naked_immediate), Div ->
       let bi = C.primitive_boxed_int_of_standard_int kind in
       C.safe_div_bi Lambda.Unsafe x y bi dbg
-  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Mod ->
+  | (Naked_int64 | Naked_nativeint | Naked_immediate), Mod ->
       let bi = C.primitive_boxed_int_of_standard_int kind in
       C.safe_mod_bi Lambda.Unsafe x y bi dbg
+  | Naked_int32, Div ->
+      let bi = C.primitive_boxed_int_of_standard_int kind in
+      C.sign_extend_32 dbg (C.safe_div_bi Lambda.Unsafe x y bi dbg)
+  | Naked_int32, Mod ->
+      let bi = C.primitive_boxed_int_of_standard_int kind in
+      C.sign_extend_32 dbg (C.safe_mod_bi Lambda.Unsafe x y bi dbg)
 
 let binary_int_shift_primitive _env dbg kind op x y =
   match (kind : Flambda_kind.Standard_int.t),
@@ -288,19 +309,25 @@ let binary_int_shift_primitive _env dbg kind op x y =
       todo() (* caml primitives for these have no native/unboxed version *)
   | Naked_int64, Asr when C.arch32 ->
       todo() (* caml primitives for these have no native/unboxed version *)
-  (* Int32 special case *)
-  | Naked_int32, Lsr when C.arch64 ->
-      C.asr_int (C.zero_extend_32 dbg x) y dbg
   (* Tagged integers *)
   | Tagged_immediate, Lsl -> C.lsl_int_caml_raw ~dbg x y
   | Tagged_immediate, Lsr -> C.lsr_int_caml_raw ~dbg x y
   | Tagged_immediate, Asr -> C.asr_int_caml_raw ~dbg x y
+  (* Operations on 32-bits integers need to ensure their result are within
+     the 32-bit range, hence the sign_extension. *)
+  | Naked_int32, Lsl ->
+    C.sign_extend_32 dbg (C.lsl_int (C.low_32 dbg x) y dbg)
+  | Naked_int32, Lsr ->
+    let arg = if C.arch64 then C.zero_extend_32 dbg x else x in
+    C.sign_extend_32 dbg (C.lsr_int arg y dbg)
+  | Naked_int32, Asr ->
+    C.sign_extend_32 dbg (C.asr_int x y dbg)
   (* Naked ints *)
-  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Lsl ->
-      C.lsl_int x y dbg
-  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Lsr ->
+  | (Naked_int64 | Naked_nativeint | Naked_immediate), Lsl ->
+    C.lsl_int x y dbg
+  | (Naked_int64 | Naked_nativeint | Naked_immediate), Lsr ->
       C.lsr_int x y dbg
-  | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate), Asr ->
+  | (Naked_int64 | Naked_nativeint | Naked_immediate), Asr ->
       C.asr_int x y dbg
 
 let binary_int_comp_primitive _env dbg kind signed cmp x y =
@@ -492,15 +519,23 @@ let machtype_of_kinded_parameter p =
 
 let machtype_of_return_arity = function
   | [k] -> machtype_of_kind k
-  | _ ->
-      (* TODO: update when unboxed tuples are used *)
-      Misc.fatal_errorf "Functions are currently limited to a single return value"
+  | _ -> (* TODO: update when unboxed tuples are used *)
+    Misc.fatal_errorf
+      "Functions are currently limited to a single return value"
 
 let meth_kind k =
   match (k : Call_kind.method_kind) with
   | Self -> (Self : Lambda.meth_kind)
   | Public -> (Public : Lambda.meth_kind)
   | Cached -> (Cached : Lambda.meth_kind)
+
+let wrap_extcall_result (l : Flambda_kind.t list) =
+  match l with
+  | [Naked_number Naked_int32] -> C.sign_extend_32
+  | [_] -> (fun _dbg cmm -> cmm)
+  | _ -> (* TODO: update when unboxed tuples are used *)
+    Misc.fatal_errorf
+      "Functions are currently limited to a single return value"
 
 (* Closure variables *)
 
@@ -825,7 +860,7 @@ and apply_call env e =
   match Apply_expr.call_kind e with
   (* Effects from arguments are ignored since a function call will always be
      given arbitrary effects and coeffects. *)
-  | Call_kind.Function (* FIXME Let code *)
+  | Call_kind.Function
       Call_kind.Function_call.Direct { code_id; closure_id = _; return_arity; } ->
       let env =
         Env.check_scope ~allow_deleted:false env
@@ -844,13 +879,6 @@ and apply_call env e =
       in
       let f_code = symbol (Code_id.code_symbol code_id) in
       C.direct_call ~dbg ty (C.symbol f_code) args, env, effs
-(*
-      let f_code = Un_cps_closure.(closure_code (closure_name closure_id)) in
-      let f, env, _ = simple env f in
-      let args, env, _ = arg_list env (Apply_expr.args e) in
-      let ty = machtype_of_return_arity return_arity in
-      C.direct_call ~dbg ty (C.symbol f_code) args f, env, effs
-*)
   | Call_kind.Function
       Call_kind.Function_call.Indirect_unknown_arity ->
       let f, env, _ = simple env f in
@@ -871,7 +899,8 @@ and apply_call env e =
       let f = String.sub f 9 (len - 9) in
       let args, env, _ = arg_list env (Apply_expr.args e) in
       let ty = machtype_of_return_arity return_arity in
-      C.extcall ~dbg ~alloc f ty args, env, effs
+      let wrap = wrap_extcall_result return_arity in
+      wrap dbg (C.extcall ~dbg ~alloc f ty args), env, effs
   | Call_kind.Method { kind; obj; } ->
       let obj, env, _ = simple env obj in
       let meth, env, _ = simple env f in
