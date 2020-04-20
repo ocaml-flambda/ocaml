@@ -63,6 +63,7 @@
   tests/lib-fun
   tests/lib-hashtbl
   tests/lib-int
+  tests/lib-int32
   tests/lib-int64
   tests/lib-internalformat
   tests/lib-list
