@@ -1,17 +1,18 @@
 [@@@ocaml.warning "-30"]
 
 type location = Lambda.scoped_location
+type 'a located = 'a Location.loc = {
+  txt : 'a;
+  loc : location;
+}
 
-(* CR lwhite: There is a ['a Location.loc] type that would be slightly better than using
-   tuples for these. *)
-type variable = string * location
-type variable_opt = (string * location) option
-type continuation = string * location
-type code_id = string * location
-type closure_id = string * location
-type var_within_closure = string * location
+type variable = string located
+type continuation = string located
+type code_id = string located
+type closure_id = string located
+type var_within_closure = string located
 
-type symbol = string * location
+type symbol = string located
 
 type immediate = string
 type targetint = int64
@@ -36,7 +37,11 @@ type is_recursive =
 type tag_scannable = int
 
 type static_part =
-  | Block of tag_scannable * Mutability.t * of_kind_value list
+  | Block of {
+      tag : tag_scannable;
+      mutability : Mutability.t;
+      elements : of_kind_value list;
+    }
 
 module Naked_number_kind = struct
   type t =
@@ -52,20 +57,11 @@ type kind =
   | Naked_number of Naked_number_kind.t
   | Fabricated
 
-(* CR lwhite: I know this was already here, but [okind] is not really idionmatic for OCaml
-   -- type constructors are postfix and the default is snake_case. So [kind_opt] would be
-   more usual.
-
-   Although I personally dislike these kinds of aliases anyway. If the type is
-   semantically meaningful then it probably deserves its own constructors rather than
-   [None] and [Some], if it isn't semantically meaningful then it doesn't deserve a name
-   other than [kind option]. But that's really a matter of taste, feel free to leave it
-   here. *)
-type okind = kind option
-type flambda_type = unit
-
-(* CR lwhite: records are better than tuples *)
-type static_structure = (symbol * okind * static_part)
+type static_structure = {
+  symbol : symbol;
+  kind : kind option;
+  defining_expr : static_part;
+}
 
 type invalid_term_semantics =
   | Treat_as_unreachable
@@ -74,12 +70,12 @@ type invalid_term_semantics =
 type trap_action
 type kinded_parameter = {
   param : variable;
-  kind : okind;
+  kind : kind option;
 }
 
 type kinded_var_within_closure = {
   var : var_within_closure;
-  kind : okind;
+  kind : kind option;
 }
 
 type name =
@@ -185,8 +181,8 @@ and let_ = {
 }
 
 and let_binding = {
-    var : variable_opt;
-    kind : okind;
+    var : variable option;
+    kind : kind option;
     defining_expr : named;
   }
 

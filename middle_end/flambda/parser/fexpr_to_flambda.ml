@@ -90,51 +90,51 @@ let enter_code env = {
   var_within_closure_info = env.var_within_closure_info;
 }
 
-let fresh_cont env ?sort (c, _loc) arity =
+let fresh_cont env ?sort { Fexpr.txt = c; loc = _ } arity =
   let c' = Continuation.create ?sort () in
   c',
   { env with
     continuations = CM.add c (c', arity) env.continuations }
 
-let fresh_exn_cont env (c, _loc) =
+let fresh_exn_cont env { Fexpr.txt = c; loc = _ } =
   let c' = Continuation.create ~sort:Exn () in
   let e = Exn_continuation.create ~exn_handler:c' ~extra_args:[] in
   e,
   { env with
     exn_continuations = CM.add c e env.exn_continuations }
 
-let fresh_var env (name, _loc) =
+let fresh_var env { Fexpr.txt = name; loc = _ } =
   let v = Variable.create name ~user_visible:() in
   v,
   { env with
     variables = VM.add name v env.variables }
 
-let fresh_code_id env (name, _loc) =
+let fresh_code_id env { Fexpr.txt = name; loc = _ } =
   let c = Code_id.create ~name (Compilation_unit.get_current_exn ()) in
   c,
   { env with
     code_ids = DM.add name c env.code_ids }
 
-let fresh_closure_id env (name, _loc) =
+let fresh_closure_id env { Fexpr.txt = name; loc = _ } =
   let v = Variable.create name in
   let c = Closure_id.wrap (Compilation_unit.get_current_exn ()) v in
   c,
   { env with
     closure_ids = UM.add name c env.closure_ids }
 
-let fresh_or_existing_closure_id env (name, _loc) =
+let fresh_or_existing_closure_id env ({ Fexpr.txt = name; loc = _ } as id) =
   match UM.find_opt name env.closure_ids with
-  | None -> fresh_closure_id env (name, _loc)
+  | None -> fresh_closure_id env id
   | Some closure_id -> closure_id, env
 
-let fresh_var_within_closure env (name, _loc) =
+let fresh_var_within_closure env { Fexpr.txt = name; loc = _ } =
   let v = Variable.create name in
   let c = Var_within_closure.wrap (Compilation_unit.get_current_exn ()) v in
   c,
   { env with
     vars_within_closures = WM.add name c env.vars_within_closures }
 
-let declare_symbol (*~backend:_*) (env:env) (name, loc) =
+let declare_symbol (*~backend:_*) (env:env) { Fexpr.txt = name; loc } =
   if SM.mem name env.symbols then
     Misc.fatal_errorf "Redefinition of symbol %s: %a"
       name Location.print_loc loc
@@ -150,7 +150,7 @@ let declare_symbol (*~backend:_*) (env:env) (name, loc) =
     { env with
       symbols = SM.add name symbol env.symbols }
 
-let find_with ~descr ~find map (name, loc) =
+let find_with ~descr ~find map { Fexpr.txt = name; loc } =
   match find name map with
   | None ->
     Misc.fatal_errorf "Unbound %s %s: %a"
@@ -218,7 +218,7 @@ let const (c:Fexpr.const) : Reg_width_const.t =
 
 let simple env (s:Fexpr.simple) : Simple.t =
   match s with
-  | Var (v, loc) -> begin
+  | Var { txt = v; loc } -> begin
       match VM.find_opt v env.variables with
       | None ->
         Misc.fatal_errorf "Unbound variable %s : %a" v
@@ -234,7 +234,7 @@ let simple env (s:Fexpr.simple) : Simple.t =
 
 let name env (s:Fexpr.name) : Simple.t =
   match s with
-  | Var (v, loc) -> begin
+  | Var { txt = v; loc } -> begin
       match VM.find_opt v env.variables with
       | None ->
         Misc.fatal_errorf "Unbound variable %s : %a" v
@@ -352,7 +352,7 @@ let value_kind : Fexpr.kind -> Flambda_kind.t = function
     end
   | Fabricated -> Flambda_kind.fabricated
 
-let value_kind_opt : Fexpr.okind -> Flambda_kind.t = function
+let value_kind_opt : Fexpr.kind option -> Flambda_kind.t = function
   | Some kind -> value_kind kind
   | None -> Flambda_kind.value
 
@@ -445,7 +445,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
           (var, code_id)
         | { var = None; _ } ->
           Misc.fatal_errorf "Variable name required when defining closure"
-        | { var = Some (_, loc); _ } ->
+        | { var = Some { txt = _; loc }; _ } ->
           Misc.fatal_errorf "Cannot use 'and' with non-closure: %a"
             Location.print_loc loc
       in
@@ -527,7 +527,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
         Flambda.Let_cont.create_recursive handlers ~body
     end
 
-  | Apply_cont ((cont, _loc) as cont', None, args) ->
+  | Apply_cont ({ txt = cont; loc = _ } as cont', None, args) ->
     let c, arity = find_cont env cont' in
     if List.length args <> arity then
       Misc.fatal_errorf "wrong continuation arity %s" cont;
@@ -538,7 +538,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
   | Switch { scrutinee; cases } ->
     let arms =
       Target_imm.Map.of_list
-        (List.map (fun (case, (arm, _loc)) ->
+        (List.map (fun (case, { Fexpr.txt = arm; loc = _}) ->
            let c, arity = CM.find arm env.continuations in
            assert(arity = 0);
            Target_imm.int (Targetint.OCaml.of_int case),
@@ -549,9 +549,10 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
       ~scrutinee:(simple env scrutinee)
       ~arms
 
-  | Let_symbol { bindings = Simple (symbol, _kind, def); body } -> begin
+  | Let_symbol { bindings = Simple { symbol; kind = _; defining_expr = def }; 
+                 body } -> begin
       match def with
-      | Block (tag, mutability, args) ->
+      | Block { tag; mutability; elements = args } ->
         let symbol, env = declare_symbol (* ~backend *) env symbol in
         let bound_symbols =
           Flambda.Let_symbol_expr.Bound_symbols.Singleton symbol

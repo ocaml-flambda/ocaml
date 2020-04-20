@@ -7,6 +7,10 @@ let make_loc (startpos, endpos) = Lambda.of_raw_location {
   Location.loc_ghost = false;
 }
 
+let make_located txt (startpos, endpos) =
+  let loc = make_loc (startpos, endpos) in
+  { txt; loc }
+
 let make_tag ~loc:_ = function
   | s, None -> int_of_string s
   | _, Some _ ->
@@ -336,8 +340,13 @@ kinded_vars_within_closures:
   | { [] }
 
 static_structure:
-  | s = symbol EQUAL BLOCK t = tag LPAREN elts = of_kind_value* RPAREN
-    { ( s, None, Block (t, Immutable, elts) ) }
+  | s = symbol EQUAL sp = static_part
+    { { symbol = s; kind = None; defining_expr = sp } }
+;
+
+static_part:
+  | BLOCK; tag = tag; LPAREN; elements = of_kind_value*; RPAREN
+    { (Block { tag; mutability = Immutable; elements } : static_part) }
 ;
 
 tag:
@@ -398,27 +407,27 @@ closure_id:
 ;
 
 symbol:
-  | e = UIDENT { e, make_loc ($startpos, $endpos) }
+  | e = UIDENT { make_located e ($startpos, $endpos) }
 ;
 
 csymbol:
-  | s = LIDENT { s, make_loc ($startpos, $endpos) }
+  | s = LIDENT { make_located s ($startpos, $endpos) }
 ;
 
 variable:
-  | e = LIDENT { e, make_loc ($startpos, $endpos) }
+  | e = LIDENT { make_located e ($startpos, $endpos) }
 ;
 
 variable_opt:
   | UNDERSCORE { None }
-  | e = LIDENT { Some (e, make_loc ($startpos, $endpos)) }
+  | e = LIDENT { Some (make_located e ($startpos, $endpos)) }
 ;
 
 continuation:
-  | e = LIDENT { e, make_loc ($startpos, $endpos) }
+  | e = LIDENT { make_located e ($startpos, $endpos) }
 ;
 
 var_within_closure:
-  | e = LIDENT { e, make_loc ($startpos, $endpos) }
+  | e = LIDENT { make_located e ($startpos, $endpos) }
 ;
 %%

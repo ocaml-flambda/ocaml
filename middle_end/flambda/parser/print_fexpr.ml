@@ -30,36 +30,36 @@ let is_exn ppf = function
   | false -> ()
   | true -> Format.fprintf ppf "@ exn"
 
-let csymbol ppf (s, _loc) =
+let csymbol ppf { txt = s; loc = _ } =
   Format.fprintf ppf "%s" s
 
-let symbol ppf (s, _loc) =
+let symbol ppf { txt = s; loc = _ } =
   Format.fprintf ppf "%s" s
 
-let variable ppf (s, _loc) =
+let variable ppf { txt = s; loc = _ } =
   Format.fprintf ppf "%s" s
 
-let variable_opt ppf s =
+let variable_opt ppf (s : variable option) =
   match s with
   | None -> Format.fprintf ppf "_"
-  | Some (s, _loc) -> Format.fprintf ppf "%s" s
+  | Some { txt; loc = _ } -> Format.fprintf ppf "%s" txt
 
-let var_within_closure ppf (s, _loc) =
+let var_within_closure ppf { txt = s; loc = _ } =
   Format.fprintf ppf "%s" s
 
-let code_id ppf (s, _loc) =
+let code_id ppf ({ txt = s; loc = _ } : code_id) =
   Format.fprintf ppf "%s" s
 
-let closure_id ppf (s, _loc0) =
+let closure_id ppf ({ txt = s; loc = _ } : closure_id) =
   Format.fprintf ppf "%s" s
 
-let continuation ppf (s, _loc) =
+let continuation ppf ({ txt = s; loc = _ } : continuation) =
   Format.fprintf ppf "%s" s
 
 let exn_continuation ppf c =
   Format.fprintf ppf " * %a" continuation c
 
-let exn_continuationo ppf = function
+let exn_continuation_opt ppf = function
   | None -> ()
   | Some c -> exn_continuation ppf c
 
@@ -80,7 +80,7 @@ let kind ppf (k : kind) =
   in
   Format.pp_print_string ppf s
 
-let kinded_variable ppf (v, (k:okind)) =
+let kinded_variable ppf (v, (k:kind option)) =
   match k with
   | None ->
     variable ppf v
@@ -114,13 +114,13 @@ let name ppf : name -> unit = function
   | Var v -> variable ppf v
 
 let static_part ppf : static_part -> _ = function
-  | Block (tag, _mutability, elts) ->
+  | Block { tag; mutability = _; elements = elts } ->
     Format.fprintf ppf "Block %i (%a)"
       tag
       (pp_space_list of_kind_value) elts
 
 
-let static_structure ppf (s, (k:okind), sp) =
+let static_structure ppf { symbol = s; kind = k; defining_expr = sp } =
   match k with
   | None ->
     Format.fprintf ppf "%a =@ %a"
@@ -396,6 +396,6 @@ and code_binding ppf (cb : code_binding) =
 let flambda_unit ppf ({ return_cont; exception_cont; body } : flambda_unit) =
   Format.fprintf ppf "@[<v>-> %a%a@ %a@]"
     continuation return_cont
-    exn_continuationo exception_cont
+    exn_continuation_opt exception_cont
     expr body
 
