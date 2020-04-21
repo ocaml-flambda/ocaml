@@ -32,6 +32,14 @@ val pattern_match
   -> f:(bound_vars:Bindable_let_bound.t -> body:Expr.t -> 'a)
   -> 'a
 
+(** Look inside two [Let]s by choosing members of their alpha-equivalence
+    classes, using the same bound variables for both. *)
+val pattern_match_pair
+   : t
+  -> t
+  -> f:(bound_vars:Bindable_let_bound.t -> body1:Expr.t -> body2:Expr.t -> 'a)
+  -> 'a
+
 val create
    : bound_vars:Bindable_let_bound.t
   -> defining_expr:Named.t

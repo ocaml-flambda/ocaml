@@ -40,3 +40,15 @@ val pattern_match
     -> handler:Expr.t
     -> 'a)
   -> 'a
+
+(** Choose members of two bindings' alpha-equivalence classes using the same
+    parameters. *)
+val pattern_match_pair
+   : t
+  -> t
+  -> f:(Kinded_parameter.t list
+    -> handler1:Expr.t
+    -> handler2:Expr.t
+    -> 'a)
+  -> 'a
+

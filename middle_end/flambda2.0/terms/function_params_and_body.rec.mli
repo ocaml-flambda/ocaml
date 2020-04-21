@@ -60,6 +60,27 @@ val pattern_match
     -> 'a)
   -> 'a
 
+(** Choose members of the alpha-equivalence classes of two definitions using
+    the same names for the return continuation, the exception continuation,
+    the closure, and all parameters. *)
+val pattern_match_pair
+   : t
+  -> t
+  -> f:(return_continuation:Continuation.t
+      (** The continuation parameter of the function, i.e. to where we must
+          jump once the result of the function has been computed. If the
+          continuation takes more than one argument then the backend will
+          compile the function so that it returns multiple values. *)
+    -> Exn_continuation.t
+      (** To where we must jump if application of the function raises an
+          exception. *)
+    -> Kinded_parameter.t list
+    -> body1:Expr.t
+    -> body2:Expr.t
+    -> my_closure:Variable.t
+    -> 'a)
+  -> 'a
+
 val params_arity : t -> Flambda_arity.t
 
 val debuginfo : t -> Debuginfo.t

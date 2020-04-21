@@ -58,3 +58,8 @@ let create params ~handler =
 let pattern_match t ~f =
   pattern_match t ~f:(fun params { handler; } ->
     f params ~handler)
+
+let pattern_match_pair t1 t2 ~f =
+  pattern_match_pair t1 t2 ~f:(
+    fun params { handler = handler1; } { handler = handler2; } ->
+      f params ~handler1 ~handler2)

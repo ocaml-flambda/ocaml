@@ -42,6 +42,12 @@ let pattern_match t ~f =
   Continuation_and_body.pattern_match t.continuation_and_body
     ~f:(fun continuation body -> f continuation ~body)
 
+let pattern_match_pair t1 t2 ~f =
+  Continuation_and_body.pattern_match_pair
+    t1.continuation_and_body
+    t2.continuation_and_body
+    ~f:(fun continuation body1 body2 -> f continuation ~body1 ~body2)
+
 let handler t = t.handler
 
 let free_names { continuation_and_body; handler; } =

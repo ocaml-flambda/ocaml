@@ -212,6 +212,14 @@ end and Let_expr : sig
      : t
     -> f:(bound_vars:Bindable_let_bound.t -> body:Expr.t -> 'a)
     -> 'a
+
+  (** Look inside two [Let]s by choosing members of their alpha-equivalence
+      classes, using the same bound variables for both. *)
+  val pattern_match_pair
+     : t
+    -> t
+    -> f:(bound_vars:Bindable_let_bound.t -> body1:Expr.t -> body2:Expr.t -> 'a)
+    -> 'a
 end and Let_symbol_expr : sig
   module Bound_symbols : sig
     module Code_and_set_of_closures : sig
@@ -344,6 +352,13 @@ end and Non_recursive_let_cont_handler : sig
     -> f:(Continuation.t -> body:Expr.t -> 'a)
     -> 'a
 
+  (** Deconstruct two continuation bindings using the same name. *)
+  val pattern_match_pair
+     : t
+    -> t
+    -> f:(Continuation.t -> body1:Expr.t -> body2:Expr.t -> 'a)
+    -> 'a
+
   (** Obtain the continuation itself (rather than the body over which it
       is scoped). *)
   val handler : t -> Continuation_handler.t
@@ -423,6 +438,18 @@ end and Continuation_params_and_handler : sig
       -> handler:Expr.t
       -> 'a)
     -> 'a
+  
+  (** Choose members of two bindings' alpha-equivalence classes using the same
+      parameters. *)
+  val pattern_match_pair
+     : t
+    -> t
+    -> f:(Kinded_parameter.t list
+      -> handler1:Expr.t
+      -> handler2:Expr.t
+      -> 'a)
+    -> 'a
+
 end and Recursive_let_cont_handlers : sig
   (** The representation of the alpha-equivalence class of a group of possibly
       (mutually-) recursive continuation handlers that are bound both over a
@@ -495,6 +522,27 @@ end and Function_params_and_body : sig
             exception. *)
       -> Kinded_parameter.t list
       -> body:Expr.t
+      -> my_closure:Variable.t
+      -> 'a)
+    -> 'a
+
+  (** Choose members of the alpha-equivalence classes of two definitions using
+      the same names for the return continuation, the exception continuation,
+      the closure, and all parameters. *)
+  val pattern_match_pair
+     : t
+    -> t
+    -> f:(return_continuation:Continuation.t
+        (** The continuation parameter of the function, i.e. to where we must
+            jump once the result of the function has been computed. If the
+            continuation takes more than one argument then the backend will
+            compile the function so that it returns multiple values. *)
+      -> Exn_continuation.t
+        (** To where we must jump if application of the function raises an
+            exception. *)
+      -> Kinded_parameter.t list
+      -> body1:Expr.t
+      -> body2:Expr.t
       -> my_closure:Variable.t
       -> 'a)
     -> 'a

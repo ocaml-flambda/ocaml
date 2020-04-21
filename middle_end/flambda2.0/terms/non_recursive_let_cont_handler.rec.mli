@@ -30,6 +30,13 @@ val pattern_match
   -> f:(Continuation.t -> body:Expr.t -> 'a)
   -> 'a
 
+(** Deconstruct two continuation bindings using the same name. *)
+val pattern_match_pair
+   : t
+  -> t
+  -> f:(Continuation.t -> body1:Expr.t -> body2:Expr.t -> 'a)
+  -> 'a
+
 (** Obtain the continuation itself (rather than the body over which it
     is scoped). *)
 val handler : t -> Continuation_handler.t

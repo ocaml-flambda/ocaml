@@ -40,17 +40,25 @@ let create ~return_continuation exn_continuation params ~dbg ~body ~my_closure =
     params_arity = Kinded_parameter.List.arity params;
   }
 
+let extract_my_closure params_and_my_closure =
+  match List.rev params_and_my_closure with
+  | my_closure::params_rev ->
+    List.rev params_rev, Kinded_parameter.var my_closure
+  | [] -> assert false  (* see [create], above. *)
+
 let pattern_match t ~f =
   A.pattern_match t.abst ~f:(fun return_continuation t1 ->
     T1.pattern_match t1 ~f:(fun exn_continuation t0 ->
       T0.pattern_match t0 ~f:(fun params_and_my_closure body ->
-        let params, my_closure =
-          match List.rev params_and_my_closure with
-          | my_closure::params_rev ->
-            List.rev params_rev, Kinded_parameter.var my_closure
-          | [] -> assert false  (* see [create], above. *)
-        in
+        let params, my_closure = extract_my_closure params_and_my_closure in
         f ~return_continuation exn_continuation params ~body ~my_closure)))
+
+let pattern_match_pair t1 t2 ~f =
+  A.pattern_match_pair t1.abst t2.abst ~f:(fun return_continuation t1_1 t1_2 ->
+    T1.pattern_match_pair t1_1 t1_2 ~f:(fun exn_continuation t0_1 t0_2 ->
+      T0.pattern_match_pair t0_1 t0_2 ~f:(fun params_and_my_closure body1 body2 ->
+        let params, my_closure = extract_my_closure params_and_my_closure in
+        f ~return_continuation exn_continuation params ~body1 ~body2 ~my_closure)))
 
 let print_with_cache ~cache ppf t =
   pattern_match t
