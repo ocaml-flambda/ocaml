@@ -1,7 +1,7 @@
 [@@@ocaml.warning "-30"]
 
 type location = Lambda.scoped_location
-type 'a located = 'a Location.loc = {
+type 'a located = {
   txt : 'a;
   loc : location;
 }

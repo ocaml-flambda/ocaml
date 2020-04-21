@@ -137,7 +137,7 @@ let fresh_var_within_closure env { Fexpr.txt = name; loc = _ } =
 let declare_symbol (*~backend:_*) (env:env) { Fexpr.txt = name; loc } =
   if SM.mem name env.symbols then
     Misc.fatal_errorf "Redefinition of symbol %s: %a"
-      name Location.print_loc loc
+      name Lambda.print_scoped_location loc
   else
     (* let module Backend = (val backend : Flambda_backend_intf.S) in
      * let symbol = Backend.symbol_for_global' (Ident.create_persistent name) in *)
@@ -154,7 +154,7 @@ let find_with ~descr ~find map { Fexpr.txt = name; loc } =
   match find name map with
   | None ->
     Misc.fatal_errorf "Unbound %s %s: %a"
-      descr name Location.print_loc loc
+      descr name Lambda.print_scoped_location loc
   | Some a ->
     a
 
@@ -222,7 +222,7 @@ let simple env (s:Fexpr.simple) : Simple.t =
       match VM.find_opt v env.variables with
       | None ->
         Misc.fatal_errorf "Unbound variable %s : %a" v
-          Location.print_loc loc
+          Lambda.print_scoped_location loc
       | Some var ->
         Simple.var var
     end
@@ -238,7 +238,7 @@ let name env (s:Fexpr.name) : Simple.t =
       match VM.find_opt v env.variables with
       | None ->
         Misc.fatal_errorf "Unbound variable %s : %a" v
-          Location.print_loc loc
+          Lambda.print_scoped_location loc
       | Some var ->
         Simple.var var
     end
@@ -447,7 +447,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
           Misc.fatal_errorf "Variable name required when defining closure"
         | { var = Some { txt = _; loc }; _ } ->
           Misc.fatal_errorf "Cannot use 'and' with non-closure: %a"
-            Location.print_loc loc
+            Lambda.print_scoped_location loc
       in
       let vars_and_code_ids = List.map binding_to_var_and_code_id bindings in
       let closure_vars, env =
@@ -565,7 +565,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
              List.map (of_kind_value env) args)
         in
         let body = expr env body in
-        Flambda.Let_symbol_expr.create bound_symbols static_const body
+        Flambda.Let_symbol_expr.create Syntactic bound_symbols static_const body
         |> Flambda.Expr.create_let_symbol
     end
 
@@ -644,10 +644,11 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
               env params
           in
           let body = expr env code_expr in
+          let dbg = Debuginfo.none in
           let params_and_body =
             Flambda.Function_params_and_body.create
               ~return_continuation
-              exn_continuation params ~body ~my_closure
+              exn_continuation params ~body ~my_closure ~dbg
           in
           let newer_version_of =
             Option.map (find_code_id env) newer_version_of
@@ -684,7 +685,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
       Sets_of_closures codes_and_sets_of_closures
     in
     let body = expr env body in
-    Flambda.Let_symbol_expr.create bound_symbols static_const body
+    Flambda.Let_symbol_expr.create Syntactic bound_symbols static_const body
     |> Flambda.Expr.create_let_symbol
 
   | Apply {
