@@ -126,6 +126,7 @@ let make_segment
 %type <Fexpr.of_kind_value> of_kind_value
 %%
 
+/* CR lwhite: Probably easier to just use some default names for these continuations */
 flambda_unit:
   | return_cont = continuation
     exception_cont = option(exn_continuation)
@@ -158,7 +159,7 @@ segment:
 
 segment_body:
   | bindings = separated_nonempty_list(AND, code_or_closure_binding);
-    closure_elements = with_closure_elements_opt;  
+    closure_elements = with_closure_elements_opt;
     { make_segment bindings closure_elements }
 ;
 
@@ -252,10 +253,12 @@ expr:
   | SWITCH scrutinee = simple LBRACE cases = switch RBRACE
     { Switch {scrutinee; cases} }
   | LET l = let_ { Let l }
+/* CR lwhite: I'd rather make people write [let _ = named in ...] than allow [named;...] */
   | defining_expr = named SEMICOLON body = expr
       { Let { bindings = [ { var = None; kind = None; defining_expr; } ];
-              closure_elements = None; 
+              closure_elements = None;
               body } }
+/* CR lwhite: I think a "where" syntax would be better for continuations */
   | LETK recursive = recursive handler = continuation_handler t = andk IN body = expr
      { let handlers = handler :: t in
        Let_cont { recursive; body; handlers } }
@@ -273,6 +276,7 @@ expr:
               return_arity = ra;
             };
        }}
+/*  CR lwhite: It would be good to have a syntax for direct calls as well */
   | APPLY func = name args = simple_args MINUSGREATER
     r = continuation e = exn_continuation
      { Apply {
@@ -286,6 +290,22 @@ expr:
 
 let_:
   | bindings = separated_nonempty_list(AND, let_binding);
+/*  CR lwhite: I think this closure elements stuff is a bit of a hangover from
+    when closures definitions contained the code as well. I imagine the closures
+    used to look like:
+
+    let f a b c =
+      ...
+    and g x y z =
+      ...
+    with { i = j; ... } in
+    ...
+
+    but now they should probably just look something like:
+
+      let (f', g') = closure({f, g}, {i = j; ...}) in
+      ...
+ */
     closure_elements = with_closure_elements_opt;
     IN body = expr;
     { { bindings; closure_elements; body } }
