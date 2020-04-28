@@ -303,7 +303,7 @@ let string_like_load_aux ~dbg kind width block ptr idx =
       unaligned_load_16 ptr idx dbg
   | Thirty_two ->
       let idx = untag_int idx dbg in
-      unaligned_load_32 ptr idx dbg
+      sign_extend_32 dbg (unaligned_load_32 ptr idx dbg)
   | Sixty_four ->
       if arch32 then
         begin match (kind : Flambda_primitive.string_like_value) with
