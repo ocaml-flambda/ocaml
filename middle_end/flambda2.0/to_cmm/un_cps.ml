@@ -158,58 +158,58 @@ let arithmetic_conversion dbg src dst arg =
   match src, dst with
   (* 64-bit on 32-bit host specific cases *)
   | Naked_int64, Tagged_immediate when C.arch32 ->
-      C.extcall ~alloc:false "caml_int64_to_int" typ_int [arg]
+      None, C.extcall ~alloc:false "caml_int64_to_int" typ_int [arg]
   | Naked_int64, Naked_int32 when C.arch32 ->
-      C.extcall ~alloc:false "caml_int64_to_int32" typ_int [arg]
+      None, C.extcall ~alloc:false "caml_int64_to_int32" typ_int [arg]
   | Naked_int64, (Naked_nativeint | Naked_immediate) when C.arch32 ->
-      C.extcall ~alloc:false "caml_int64_to_nativeint" typ_int [arg]
+      None, C.extcall ~alloc:false "caml_int64_to_nativeint" typ_int [arg]
   | Naked_int64, Naked_float when C.arch32 ->
-      C.extcall ~alloc:false "caml_int64_to_float_unboxed" typ_float [arg]
+      None, C.extcall ~alloc:false "caml_int64_to_float_unboxed" typ_float [arg]
   | Tagged_immediate, Naked_int64 when C.arch32 ->
-      C.extcall ~alloc:true "caml_int64_of_int" typ_val [arg]
-      |> C.unbox_number ~dbg Flambda_kind.Boxable_number.Naked_int64
+      None, C.extcall ~alloc:true "caml_int64_of_int" typ_val [arg]
+            |> C.unbox_number ~dbg Flambda_kind.Boxable_number.Naked_int64
   | Naked_int32, Naked_int64 when C.arch32 ->
-      C.extcall ~alloc:true "caml_int64_of_int32" typ_val [arg]
-      |> C.unbox_number ~dbg Flambda_kind.Boxable_number.Naked_int64
+      None, C.extcall ~alloc:true "caml_int64_of_int32" typ_val [arg]
+            |> C.unbox_number ~dbg Flambda_kind.Boxable_number.Naked_int64
   | (Naked_nativeint | Naked_immediate), Naked_int64 when C.arch32 ->
-      C.extcall ~alloc:true "caml_int64_of_nativeint" typ_val [arg]
-      |> C.unbox_number ~dbg Flambda_kind.Boxable_number.Naked_int64
+      None, C.extcall ~alloc:true "caml_int64_of_nativeint" typ_val [arg]
+            |> C.unbox_number ~dbg Flambda_kind.Boxable_number.Naked_int64
   | Naked_float, Naked_int64 when C.arch32 ->
-      C.extcall ~alloc:true "caml_int64_of_float_unboxed" typ_val [arg]
-      |> C.unbox_number ~dbg Flambda_kind.Boxable_number.Naked_int64
+      None, C.extcall ~alloc:true "caml_int64_of_float_unboxed" typ_val [arg]
+            |> C.unbox_number ~dbg Flambda_kind.Boxable_number.Naked_int64
   (* Identity on floats *)
-  | Naked_float, Naked_float -> arg
+  | Naked_float, Naked_float -> None, arg
   (* Conversions to and from tagged ints  *)
   | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate),
     Tagged_immediate ->
-      C.tag_int arg dbg
+    None, C.tag_int arg dbg
   | Tagged_immediate, (Naked_int64 | Naked_nativeint | Naked_immediate) ->
-    C.untag_int arg dbg
+    Some (Env.Untag arg), C.untag_int arg dbg
   (* Operations resulting in int32s must take care to sign_extend the res *)
   | Tagged_immediate, Naked_int32 ->
-    C.sign_extend_32 dbg (C.untag_int arg dbg)
+    None, C.sign_extend_32 dbg (C.untag_int arg dbg)
   | (Naked_int32 | Naked_int64 | Naked_nativeint | Naked_immediate),
     Naked_int32 ->
-    C.sign_extend_32 dbg arg
+    None, C.sign_extend_32 dbg arg
   (* No-op conversions *)
   | Tagged_immediate, Tagged_immediate
   | Naked_int32, (Naked_int64 | Naked_nativeint | Naked_immediate)
   | Naked_int64, (Naked_int64 | Naked_nativeint | Naked_immediate)
   | Naked_nativeint, (Naked_int64 | Naked_nativeint | Naked_immediate)
   | Naked_immediate, (Naked_int64 | Naked_nativeint | Naked_immediate) ->
-      arg
+    None, arg
   (* Int-Float conversions *)
   | Tagged_immediate, Naked_float ->
-      C.float_of_int ~dbg (C.untag_int arg dbg)
+    None, C.float_of_int ~dbg (C.untag_int arg dbg)
   | (Naked_immediate | Naked_int32 | Naked_int64 | Naked_nativeint),
     Naked_float ->
-      C.float_of_int ~dbg arg
+    None, C.float_of_int ~dbg arg
   | Naked_float, Tagged_immediate ->
-      C.tag_int (C.int_of_float ~dbg arg) dbg
+    None, C.tag_int (C.int_of_float ~dbg arg) dbg
   | Naked_float, (Naked_immediate | Naked_int64 | Naked_nativeint) ->
-    C.int_of_float ~dbg arg
+    None, C.int_of_float ~dbg arg
   | Naked_float, Naked_int32 ->
-    C.sign_extend_32 dbg (C.int_of_float ~dbg arg)
+    None, C.sign_extend_32 dbg (C.int_of_float ~dbg arg)
 
 let binary_phys_comparison _env dbg kind op x y =
   match (kind : Flambda_kind.t),
@@ -397,39 +397,44 @@ let binary_float_comp_primitive _env dbg op x y =
 let unary_primitive env dbg f arg =
   match (f : Flambda_primitive.unary_primitive) with
   | Duplicate_block _ ->
-      C.extcall ~alloc:true "caml_obj_dup" typ_val [arg]
+      None, C.extcall ~alloc:true "caml_obj_dup" typ_val [arg]
   | Is_int ->
-      C.and_ ~dbg arg (C.int ~dbg 1)
+      None, C.and_ ~dbg arg (C.int ~dbg 1)
   | Get_tag ->
-      C.get_tag arg dbg
+      None, C.get_tag arg dbg
   | Array_length block_access_kind ->
-      C.block_length ~dbg block_access_kind arg
+      None, C.block_length ~dbg block_access_kind arg
   | Bigarray_length { dimension } ->
-      C.load ~dbg Cmm.Word_int Asttypes.Mutable
-        (C.field_address arg (4 + dimension) dbg)
+      None, C.load ~dbg Cmm.Word_int Asttypes.Mutable
+              (C.field_address arg (4 + dimension) dbg)
   | String_length _ ->
-      C.string_length arg dbg
+      None, C.string_length arg dbg
   | Int_as_pointer ->
-      C.int_as_pointer arg dbg
+      None, C.int_as_pointer arg dbg
   | Opaque_identity ->
-      arg
+      None, arg
   | Int_arith (kind, op) ->
-      unary_int_arith_primitive env dbg kind op arg
+      None, unary_int_arith_primitive env dbg kind op arg
   | Float_arith op ->
-      unary_float_arith_primitive env dbg op arg
+      None, unary_float_arith_primitive env dbg op arg
   | Num_conv { src; dst; } ->
       arithmetic_conversion dbg src dst arg
   | Boolean_not ->
-      C.mk_not dbg arg
+    None, C.mk_not dbg arg
   | Unbox_number kind ->
-      C.unbox_number ~dbg kind arg
+    let extra =
+      match kind with
+      | Untagged_immediate -> Some (Env.Untag arg)
+      | _ -> None
+    in
+    extra, C.unbox_number ~dbg kind arg
   | Box_number kind ->
-      C.box_number ~dbg kind arg
+      None, C.box_number ~dbg kind arg
   | Select_closure { move_from = c1; move_to = c2} ->
     begin match Env.closure_offset env c1, Env.closure_offset env c2 with
     | Some c1_offset, Some c2_offset ->
       let diff = c2_offset - c1_offset in
-      C.infix_field_address ~dbg arg diff
+      None, C.infix_field_address ~dbg arg diff
     | Some _, None | None, Some _ | None, None ->
       raise Un_cps_static.Unreachable_code
     end
@@ -437,7 +442,7 @@ let unary_primitive env dbg f arg =
     begin match Env.env_var_offset env var,
                 Env.closure_offset env project_from with
     | Some offset, Some base ->
-      C.get_field_gen Asttypes.Immutable arg (offset - base) dbg
+      None, C.get_field_gen Asttypes.Immutable arg (offset - base) dbg
     | Some _, None | None, Some _ | None, None ->
       raise Un_cps_static.Unreachable_code
     end
@@ -491,21 +496,25 @@ let prim env dbg p =
   match (p : Flambda_primitive.t) with
   | Unary (f, x) ->
       let x, env, eff = simple env x in
-      unary_primitive env dbg f x, env, eff
+      let extra, res = unary_primitive env dbg f x in
+      res, extra, env, eff
   | Binary (f, x, y) ->
       let x, env, effx = simple env x in
       let y, env, effy = simple env y in
       let effs = Ece.join effx effy in
-      binary_primitive env dbg f x y, env, effs
+      let res = binary_primitive env dbg f x y in
+      res, None, env, effs
   | Ternary (f, x, y, z) ->
       let x, env, effx = simple env x in
       let y, env, effy = simple env y in
       let z, env, effz = simple env z in
       let effs = Ece.join (Ece.join effx effy) effz in
-      ternary_primitive env dbg f x y z, env, effs
+      let res = ternary_primitive env dbg f x y z in
+      res, None, env, effs
   | Variadic (f, l) ->
       let args, env, effs = arg_list env l in
-      variadic_primitive env dbg f args, env, effs
+      let res = variadic_primitive env dbg f args in
+      res, None, env, effs
 
 (* Kinds and types *)
 
@@ -629,12 +638,16 @@ let rec expr env e =
 
 and named env n =
   match (n : Named.t) with
-  | Simple s -> simple env s
-  | Set_of_closures s -> set_of_closures env s
+  | Simple s ->
+    let t, env, effs = simple env s in
+    t, None, env, effs
+  | Set_of_closures s ->
+    let t, env, effs = set_of_closures env s in
+    t, None, env, effs
   | Prim (p, dbg) ->
-      let prim_eff = Flambda_primitive.effects_and_coeffects p in
-      let t, env, effs = prim env dbg p in
-      t, env, Ece.join effs prim_eff
+    let prim_eff = Flambda_primitive.effects_and_coeffects p in
+    let t, extra, env, effs = prim env dbg p in
+    t, extra, env, Ece.join effs prim_eff
 
 and let_expr env t =
   Let.pattern_match t ~f:(fun ~bound_vars ~body ->
@@ -710,18 +723,15 @@ and let_set_of_closures env body closure_vars soc =
      are correctly set in the env, go on translating the body. *)
   expr env body
 
-and let_expr_bind body env v cmm_expr effs =
+and let_expr_bind ?extra body env v cmm_expr effs =
   match decide_inline_let effs v body with
   | Skip -> env
-  | Inline -> Env.bind_variable env v effs true cmm_expr
-  | Regular -> Env.bind_variable env v effs false cmm_expr
+  | Inline -> Env.bind_variable env v ?extra effs true cmm_expr
+  | Regular -> Env.bind_variable env v ?extra effs false cmm_expr
 
 and let_expr_env body env v e =
-  let cmm_expr, env, effs = named env e in
-  match decide_inline_let effs v body with
-  | Skip -> env
-  | Inline -> Env.bind_variable env v effs true cmm_expr
-  | Regular -> Env.bind_variable env v effs false cmm_expr
+  let cmm_expr, extra, env, effs = named env e in
+  let_expr_bind ?extra body env v cmm_expr effs
 
 and let_expr_aux env v e body =
   let env = let_expr_env body env v e in
@@ -1083,27 +1093,104 @@ and apply_cont_trap_actions env e =
       [Cmm.Push cont]
 
 and switch env s =
-  let e, env, _ = simple env (Switch.scrutinee s) in
+  let env, scrutinee, arms = prepare_switch env s in
+  make_switch env scrutinee arms
+
+and prepare_switch env s =
+  (* Regular preparation of switches, simply translate the scrutinee
+     and get the switch arms *)
+  let scrutinee = Switch.scrutinee s in
+  let e, env, _ = simple env scrutinee in
+  let arms = Switch.arms s in
+  (* For binary switches, which can be translated to if-then-elses,
+     it can be interesting to *not* untag the scrutinee (particularly
+     for those coming from source if-then-elses on booleans) as that way
+     the translation can use 2 instructions instead of 3.
+     However, this is only useful to do if the tagged expression is
+     smaller then the untagged one (which is not always true due to
+     arithmetic simplifications performed by cmm_helpers).
+     Additionally for switches with more than 2 arms, not untagging
+     and lifting the switch to perform on tagged integer might be worse
+     (because the discrimant of the arms may not be successive anymore,
+     thus preventing the use of a table), or simply not worth it
+     given the already high number of isntructions needed for big
+     switches (but that might be up-to-debate on small switches with
+     3-5 arms). *)
+  match Target_imm.Map.cardinal arms with
+  | 2 ->
+    begin match match_var_with_extra_info env scrutinee with
+    | None -> env, e, prepare_arms ~lift:false arms
+    | Some Untag e' ->
+      let size_e = cmm_arith_size e in
+      let size_e' = cmm_arith_size e' in
+      if size_e' < size_e then
+        env, e', prepare_arms ~lift:true arms
+      else
+        env, e, prepare_arms ~lift:false arms
+    end
+  | _ -> env, e, prepare_arms ~lift:false arms
+
+and prepare_arms ~lift arms =
+  Target_imm.Map.fold (fun d action acc ->
+    let i = Target_imm.to_targetint' d in
+    let n = if lift then tag_targetint i else i in
+    Targetint.Map.add n action acc
+  ) arms Targetint.Map.empty
+
+and match_var_with_extra_info env simple : Env.extra_info option =
+  Simple.pattern_match simple
+    ~const:(fun _ -> None)
+    ~name:(fun n ->
+      Name.pattern_match n
+        ~symbol:(fun _ -> None)
+        ~var:(fun v ->
+          begin match Env.extra_info env v with
+          | None -> None
+          | Some _ as res -> res
+          end)
+    )
+
+(* Small function to estimate the number of arithmetic instructions
+   in a cmm expression. This is currently used to determine whether
+   untagging an expression resulted in a smaller expresison or not
+   (as can happen because of some arithmetic simplifications performed
+   by cmm_helpers.ml) *)
+and cmm_arith_size e =
+  match (e : Cmm.expression) with
+  | Cop (
+    ( Caddi | Csubi | Cmuli | Cmulhi | Cdivi | Cmodi
+    | Cand | Cor | Cxor | Clsl | Clsr | Casr ), l, _) ->
+    List.fold_left (+) 1 @@
+    List.map cmm_arith_size l
+  | _ -> 0
+
+and make_switch env e arms =
   let wrap, env = Env.flush_delayed_lets env in
   let ints, exprs =
-    Target_imm.Map.fold (fun d action (ints, exprs) ->
-      let i = Targetint.OCaml.to_int (Target_imm.to_targetint d) in
+    Targetint.Map.fold (fun d action (ints, exprs) ->
+      let i = Targetint.to_int d in
       let e = apply_cont env action in
       (i :: ints, e :: exprs)
-      ) (Switch.arms s) ([], [])
+      ) arms ([], [])
   in
   let ints = Array.of_list (List.rev ints) in
   let exprs = Array.of_list (List.rev exprs) in
   assert (Array.length ints = Array.length exprs);
   match ints, exprs with
-  | [| 0; 1 |], [| else_; then_ |] ->
-      (* This switch is actually an if-then-else.
-         On such switches, transl_switch_clambda will actually generate
-         code that compare the scrutinee with 0 (or 1), whereas directly
-         generating an if-then-else on the scrutinee is better
-         (avoid a comparison, and even let selectgen/emit optimize away
-         the move from the condition register to a regular register). *)
-      wrap (C.ite e ~then_ ~else_)
+  (* These switchs are actually if-then-elses.
+     On such switches, transl_switch_clambda will introduce a let-binding
+     to the scrutinee before creating an if-then-else, introducing an
+     indirection that might prevent some optimizations. performed by
+     selectgen/emit when the condition is inlined in the if-then-else. *)
+  | [| 0; _ |], [| else_; then_ |]
+  | [| _; 0 |], [| then_; else_ |]
+    -> wrap (C.ite e ~then_ ~else_)
+  (* Similar case to the if/then/else but none of the arms match 0,
+     so we have to generate an equality test, and make sure it is inside
+     the condition to ensure selectgen and emit can take advantage of it. *)
+  | [| x; _ |], [| if_x; if_not |]
+    -> wrap (C.ite (C.eq (C.int x) e) ~then_:if_x ~else_:if_not)
+  (* General case *)
   | _ ->
       (* CR mshinwell: Don't use polymorphic comparison! *)
       if Misc.Stdlib.Array.for_alli (=) ints then
@@ -1115,8 +1202,8 @@ and switch env s =
         (* The transl_switch_clambda expects an index array such that
            index.(i) is the index in [cases] of the expression to
            execute when [e] matches [i]. *)
-        let d, _ = Target_imm.Map.max_binding (Switch.arms s) in
-        let n = Targetint.OCaml.to_int (Target_imm.to_targetint d) in
+        let d, _ = Targetint.Map.max_binding arms in
+        let n = Targetint.to_int d in
         let index = Array.make (n + 2) c in
         Array.iteri (fun i j -> index.(j) <- i) ints;
         wrap (C.transl_switch_clambda Location.none e index cases)

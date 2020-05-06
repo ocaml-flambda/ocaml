@@ -23,6 +23,14 @@ type cont =
   | Inline of { handler_params: Kinded_parameter.t list;
                 handler_body: Flambda.Expr.t; }
 
+(* Extra information about bound variables. These extra information
+   help keep trakc of some extra semantics that are useful to
+   implement some optimization in the translation to cmm. *)
+
+type extra_info =
+  | Untag of Cmm.expression
+
+
 (* Delayed let-bindings. Let bindings are delayed in stages in order
    to allow for potential reordering and inlining of variables that are bound
    and used exactly once, (without changing semantics), in order to optimize
@@ -123,6 +131,8 @@ type t = {
 
   vars  : Cmm.expression Variable.Map.t;
   (* Map from flambda2 variables to cmm expressions *)
+  vars_extra : extra_info Variable.Map.t;
+  (* Map from flambda2 variables to extra info *)
   conts : cont Continuation.Map.t;
   (* Map from continuations to handlers (i.e variables bound by the
      continuation and expression of the continuation handler). *)
@@ -143,6 +153,7 @@ let mk offsets k_return k_exn used_closure_vars = {
   stages = [];
   pures = Variable.Map.empty;
   vars = Variable.Map.empty;
+  vars_extra = Variable.Map.empty;
   conts = Continuation.Map.empty;
   exn_conts_extra_args = Continuation.Map.empty;
   names_in_scope = Code_id_or_symbol.Set.empty;
@@ -164,6 +175,7 @@ let enter_function_def env k_return k_exn = {
   stages = [];
   pures = Variable.Map.empty;
   vars = Variable.Map.empty;
+  vars_extra = Variable.Map.empty;
   conts = Continuation.Map.empty;
   exn_conts_extra_args = Continuation.Map.empty;
 }
@@ -220,6 +232,10 @@ let get_variable env v =
   try Variable.Map.find v env.vars
   with Not_found ->
     Misc.fatal_errorf "Variable %a not found in env" Variable.print v
+
+let extra_info env v =
+  try Some (Variable.Map.find v env.vars_extra)
+  with Not_found -> None
 
 
 (* Continuations *)
@@ -318,13 +334,18 @@ let classify effs =
   else
     Pure
 
-let mk_binding env inline effs var cmm_expr =
+let mk_binding ?extra env inline effs var cmm_expr =
   let order = next_order () in
   let cmm_var = gen_variable var in
   let b = { order; inline; effs; cmm_var; cmm_expr; } in
   let v = Backend_var.With_provenance.var cmm_var in
   let e = Un_cps_helper.var v in
   let env = { env with vars = Variable.Map.add var e env.vars; } in
+  let env = match extra with
+    | None -> env
+    | Some info ->
+      { env with vars_extra = Variable.Map.add var info env.vars_extra; }
+  in
   env, b
 
 let bind_pure env var b =
@@ -343,8 +364,8 @@ let bind_coeff env var b =
       let m = Variable.Map.singleton var b in
       { env with stages = Coeff m :: r }
 
-let bind_variable env var effs inline cmm_expr =
-  let env, b = mk_binding env inline effs var cmm_expr in
+let bind_variable env var ?extra effs inline cmm_expr =
+  let env, b = mk_binding ?extra env inline effs var cmm_expr in
   match classify effs with
   | Pure -> bind_pure env var b
   | Effect -> bind_eff env var b
