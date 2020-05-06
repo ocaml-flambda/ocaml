@@ -44,6 +44,7 @@ val return_cont : t -> Continuation.t
 val exn_cont : t -> Continuation.t
 (** Returns the exception continuation of the environment. *)
 
+
 (** {2 Function info *)
 
 type function_info = {
@@ -57,7 +58,15 @@ val add_function_info : t -> Code_id.t -> function_info -> t
 val get_function_info : t -> Code_id.t -> function_info option
 (** Retrieve known information on the given function *)
 
+
 (** {2 Variable bindings} *)
+
+type extra_info =
+  | Untag of Cmm.expression
+  (** The variable is bound to the result of untagging the cmm expression.
+      This alows to have access to the cmm expression before untagging. *)
+(** Extra information abount bound variables. These are not necessary
+    for the translatio, but useful to enable certain optimization. *)
 
 val create_variable : t -> Variable.t -> t * Backend_var.With_provenance.t
 (** Create (and bind) a cmm variable for the given flambda2 variable, and return
@@ -67,12 +76,19 @@ val create_variable : t -> Variable.t -> t * Backend_var.With_provenance.t
 val create_variables : t -> Variable.t list -> t * Backend_var.With_provenance.t list
 (** Same as {!create_variable} but for a list of variables. *)
 
-val bind_variable : t -> Variable.t -> Effects_and_coeffects.t -> bool -> Cmm.expression -> t
+val bind_variable :
+  t -> Variable.t ->
+  ?extra:extra_info ->
+  Effects_and_coeffects.t ->
+  bool -> Cmm.expression -> t
 (** Bind a variable to the given cmm expression, to allow for delaying the let-binding. *)
 
 val get_variable : t -> Variable.t -> Cmm.expression
 (** Get the cmm variable bound to a flambda2 variable.
-    Will fail (i.e. assertion failure) if the variable is not bound. *)
+    Will fail (i.e. assertion failure) if the variable is not bound.
+    Be careful: in general you do *NOT* want to use this function but
+    instead the {inline_variable} function, as it will correctly
+    perform the inlining of used exactly once variables. *)
 
 val inline_variable : t -> Variable.t -> Cmm.expression * t * Effects_and_coeffects.t
 (** Try and inline an flambda2 variable using the delayed let-bindings. *)
@@ -80,6 +96,9 @@ val inline_variable : t -> Variable.t -> Cmm.expression * t * Effects_and_coeffe
 val flush_delayed_lets : t -> (Cmm.expression -> Cmm.expression) * t
 (** Wrap the given cmm expression with all the delayed let bindings accumulated
     in the environment. *)
+
+val extra_info : t -> Variable.t -> extra_info option
+(** Fetch the extra info for a flambda variable (if any). *)
 
 
 (** {2 Continuation bindings} *)
