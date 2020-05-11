@@ -420,7 +420,7 @@ let static_const
        print the ound symbols and static const. *)
     let dummy_body = Expr.create_invalid () in
     let tmp_let_symbol =
-      Let_symbol.create bound_symbols static_const dummy_body
+      Let_symbol.create Syntactic bound_symbols static_const dummy_body
     in
     Format.eprintf
       "\n@[<v 0>%sContext is:%s translating let_symbol to Cmm:@ %a@."
