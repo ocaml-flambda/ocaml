@@ -416,16 +416,18 @@ let static_const
        [data_item] lists and this increases readability of the generated Cmm. *)
     env, R.archive_data r, update_opt
   with Misc.Fatal_error as e ->
-    (* Create a new let_symbol with a dummy body to better
-       print the ound symbols and static const. *)
-    let dummy_body = Expr.create_invalid () in
-    let tmp_let_symbol =
-      Let_symbol.create Syntactic bound_symbols static_const dummy_body
-    in
-    Format.eprintf
-      "\n@[<v 0>%sContext is:%s translating let_symbol to Cmm:@ %a@."
-      (Flambda_colours.error ())
-      (Flambda_colours.normal ())
-      Let_symbol.print tmp_let_symbol;
+    if !Clflags.flambda2_context_on_error then begin
+      (* Create a new let_symbol with a dummy body to better
+         print the ound symbols and static const. *)
+      let dummy_body = Expr.create_invalid () in
+      let tmp_let_symbol =
+        Let_symbol.create Syntactic bound_symbols static_const dummy_body
+      in
+      Format.eprintf
+        "\n@[<v 0>%sContext is:%s translating let_symbol to Cmm:@ %a@."
+        (Flambda_colours.error ())
+        (Flambda_colours.normal ())
+        Let_symbol.print tmp_let_symbol
+    end;
     raise e
 
