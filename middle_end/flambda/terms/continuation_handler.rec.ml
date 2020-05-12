@@ -164,6 +164,11 @@ let pattern_match t ~f =
     ~f:(fun params { handler; num_normal_occurrences_of_params = _; } ->
       f params ~handler)
 
+let pattern_match_for_print t ~f =
+  A.pattern_match_for_print t.abst
+    ~f:(fun params { handler; num_normal_occurrences_of_params = _; } ->
+      f params ~handler)
+
 module Pattern_match_pair_error = struct
   type t = Parameter_lists_have_different_lengths
 
@@ -190,7 +195,7 @@ let print_using_where_with_cache (recursive : Recursive.t) ~cache ppf k
   if not first then begin
     fprintf ppf "@ "
   end;
-  pattern_match t ~f:(fun params ~handler ->
+  pattern_match_for_print t ~f:(fun params ~handler ->
     begin match Expr.descr handler with
     | Apply_cont _ | Invalid _ -> fprintf ppf "@[<hov 1>"
     | _ -> fprintf ppf "@[<v 1>"
