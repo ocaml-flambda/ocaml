@@ -79,6 +79,10 @@ let pattern_match' t ~f =
       in
       f bindable_let_bound ~num_normal_occurrences_of_bound_vars ~body:t0.body)
 
+let pattern_match_for_print t ~f =
+  A.pattern_match_for_print t.name_abstraction
+    ~f:(fun bindable_let_bound t0 -> f bindable_let_bound ~body:t0.body)
+
 module Pattern_match_pair_error = struct
   type t = Mismatched_let_bindings
 
@@ -314,7 +318,7 @@ let print_with_cache ~cache ppf
   let rec let_body (expr : Expr.t) =
     match Expr.descr expr with
     | Let ({ name_abstraction = _; defining_expr; } as t) ->
-      pattern_match t
+      pattern_match_for_print t
         ~f:(fun (bindable_let_bound : Bindable_let_bound.t) ~body ->
           match bindable_let_bound with
           | Singleton _ | Set_of_closures _ ->
@@ -329,7 +333,7 @@ let print_with_cache ~cache ppf
           | Symbols _ -> expr)
     | _ -> expr
   in
-  pattern_match t ~f:(fun (bindable_let_bound : Bindable_let_bound.t) ~body ->
+  pattern_match_for_print t ~f:(fun (bindable_let_bound : Bindable_let_bound.t) ~body ->
     match bindable_let_bound with
     | Symbols _ -> print_let_symbol_with_cache ~cache ppf t
     | Singleton _ | Set_of_closures _ ->

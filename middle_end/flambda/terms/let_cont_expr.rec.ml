@@ -53,7 +53,7 @@ let print_with_cache ~cache ppf t =
       match let_cont with
       | Non_recursive { handler; num_free_occurrences = _;
                         is_applied_with_traps = _; } ->
-        Non_recursive_let_cont_handler.pattern_match handler
+        Non_recursive_let_cont_handler.pattern_match_for_print handler
           ~f:(fun k ~(body : Expr.t) ->
             let let_conts, body =
               match Expr.descr body with
@@ -63,7 +63,7 @@ let print_with_cache ~cache ppf t =
             let handler = Non_recursive_let_cont_handler.handler handler in
             (k, Recursive.Non_recursive, handler) :: let_conts, body)
       | Recursive handlers ->
-        Recursive_let_cont_handlers.pattern_match handlers
+        Recursive_let_cont_handlers.pattern_match_for_print handlers
           ~f:(fun ~(body : Expr.t) handlers ->
             let handlers = Continuation_handlers.to_map handlers in
             let let_conts, body =

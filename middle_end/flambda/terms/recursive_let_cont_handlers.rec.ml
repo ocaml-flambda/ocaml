@@ -83,3 +83,11 @@ let pattern_match_pair t1 t2 ~f =
       let handlers1 = T0.handlers handlers0_1 in
       let handlers2 = T0.handlers handlers0_2 in
       f ~body1 ~body2 handlers1 handlers2)
+
+let pattern_match_for_print t ~f =
+  pattern_match_for_print t ~f:(fun _bound handlers0 ->
+      let body = T0.body handlers0 in
+      let handlers = T0.handlers handlers0 in
+      f ~body handlers)
+
+
