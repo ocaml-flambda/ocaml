@@ -90,6 +90,10 @@ let max_with_zero ~size_int x =
   in
   ret
 
+let array_access_validity_condition array array_kind index =
+  [ H.Binary (Int_comp (Tagged_immediate, Unsigned, Lt), index,
+              Prim (Unary (Array_length array_kind, array))); ]
+
 (* actual (strict) upper bound for an index in a string read/write *)
 let actual_max_length ~size_int ~access_size length =
   match (access_size : Flambda_primitive.string_accessor_width) with
@@ -776,13 +780,8 @@ let convert_lprim ~backend (prim : L.primitive) (args : Simple.t list)
     Checked {
       primitive =
         Binary (Array_load (array_kind, Mutable), array, index);
-      validity_conditions = [
-        Binary (Int_comp (Tagged_immediate, Signed, Ge), index,
-          Simple (Simple.const (Reg_width_const.tagged_immediate
-            (Target_imm.int (Targetint.OCaml.zero)))));
-        Binary (Int_comp (Tagged_immediate, Signed, Lt), index,
-          Prim (Unary (Array_length array_kind, array)));
-      ];
+      validity_conditions =
+        array_access_validity_condition array array_kind index;
       failure = Index_out_of_bounds;
       dbg;
     }
@@ -791,13 +790,8 @@ let convert_lprim ~backend (prim : L.primitive) (args : Simple.t list)
       primitive =
        box_float (
          Binary (Array_load (Naked_floats, Mutable), array, index));
-      validity_conditions = [
-        Binary (Int_comp (Tagged_immediate, Signed, Ge), index,
-          Simple (Simple.const (Reg_width_const.tagged_immediate
-            (Target_imm.int (Targetint.OCaml.zero)))));
-        Binary (Int_comp (Tagged_immediate, Signed, Lt), index,
-          Prim (Unary (Array_length Naked_floats, array)));
-      ];
+      validity_conditions =
+        array_access_validity_condition array Naked_floats index;
       failure = Index_out_of_bounds;
       dbg;
     }
@@ -814,13 +808,8 @@ let convert_lprim ~backend (prim : L.primitive) (args : Simple.t list)
     Checked {
       primitive =
         Ternary (Array_set (array_kind, Assignment), array, index, new_value);
-      validity_conditions = [
-        Binary (Int_comp (Tagged_immediate, Signed, Ge), index,
-          Simple (Simple.const (Reg_width_const.tagged_immediate
-            (Target_imm.int (Targetint.OCaml.zero)))));
-        Binary (Int_comp (Tagged_immediate, Signed, Lt), index,
-          Prim (Unary (Array_length array_kind, array)));
-      ];
+      validity_conditions =
+        array_access_validity_condition array array_kind index;
       failure = Index_out_of_bounds;
       dbg;
     }
@@ -829,13 +818,8 @@ let convert_lprim ~backend (prim : L.primitive) (args : Simple.t list)
       primitive =
         Ternary (Array_set (Naked_floats, Assignment),
           array, index, unbox_float new_value);
-      validity_conditions = [
-        Binary (Int_comp (Tagged_immediate, Signed, Ge), index,
-          Simple (Simple.const (Reg_width_const.tagged_immediate
-            (Target_imm.int (Targetint.OCaml.zero)))));
-        Binary (Int_comp (Tagged_immediate, Signed, Lt), index,
-          Prim (Unary (Array_length Naked_floats, array)));
-      ];
+      validity_conditions =
+        array_access_validity_condition array Naked_floats index;
       failure = Index_out_of_bounds;
       dbg;
     }
