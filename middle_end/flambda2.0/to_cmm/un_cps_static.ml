@@ -318,7 +318,7 @@ let static_const0 env r ~params_and_body (bound_symbols : Bound_symbols.t)
         List.fold_left update_env_for_set_of_closure env definitions
       in
       let r =
-        List.fold_left (add_functions env ~params_and_body) r definitions
+        List.fold_left (add_functions updated_env ~params_and_body) r definitions
       in
       let r, updates, env =
         List.fold_left2 preallocate_set_of_closures
