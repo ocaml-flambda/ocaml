@@ -421,3 +421,7 @@ end
 include Identifiable.S with type t := t
 
 val equal : t -> t -> bool
+val equal_unary_primitive : unary_primitive -> unary_primitive -> bool
+val equal_binary_primitive : binary_primitive -> binary_primitive -> bool
+val equal_ternary_primitive : ternary_primitive -> ternary_primitive -> bool
+val equal_variadic_primitive : variadic_primitive -> variadic_primitive -> bool

@@ -43,13 +43,31 @@ parseflambda_PROG=$(parseflambda_MAIN)$(EXE)
 parseflambda_DIRS=\
   asmcomp \
   parsing \
+  typing \
   utils \
+  middle_end/flambda2.0/compilenv_deps \
   middle_end/flambda2.0/terms \
   middle_end/flambda2.0/parser \
   middle_end/flambda2.0/simplify
 parseflambda_OCAMLFLAGS = $(addprefix -I $(TOPDIR)/, $(parseflambda_DIRS))
 
 parseflambda_LIBS = $(addprefix $(COMPILERLIBSDIR)/,\
+  ocamlcommon ocamloptcomp)
+
+fldiff_MAIN=fldiff
+fldiff_PROG=$(fldiff_MAIN)$(EXE)
+fldiff_DIRS=\
+  asmcomp \
+  parsing \
+  typing \
+  utils \
+  middle_end/flambda2.0/compilenv_deps \
+  middle_end/flambda2.0/terms \
+  middle_end/flambda2.0/parser \
+  middle_end/flambda2.0/compare
+fldiff_OCAMLFLAGS = $(addprefix -I $(TOPDIR)/, $(fldiff_DIRS))
+
+fldiff_LIBS = $(addprefix $(COMPILERLIBSDIR)/,\
   ocamlcommon ocamloptcomp)
 
 tools := $(expect_PROG)
@@ -74,6 +92,8 @@ $(codegen_PROG): COMPFLAGS = $(codegen_OCAMLFLAGS)
 
 $(parseflambda_PROG): COMPFLAGS = $(parseflambda_OCAMLFLAGS)
 
+$(fldiff_PROG): COMPFLAGS = $(fldiff_OCAMLFLAGS)
+
 codegen_main.cmo: parsecmm.cmo
 
 $(codegen_PROG): $(codegen_OBJECTS)
@@ -81,6 +101,9 @@ $(codegen_PROG): $(codegen_OBJECTS)
 
 $(parseflambda_PROG): $(parseflambda_MAIN).cmo
 	$(OCAMLC) -o $@ $(parseflambda_LIBS:=.cma) $^
+
+$(fldiff_PROG): $(fldiff_MAIN).cmo
+	$(OCAMLC) -o $@ $(fldiff_LIBS:=.cma) $^
 
 parsecmm.mli parsecmm.ml: parsecmm.mly
 	$(OCAMLYACC) -q parsecmm.mly
