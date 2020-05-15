@@ -1109,24 +1109,21 @@ and apply_cont_trap_actions env e =
       [Cmm.Push cont]
 
 and switch env s =
-  (* Regular preparation of switches:
-     - translate the scrutinee
-     - generate the sequence of the arms *)
   let scrutinee = Switch.scrutinee s in
   let e, env, _ = simple env scrutinee in
   let arms = Switch.arms s in
-  (* For binary switches, which can be translated to if-then-elses,
+  (* For binary switches, which can be translated to an if-then-else,
      it can be interesting to *not* untag the scrutinee (particularly
-     for those coming from source if-then-elses on booleans) as that way
+     for those coming from a source if-then-else on booleans) as that way
      the translation can use 2 instructions instead of 3.
      However, this is only useful to do if the tagged expression is
      smaller then the untagged one (which is not always true due to
      arithmetic simplifications performed by cmm_helpers).
      Additionally for switches with more than 2 arms, not untagging
      and lifting the switch to perform on tagged integer might be worse
-     (because the discrimant of the arms may not be successive anymore,
+     (because the discriminant of the arms may not be successive anymore,
      thus preventing the use of a table), or simply not worth it
-     given the already high number of isntructions needed for big
+     given the already high number of instructions needed for big
      switches (but that might be up-to-debate on small switches with
      3-5 arms). *)
   let scrutinee, tag_discriminant =
@@ -1154,7 +1151,7 @@ and match_var_with_extra_info env simple : Env.extra_info option =
 
 (* Small function to estimate the number of arithmetic instructions
    in a cmm expression. This is currently used to determine whether
-   untagging an expression resulted in a smaller expresison or not
+   untagging an expression resulted in a smaller expression or not
    (as can happen because of some arithmetic simplifications performed
    by cmm_helpers.ml) *)
 and cmm_arith_size e =
@@ -1178,7 +1175,10 @@ and make_arm ~tag_discriminant env (d, action) =
   let cmm_action = apply_cont env action in
   d, cmm_action
 
-(* Create a switch given the env, the scrutinee and its arms. *)
+(* Create a switch given the env, the scrutinee and its arms,
+   plus some optimization/simplification option, for now:
+   - whether to tag the discriminant of the arms (this suppose
+     that the scrutinee is adequately tagged/untagged) *)
 and make_switch ~tag_discriminant env e arms =
   let wrap, env = Env.flush_delayed_lets env in
   match Target_imm.Map.cardinal arms with
@@ -1192,7 +1192,7 @@ and make_switch ~tag_discriminant env e arms =
     (* These switchs are actually if-then-elses.
        On such switches, transl_switch_clambda will introduce a let-binding
        to the scrutinee before creating an if-then-else, introducing an
-       indirection that might prevent some optimizations. performed by
+       indirection that might prevent some optimizations performed by
        selectgen/emit when the condition is inlined in the if-then-else. *)
     | (0, else_), (_, then_)
     | (_, then_), (0, else_)

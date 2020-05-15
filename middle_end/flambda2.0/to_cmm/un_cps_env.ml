@@ -24,7 +24,7 @@ type cont =
                 handler_body: Flambda.Expr.t; }
 
 (* Extra information about bound variables. These extra information
-   help keep trakc of some extra semantics that are useful to
+   help keep track of some extra semantics that are useful to
    implement some optimization in the translation to cmm. *)
 
 type extra_info =
@@ -117,7 +117,7 @@ type t = {
 
   (* Local information.
 
-     Thses are relative to the flambda2 expression being currently
+     These are relative to the flambda2 expression being currently
      translated, i.e. either the unit initialization code, or the
      body of a function.
      Thus they are reset when entering a new function. *)
@@ -320,7 +320,7 @@ let print_binding_list fmt l =
 *)
 
 
-(* Variable binding (for potential inlinging) *)
+(* Variable binding (for potential inlining) *)
 
 let next_order =
   let r = ref 0 in

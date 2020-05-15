@@ -64,9 +64,9 @@ val get_function_info : t -> Code_id.t -> function_info option
 type extra_info =
   | Untag of Cmm.expression
   (** The variable is bound to the result of untagging the cmm expression.
-      This alows to have access to the cmm expression before untagging. *)
-(** Extra information abount bound variables. These are not necessary
-    for the translatio, but useful to enable certain optimization. *)
+      This allows to have access to the cmm expression before untagging. *)
+(** Extra information about bound variables. These are not necessary
+    for the translation, but useful to enable certain optimization. *)
 
 val create_variable : t -> Variable.t -> t * Backend_var.With_provenance.t
 (** Create (and bind) a cmm variable for the given flambda2 variable, and return
