@@ -43,6 +43,7 @@ end
 (* Shortcuts for useful cmm machtypes *)
 let typ_int = Cmm.typ_int
 let typ_val = Cmm.typ_val
+let typ_addr = Cmm.typ_addr
 let typ_float = Cmm.typ_float
 let typ_int64 = C.typ_int64
 
@@ -551,6 +552,11 @@ let machtype_of_kinded_parameter p =
   machtype_of_kind (Kinded_parameter.kind p)
 
 let machtype_of_return_arity = function
+  (* Functions that never return have arity 0. In that case, we
+     use the most restrictive machtype to ensure that the return
+     value of the function is not used. *)
+  | [] -> typ_addr
+  (* Regular functions with a single return value *)
   | [k] -> machtype_of_kind k
   | _ -> (* TODO: update when unboxed tuples are used *)
     Misc.fatal_errorf
@@ -564,11 +570,16 @@ let meth_kind k =
 
 let wrap_extcall_result (l : Flambda_kind.t list) =
   match l with
+  (* Int32 need to be sign_extended because it's not clear whether C
+     code that returns an int32 returns one that is sign extended or not *)
   | [Naked_number Naked_int32] -> C.sign_extend_32
-  | [_] -> (fun _dbg cmm -> cmm)
+  (* No need to wrap other return arities.
+     Note that extcall of arity 0 are allowed (these are extcalls that
+     never return, such as caml_ml_array_bound_error) *)
+  | [] | [_] -> (fun _dbg cmm -> cmm)
   | _ -> (* TODO: update when unboxed tuples are used *)
     Misc.fatal_errorf
-      "Functions are currently limited to a single return value"
+      "C functions are currently limited to a single return value"
 
 (* Closure variables *)
 
@@ -952,11 +963,13 @@ and wrap_call_exn env e call k_exn =
 
 (* Wrap a function call to honour its continuation *)
 and wrap_cont env res effs call e =
-  let k = Apply_expr.continuation e in
-  if Continuation.equal (Env.return_cont env) k then
+  match Apply_expr.continuation e with
+  | Never_returns ->
     call, res
-  else begin
-    match Env.get_k env k with
+  | Return k when Continuation.equal (Env.return_cont env) k ->
+    call, res
+  | Return k ->
+    begin match Env.get_k env k with
     | Jump { types = []; cont; } ->
       let wrap, _ = Env.flush_delayed_lets env in
       wrap (C.sequence call (C.cexit cont [] [])), res
@@ -978,7 +991,7 @@ and wrap_cont env res effs call e =
         "Continuation %a should not handle multiple return values in@\n%a@\n%s"
         Continuation.print k Apply_expr.print e
         "Multi-arguments continuation across function calls are not yet supported"
-  end
+    end
 
 and apply_cont env res e =
   let k = Apply_cont_expr.continuation e in
