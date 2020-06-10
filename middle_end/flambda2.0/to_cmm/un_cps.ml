@@ -43,7 +43,10 @@ end
 (* Type for the result of translating a set of closures *)
 type set_of_closure_result = {
   cmm : Cmm.expression;
-  (* The cmm expression whose return value is the set of closure. *)
+  (* The cmm expression whose return value is the set of closure. This can
+     be either the allocation of the set of closure, or can be a
+     symbol in some cases where un_cps can lift the set of closures to be
+     allocated statically. *)
   env : Env.t;
   (* The env that result from the translation of the closure *)
   effs : Ece.t;
@@ -51,6 +54,13 @@ type set_of_closure_result = {
   res : R.t;
   (* The static result (i.e. statically allocated constants, etc..) after
      translating the closure. *)
+  get_closure :
+    Env.t -> Cmm.expression -> Closure_id.t -> Cmm.expression * Ece.t
+  (* A function to get a cmm expression to access a closure id from a set of
+     closure. This can vary depending on whether the set is allocated at
+     runtime (in which case a projection of the set is used), or the
+     set is statically allocated at compile-time, in which case symbols
+     can be used to refer to specific closures inside the set. *)
 }
 
 
@@ -75,6 +85,23 @@ let int_of_targetint t =
   if not (Targetint.equal t t') then
     Misc.fatal_errorf "Cannot translate targetint to caml int";
   i
+
+
+(* Generate new symbols *)
+
+let gen_symbol base =
+  let lifted_set_count = ref 0 in
+  (fun () ->
+     incr lifted_set_count;
+     let comp_unit = Compilation_unit.get_current_exn () in
+     let linkage_name =
+       Linkage_name.create @@
+       Printf.sprintf "%s_%d" base !lifted_set_count
+     in
+     Symbol.create comp_unit linkage_name)
+
+let new_lifted_closure_symb = gen_symbol "closure"
+let new_lifted_set_of_clos_symb = gen_symbol "set_of_closures"
 
 
 (* Name expressions *)
@@ -677,7 +704,7 @@ and named env res n =
     let t, env, effs = simple env s in
     t, None, env, effs, res
   | Set_of_closures s ->
-    let { cmm; env; effs; res; } = set_of_closures env res s in
+    let { cmm; env; effs; res; _ } = set_of_closures env res s in
     cmm, None, env, effs, res
   | Prim (p, dbg) ->
     let prim_eff = Flambda_primitive.effects_and_coeffects p in
@@ -732,7 +759,9 @@ and let_symbol env res let_sym =
 
 and let_set_of_closures env res body closure_vars soc =
   (* First translate the set of closures, and bind it in the env *)
-  let { cmm = csoc; env; effs; res; } = set_of_closures env res soc in
+  let { cmm = csoc; env; effs; res; get_closure } =
+    set_of_closures env res soc
+  in
   let soc_var = Variable.create "*set_of_closures*" in
   (* CR gbury: allow inlining of the variable when possible *)
   let env = Env.bind_variable env soc_var effs false csoc in
@@ -741,19 +770,11 @@ and let_set_of_closures env res body closure_vars soc =
   let soc_cmm_var, env, peff = Env.inline_variable env soc_var in
   assert (Ece.is_pure peff);
   (* Add env bindings for all the closure variables. *)
-  let effs = Effects_and_coeffects.read in
   let env =
     Closure_id.Map.fold (fun cid v acc ->
       let v = Var_in_binding_pos.var v in
-      match Env.closure_offset env cid with
-      | Some { offset; _ } ->
-        let e =
-          C.infix_field_address ~dbg: Debuginfo.none
-            soc_cmm_var offset
-        in
-        let_expr_bind body acc v e effs
-      | None ->
-        Misc.fatal_errorf "No closure offset for %a" Closure_id.print cid
+      let e, effs = get_closure env soc_cmm_var cid in
+      let_expr_bind body acc v e effs
     ) closure_vars env in
   (* The set of closures, as well as the individual closures variables
      are correctly set in the env, go on translating the body. *)
@@ -1248,12 +1269,62 @@ and set_of_closures env res s =
   let fun_decls = Set_of_closures.function_decls s in
   let decls = Function_declarations.funs fun_decls in
   let elts = filter_closure_vars env (Set_of_closures.closure_elements s) in
+  if Var_within_closure.Map.is_empty elts then
+    static_set_of_closures env res s decls
+  else
+    dynamic_set_of_closures env res s decls elts
+
+
+(* Sets of closures with no environment can be turned into statically
+   allocated symbols, rather than have to allocate them each time *)
+and static_set_of_closures env res s decls =
+  (* Generate symbols for the set of closures, and each of the closures *)
+  let set_of_clos_symb = new_lifted_set_of_clos_symb () in
+  let closure_symbols = Closure_id.Map.map (fun _decl ->
+    new_lifted_closure_symb ()
+  ) decls in
+  (* Statically allocate the set of closures, and define a symbol for it *)
+  let env, static_data, updates =
+    Un_cps_static.static_set_of_closures env closure_symbols s None
+  in
+  let static_data =
+    C.define_symbol ~global:false (symbol set_of_clos_symb) @ static_data
+  in
+  (* As there is no env vars for the set of closures, there must be no updates *)
+  assert (updates = None);
+  (* update the result ref with the new static data *)
+  let res = R.archive_data (R.set_data res static_data) in
+  (* Since we statically allocate things, there should be no effects *)
+  let effs = Ece.pure in
+  (* All done, return *)
+  { env; effs; res;
+    cmm = C.symbol (symbol set_of_clos_symb);
+    get_closure = get_closure_by_symbol closure_symbols; }
+
+(* Getting a closure by its symbol is not even a read, given that such
+   closures are statically pre-allocated *)
+and get_closure_by_symbol map _env _set_cmm cid =
+  C.symbol (symbol (Closure_id.Map.find cid map)), Ece.pure
+
+
+(* Sets of closures with a non-empty environment are allocated *)
+and dynamic_set_of_closures env res _s decls elts =
   let layout = Env.layout env
                  (List.map fst (Closure_id.Map.bindings decls))
                  (List.map fst (Var_within_closure.Map.bindings elts))
   in
   let l, env, effs = fill_layout decls elts env Ece.pure [] 0 layout in
-  { cmm = C.make_closure_block l; env; effs; res; }
+  { env; effs; res;
+    cmm = C.make_closure_block l;
+    get_closure = get_closure_by_offset; }
+
+and get_closure_by_offset env set_cmm cid =
+  match Env.closure_offset env cid with
+  | Some { offset; _ } ->
+    let effs = Effects_and_coeffects.read in
+    C.infix_field_address ~dbg: Debuginfo.none set_cmm offset, effs
+  | None ->
+    Misc.fatal_errorf "No closure offset for %a" Closure_id.print cid
 
 and fill_layout decls elts env effs acc i = function
   | [] -> List.rev acc, env, effs
