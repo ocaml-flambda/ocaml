@@ -100,8 +100,10 @@ let gen_symbol base =
      in
      Symbol.create comp_unit linkage_name)
 
-let new_lifted_closure_symb = gen_symbol "closure"
-let new_lifted_set_of_clos_symb = gen_symbol "set_of_closures"
+(* CR gbury: how can we make sure these symbols do not conflict
+   with other potential symbols ? *)
+let new_lifted_closure_symb = gen_symbol "_closure"
+let new_lifted_set_of_clos_symb = gen_symbol "_set_of_closures"
 
 
 (* Name expressions *)
