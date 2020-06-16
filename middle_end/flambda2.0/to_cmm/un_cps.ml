@@ -41,7 +41,7 @@ module C = struct
 end
 
 (* Type for the result of translating a set of closures *)
-type closure_result = {
+type set_of_closure_result = {
   cmm : Cmm.expression;
   (* The code whose return value is the set of closure. *)
   env : Env.t;
