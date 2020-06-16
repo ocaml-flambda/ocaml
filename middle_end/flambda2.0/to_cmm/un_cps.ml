@@ -47,7 +47,7 @@ type set_of_closure_result = {
   env : Env.t;
   (* The env that result from the translation of the closure *)
   effs : Ece.t;
-  (* The effects produced by executing the code in {cmm}. *)
+  (* The effects produced by evaluating the {cmm} expression. *)
   res : R.t;
   (* The static result (i.e. statically allocated constants, etc..) after
      translating the closure. *)
