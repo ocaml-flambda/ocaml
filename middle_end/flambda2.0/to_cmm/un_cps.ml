@@ -43,7 +43,7 @@ end
 (* Type for the result of translating a set of closures *)
 type set_of_closure_result = {
   cmm : Cmm.expression;
-  (* The code whose return value is the set of closure. *)
+  (* The cmm expression whose return value is the set of closure. *)
   env : Env.t;
   (* The env that result from the translation of the closure *)
   effs : Ece.t;
