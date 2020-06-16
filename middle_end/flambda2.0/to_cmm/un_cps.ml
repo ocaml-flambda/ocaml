@@ -706,7 +706,7 @@ and named env res n =
     let t, env, effs = simple env s in
     t, None, env, effs, res
   | Set_of_closures s ->
-    let { cmm; env; effs; res; _ } = set_of_closures env res s in
+    let { cmm; env; effs; res; get_closure = _ } = set_of_closures env res s in
     cmm, None, env, effs, res
   | Prim (p, dbg) ->
     let prim_eff = Flambda_primitive.effects_and_coeffects p in
