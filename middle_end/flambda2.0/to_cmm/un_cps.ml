@@ -40,6 +40,20 @@ module C = struct
   include Un_cps_helper
 end
 
+(* Type for the result of translating a set of closures *)
+type closure_result = {
+  cmm : Cmm.expression;
+  (* The code whose return value is the set of closure. *)
+  env : Env.t;
+  (* The env that result from the translation of the closure *)
+  effs : Ece.t;
+  (* The effects produced by executing the code in {code}. *)
+  res : R.t;
+  (* The static result (i.e. statically allocated constants, etc..) after
+     translating the closure. *)
+}
+
+
 (* Shortcuts for useful cmm machtypes *)
 let typ_int = Cmm.typ_int
 let typ_val = Cmm.typ_val
@@ -663,8 +677,8 @@ and named env res n =
     let t, env, effs = simple env s in
     t, None, env, effs, res
   | Set_of_closures s ->
-    let t, env, effs, res = set_of_closures env res s in
-    t, None, env, effs, res
+    let { cmm; env; effs; res; } = set_of_closures env res s in
+    cmm, None, env, effs, res
   | Prim (p, dbg) ->
     let prim_eff = Flambda_primitive.effects_and_coeffects p in
     let t, extra, env, effs = prim env dbg p in
@@ -718,7 +732,7 @@ and let_symbol env res let_sym =
 
 and let_set_of_closures env res body closure_vars soc =
   (* First translate the set of closures, and bind it in the env *)
-  let csoc, env, effs, res = set_of_closures env res soc in
+  let { cmm = csoc; env; effs; res; } = set_of_closures env res soc in
   let soc_var = Variable.create "*set_of_closures*" in
   (* CR gbury: allow inlining of the variable when possible *)
   let env = Env.bind_variable env soc_var effs false csoc in
@@ -1239,7 +1253,7 @@ and set_of_closures env res s =
                  (List.map fst (Var_within_closure.Map.bindings elts))
   in
   let l, env, effs = fill_layout decls elts env Ece.pure [] 0 layout in
-  C.make_closure_block l, env, effs, res
+  { cmm = C.make_closure_block l; env; effs; res; }
 
 and fill_layout decls elts env effs acc i = function
   | [] -> List.rev acc, env, effs
