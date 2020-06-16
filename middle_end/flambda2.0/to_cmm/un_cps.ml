@@ -1232,14 +1232,15 @@ and let_static_set_of_closures env res body closure_vars s =
   end;
   (* update the result with the new static data *)
   let res = R.archive_data (R.set_data res static_data) in
-  (* Bind the variables to the symbols for closure ids,
-     and specify to inline them, since it is better *)
+  (* Bind the variables to the symbols for closure ids.
+     CR gbury: inline the variables (require to extend un_cps_enc to
+     inline pure variables more than once). *)
   let env =
     Closure_id.Map.fold (fun cid v acc ->
       let v = Var_in_binding_pos.var v in
       let sym = symbol (Closure_id.Map.find cid closure_symbols) in
       let sym_cmm = C.symbol sym in
-      Env.bind_variable acc v Ece.pure true sym_cmm
+      Env.bind_variable acc v Ece.pure false sym_cmm
     ) closure_vars env
   in
   (* go on in the body *)
