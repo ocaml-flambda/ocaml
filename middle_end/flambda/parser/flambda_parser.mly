@@ -61,17 +61,22 @@ let make_segment
 /* Tokens */
 
 %token AND   [@symbol "and"]
+%token ANDWHERE [@symbol "andwhere"]
 %token AT    [@symbol "@"]
 %token APPLY [@symbol "apply"]
 %token BLOCK [@symbol "Block"]
 %token CCALL  [@symbol "ccall"]
 %token CLOSURE  [@symbol "closure"]
 %token CODE  [@symbol "code"]
+%token COMMA [@symbol "comma"]
 %token COLON  [@symbol ":"]
 %token CONT  [@symbol "cont"]
+%token DIRECT [@symbol "direct"]
+%token DONE  [@symbol "done"]
 %token DOT   [@symbol "."]
 %token END   [@symbol "end"]
 %token EQUAL [@symbol "="]
+%token ERROR [@symbol "error"]
 %token EXN   [@symbol "exn"]
 %token FABRICATED [@symbol "fabricated"]
 %token <string * char option> FLOAT
@@ -84,9 +89,7 @@ let make_segment
 %token <string * char option> INT
 %token LANGLE [@symbol "<"]
 %token LBRACE [@symbol "{"]
-%token LBRACKET [@symbol "["]
 %token LET    [@symbol "let"]
-%token LETK   [@symbol "letk"]
 %token <string> LIDENT
 %token LPAREN [@symbol "("]
 %token MINUS    [@symbol "-"]
@@ -94,13 +97,14 @@ let make_segment
 %token MINUSGREATER [@symbol "->"]
 %token NATIVEINT [@symbol "nativeint"]
 %token NEWER_VERSION_OF [@symbol "newer_version_of"]
+%token NOALLOC [@symbol "noalloc"]
 %token OPAQUE [@symbol "opaque_identity"]
+%token PIPE [@symbol "|"]
 %token PLUS     [@symbol "+"]
 %token PLUSDOT  [@symbol "+."]
 %token PROJECT_VAR [@symbol "project_var"]
 %token RANGLE [@symbol ">"]
 %token RBRACE [@symbol "}"]
-%token RBRACKET [@symbol "]"]
 %token REC    [@symbol "rec"]
 %token RPAREN [@symbol ")"]
 %token SEMICOLON [@symbol ";"]
@@ -111,8 +115,10 @@ let make_segment
 %token SYMBOL [@symbol "symbol"]
 %token <string> UIDENT
 %token UNDERSCORE [@symbol "_"]
+%token UNIT   [@symbol "unit"]
 %token UNREACHABLE [@symbol "Unreachable"]
 %token VAL    [@symbol "val"]
+%token WHERE  [@symbol "where"]
 %token WITH   [@symbol "with"]
 %token EOF
 
@@ -126,21 +132,25 @@ let make_segment
 %type <Fexpr.of_kind_value> of_kind_value
 %%
 
-/* CR lwhite: Probably easier to just use some default names for these continuations */
+(* XCR lwhite: Probably easier to just use some default names for these
+   continuations
+   
+   lmaurer: Makes sense. I went with "done" and "error" for the names. *)
 flambda_unit:
-  | return_cont = continuation
-    exception_cont = option(exn_continuation)
-    body = expr
+  | body = expr
     EOF
-    { { return_cont; exception_cont; body } }
+    { { body } }
 ;
 
 exn_continuation:
   | STAR cont = continuation { cont }
+
+exn_continuation_id:
+  | STAR cont = continuation_id { cont }
 ;
 
-let_symbol:
-  | LET; bindings = symbol_bindings; IN; body = expr; { { bindings; body } }
+let_symbol(body):
+  | LET; bindings = symbol_bindings; IN; body = body; { { bindings; body } }
 ;
 
 symbol_bindings:
@@ -177,8 +187,8 @@ code_binding:
     params = kinded_args;
     closure_var = variable;
     vars_within_closures = kinded_vars_within_closures;
-    MINUSGREATER; ret_cont = continuation;
-    exn_cont = option(exn_continuation);
+    MINUSGREATER; ret_cont = continuation_id;
+    exn_cont = option(exn_continuation_id);
     ret_arity = return_arity;
     EQUAL; expr = expr;
     { { id; closure_id; newer_version_of; params; closure_var;
@@ -224,9 +234,7 @@ switch_case:
 ;
 
 switch:
-  | option(SEMICOLON) { [] }
-  | c = switch_case { [c] }
-  | h = switch_case SEMICOLON t = switch { h :: t }
+  | option(PIPE); cs = separated_list(PIPE, switch_case) { cs }
 ;
 kind:
   | VAL { Value }
@@ -238,7 +246,7 @@ kind:
   | FABRICATED { Fabricated }
 ;
 kinds:
-  | LPAREN RPAREN { [] }
+  | UNIT { [] }
   | ks = separated_nonempty_list(STAR, kind) { ks }
 ;
 return_arity:
@@ -246,51 +254,57 @@ return_arity:
   | COLON k = kinds { Some k }
 ;
 
+/* expr is staged so that let and where play nicely together. In particular, in
+   let ... in ... where, we want the where to be on the inside so that the
+   continuation can refer to the let-bound variables (and the defining
+   expressions can't refer to continuations anyway); and in where ... where, we
+   want both wheres to be at the same level (as it's easier to use parens to
+   force them to nest than it is force them to un-nest). The straightforward way
+   to achieve this is to have an expression be a let expression or an inner
+   expression, and to have where be an inner expression. Then we say that the
+   body of a continuation can have let but can't have where (without
+   parentheses, that is). Unfortunately, it's hard to say "a let whose body is
+   not a where" in a grammar, but we can get close by parameterizing let_expr by
+   what nonterminal its body should be. */
+
 expr:
+  | l = let_expr(expr) { l }
+  | i = inner_expr { i }
+;
+
+let_expr(body):
+  | LET l = let_(body) { Let l }
+  | ls = let_symbol(body) { Let_symbol ls }
+;
+
+inner_expr:
+  | w = where_expr { w }
+  | a = atomic_expr { a }
+;
+
+where_expr:
+  | body = inner_expr; WHERE; recursive = recursive;
+    handlers = separated_list(ANDWHERE, continuation_handler)
+     { Let_cont { recursive; body; handlers } }
+;
+
+continuation_body:
+  | l = let_expr(continuation_body) { l }
+  | a = atomic_expr { a }
+;
+
+atomic_expr:
   | HCF { Invalid Halt_and_catch_fire }
   | UNREACHABLE { Invalid Treat_as_unreachable }
   | CONT c = continuation s = simple_args { Apply_cont (c, None, s) }
-  | SWITCH scrutinee = simple LBRACE cases = switch RBRACE
-    { Switch {scrutinee; cases} }
-  | LET l = let_ { Let l }
-/* CR lwhite: I'd rather make people write [let _ = named in ...] than allow [named;...] */
-  | defining_expr = named SEMICOLON body = expr
-      { Let { bindings = [ { var = None; kind = None; defining_expr; } ];
-              closure_elements = None;
-              body } }
-/* CR lwhite: I think a "where" syntax would be better for continuations */
-  | LETK recursive = recursive handler = continuation_handler t = andk IN body = expr
-     { let handlers = handler :: t in
-       Let_cont { recursive; body; handlers } }
-  | ls = let_symbol; { Let_symbol ls }
-  | CCALL LBRACKET func = csymbol RBRACKET args = simple_args ra = return_arity
-    MINUSGREATER r = continuation e = exn_continuation
-     { Apply {
-          func = Symbol func;
-          continuation = r;
-          exn_continuation = e;
-          args = args;
-          call_kind = C_call {
-              alloc = true; (* TODO noalloc *)
-              (* param_arity =; *)
-              return_arity = ra;
-            };
-       }}
-/*  CR lwhite: It would be good to have a syntax for direct calls as well */
-  | APPLY func = name args = simple_args MINUSGREATER
-    r = continuation e = exn_continuation
-     { Apply {
-          func;
-          continuation = r;
-          exn_continuation = e;
-          args = args;
-          call_kind = Function Indirect_unknown_arity;
-       }}
+  | SWITCH; scrutinee = simple; cases = switch { Switch {scrutinee; cases} }
+  | APPLY e = apply_expr { Apply e }
+  | LPAREN; e = expr; RPAREN { e }
 ;
 
-let_:
+let_(body):
   | bindings = separated_nonempty_list(AND, let_binding);
-/*  CR lwhite: I think this closure elements stuff is a bit of a hangover from
+(*  CR lwhite: I think this closure elements stuff is a bit of a hangover from
     when closures definitions contained the code as well. I imagine the closures
     used to look like:
 
@@ -305,9 +319,13 @@ let_:
 
       let (f', g') = closure({f, g}, {i = j; ...}) in
       ...
- */
+
+    lmaurer: Let_symbol_expr.t still allows code and closure definitions to be
+    mutually recursive, though, so we need some syntax that bundles them
+    together. Also, several closures can share the same closure elements.
+ *)
     closure_elements = with_closure_elements_opt;
-    IN body = expr;
+    IN body = body;
     { { bindings; closure_elements; body } }
 ;
 
@@ -332,6 +350,28 @@ closure:
   | CLOSURE; code_id = code_id; { code_id }
 ;
 
+apply_expr:
+  | call_kind = call_kind func = func_name_with_optional_arities 
+    args = simple_args MINUSGREATER
+    r = continuation e = exn_continuation
+     { let (func, arities) = func in {
+          func;
+          continuation = r;
+          exn_continuation = e;
+          args = args;
+          call_kind;
+          arities;
+     } }
+;
+
+call_kind:
+  | { Function Indirect }
+  | DIRECT; LPAREN; AT; code_id = code_id; RPAREN
+    { Function (Direct { code_id }) }
+  | CCALL; noalloc = boption(NOALLOC)
+    { C_call { alloc = not noalloc } }
+;
+
 exn_and_stub:
   | { false, false }
   | STUB { false, true }
@@ -341,22 +381,19 @@ exn_and_stub:
 ;
 
 continuation_handler:
-  | exn_and_stub = exn_and_stub name = continuation
-    params = kinded_args LBRACE handler = expr RBRACE
+  | exn_and_stub = exn_and_stub; name = continuation_id;
+    params = kinded_args; EQUAL; handler = continuation_body
     { let is_exn_handler, stub = exn_and_stub in
       { name; params; stub; is_exn_handler; handler } }
 ;
 
-andk:
-  | AND h = continuation_handler t = andk { h :: t }
-  | { [] }
-
 kinded_args:
-  | LPAREN v = kinded_variable* RPAREN { v }
+  | LPAREN v = separated_nonempty_list(COMMA, kinded_variable) RPAREN { v }
   | { [] }
 
 kinded_vars_within_closures:
-  | LANGLE v = kinded_var_within_closure* RANGLE { v }
+    | LANGLE; v = separated_nonempty_list(COMMA, kinded_var_within_closure);
+      RANGLE { v }
   | { [] }
 
 static_structure:
@@ -365,7 +402,8 @@ static_structure:
 ;
 
 static_part:
-  | BLOCK; tag = tag; LPAREN; elements = of_kind_value*; RPAREN
+  | BLOCK; tag = tag; LPAREN;
+    elements = separated_nonempty_list(COMMA, of_kind_value); RPAREN
     { (Block { tag; mutability = Immutable; elements } : static_part) }
 ;
 
@@ -399,7 +437,7 @@ kinded_var_within_closure:
 
 simple_args:
   | { [] }
-  | LPAREN s = simple* RPAREN { s }
+  | LPAREN s = separated_nonempty_list(COMMA, simple) RPAREN { s }
 ;
 
 const:
@@ -411,6 +449,12 @@ name:
   | s = symbol { (Symbol s:name) }
   | v = variable { (Var v:name) }
 ;
+
+func_name_with_optional_arities:
+  | n = name { n, None }
+  | LPAREN; n = name; COLON; params_arity = kinds; MINUSGREATER;
+    ret_arity = kinds; RPAREN
+    { n, Some ({ params_arity; ret_arity } : function_arities) }
 
 simple:
   | s = symbol { Symbol s }
@@ -430,10 +474,6 @@ symbol:
   | e = UIDENT { make_located e ($startpos, $endpos) }
 ;
 
-csymbol:
-  | s = LIDENT { make_located s ($startpos, $endpos) }
-;
-
 variable:
   | e = LIDENT { make_located e ($startpos, $endpos) }
 ;
@@ -443,8 +483,18 @@ variable_opt:
   | e = LIDENT { Some (make_located e ($startpos, $endpos)) }
 ;
 
-continuation:
+continuation_id :
   | e = LIDENT { make_located e ($startpos, $endpos) }
+;
+
+continuation:
+  | e = continuation_id { Named e }
+  | s = special_continuation { Special s }
+;
+
+special_continuation:
+  | DONE { Done : special_continuation }
+  | ERROR { Error : special_continuation }
 ;
 
 var_within_closure:

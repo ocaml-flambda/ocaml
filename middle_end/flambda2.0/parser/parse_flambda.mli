@@ -6,8 +6,10 @@ val parse_fexpr
    : string
   -> (Fexpr.flambda_unit, error) result
 
+val make_compilation_unit
+   : string
+  -> Compilation_unit.t
+
 val parse
-   : (* backend:(module Flambda2_backend_intf.S)
-  -> *)
-     string
+   : string
   -> (Flambda_unit.t, error) result

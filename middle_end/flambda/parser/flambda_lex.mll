@@ -40,12 +40,16 @@ let create_hashtable init =
 let keyword_table =
   create_hashtable [
     "and", AND;
+    "andwhere", ANDWHERE;
     "apply", APPLY;
     "ccall", CCALL;
     "closure", CLOSURE;
     "code", CODE;
     "cont", CONT;
+    "direct", DIRECT;
+    "done", DONE;
     "end", END;
+    "error", ERROR;
     "exn", EXN;
     "fabricated", FABRICATED;
     "float", FLOAT_KIND;
@@ -54,16 +58,18 @@ let keyword_table =
     "int32", INT32;
     "int64", INT64;
     "let", LET;
-    "letk", LETK;
     "nativeint", NATIVEINT;
     "newer_version_of", NEWER_VERSION_OF;
+    "noalloc", NOALLOC;
     "project_var", PROJECT_VAR;
     "rec", REC;
     "segment", SEGMENT;
     "stub", STUB;
     "switch", SWITCH;
     "symbol", SYMBOL;
+    "unit", UNIT;
     "val", VAL;
+    "where", WHERE;
     "with", WITH;
 ]
 
@@ -123,6 +129,8 @@ rule token = parse
   | "_" { UNDERSCORE }
   | ":"
       { COLON }
+  | ","
+      { COMMA }
   | "."
       { DOT }
   | ";"
@@ -133,10 +141,6 @@ rule token = parse
       { LBRACE }
   | "}"
       { RBRACE }
-  | "["
-      { LBRACKET }
-  | "]"
-      { RBRACKET }
   | "("
       { LPAREN }
   | ")"
@@ -152,6 +156,7 @@ rule token = parse
   | "-." { MINUSDOT }
   | "->" { MINUSGREATER }
   | "@" { AT }
+  | "|"  { PIPE }
   | lowercase identchar *
       { let s = Lexing.lexeme lexbuf in
         try Hashtbl.find keyword_table s

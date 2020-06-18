@@ -55,6 +55,8 @@ type var_within_closure_info = {
 }
 
 type env = {
+  done_continuation : Continuation.t;
+  error_continuation : Exn_continuation.t;
   continuations : (Continuation.t * int) CM.t;
   exn_continuations : Exn_continuation.t CM.t;
   variables : Variable.t VM.t;
@@ -66,7 +68,9 @@ type env = {
   var_within_closure_info : var_within_closure_info Var_within_closure.Map.t;
 }
 
-let init_env = {
+let init_env done_continuation error_continuation = {
+  done_continuation;
+  error_continuation;
   continuations = CM.empty;
   exn_continuations = CM.empty;
   variables = VM.empty;
@@ -82,6 +86,8 @@ let enter_code env = {
   continuations = CM.empty;
   exn_continuations = CM.empty;
   variables = VM.empty;
+  done_continuation = env.done_continuation;
+  error_continuation = env.error_continuation;
   symbols = env.symbols;
   code_ids = env.code_ids;
   code = env.code;
@@ -161,11 +167,24 @@ let find_with ~descr ~find map { Fexpr.txt = name; loc } =
 let get_symbol (env:env) sym =
   find_with ~descr:"symbol" ~find:SM.find_opt env.symbols sym 
 
-let find_cont env c =
-  find_with ~descr:"continuation" ~find:CM.find_opt env.continuations c
+let find_cont_id env c =
+  find_with ~descr:"continuation id" ~find:CM.find_opt env.continuations c
 
-let find_exn_cont env c =
+let find_cont env (c : Fexpr.continuation) =
+  match c with
+  | Special Done -> env.done_continuation, 1
+  | Special Error -> Exn_continuation.exn_handler env.error_continuation, 1
+  | Named cont_id -> find_cont_id env cont_id
+
+let find_exn_cont_id env c =
   find_with ~descr:"exn_continuation" ~find:CM.find_opt env.exn_continuations c
+  
+
+let find_exn_cont env (c : Fexpr.continuation) =
+  match c with
+  | Special Done -> Misc.fatal_error "done is not an exception continuation"
+  | Special Error -> env.error_continuation
+  | Named cont_id -> find_exn_cont_id env cont_id
 
 let find_var env v =
   find_with ~descr:"variable" ~find:VM.find_opt env.variables v
@@ -283,7 +302,7 @@ let binop (binop:Fexpr.binop) : Flambda_primitive.binary_primitive =
                               tag = Tag.zero;
                               size = Unknown }, Immutable)
   | Block_load (_, _) ->
-    failwith "TODO"
+    failwith "TODO binop"
 
 let convert_mutable_flag (flag : Fexpr.mutable_or_immutable)
       : Effects.mutable_or_immutable =
@@ -526,10 +545,20 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
         Flambda.Let_cont.create_recursive handlers ~body
     end
 
-  | Apply_cont ({ txt = cont; loc = _ } as cont', None, args) ->
-    let c, arity = find_cont env cont' in
+  | Let_cont _ ->
+      failwith "TODO andwhere"
+
+  | Apply_cont (cont, None, args) ->
+    let c, arity = find_cont env cont in
     if List.length args <> arity then
-      Misc.fatal_errorf "wrong continuation arity %s" cont;
+      begin
+        let cont_str = match cont with
+        | Special Done -> "done"
+        | Special Error -> "error"
+        | Named { txt = cont_id; _ } -> cont_id
+        in
+        Misc.fatal_errorf "wrong continuation arity %s" cont_str
+      end;
     let args = List.map (simple env) args in
     let apply_cont = Flambda.Apply_cont.create c ~args ~dbg:Debuginfo.none in
     Flambda.Expr.create_apply_cont apply_cont
@@ -537,8 +566,8 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
   | Switch { scrutinee; cases } ->
     let arms =
       Target_imm.Map.of_list
-        (List.map (fun (case, { Fexpr.txt = arm; loc = _}) ->
-           let c, arity = CM.find arm env.continuations in
+        (List.map (fun (case, cont) ->
+           let c, arity = find_cont env cont in
            assert(arity = 0);
            Target_imm.int (Targetint.OCaml.of_int case),
              Apply_cont_expr.create c ~args:[] ~dbg:Debuginfo.none)
@@ -694,14 +723,49 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
 
   | Apply {
     func;
-    call_kind = Function Indirect_unknown_arity;
+    call_kind;
     continuation;
     exn_continuation;
-    args; } ->
+    args;
+    arities; } ->
+    let continuation, _integer_arity = find_cont env continuation in
     let call_kind =
-      Call_kind.indirect_function_call_unknown_arity ()
+      match call_kind with
+      | Function (Direct { code_id }) ->
+        let code_id = find_code_id env code_id in
+        let fun_decl = find_fun_decl env code_id in
+        let closure_id = fun_decl.closure_id in
+        let return_arity =
+          match arities with
+          | None -> Function_declaration.result_arity fun_decl.decl
+          | Some { ret_arity; _ } ->
+            (* This should be the same as the arity from the decl, of course,
+             * but let's use the explicitly-given one where possible *)
+            arity ret_arity
+        in
+        Call_kind.direct_function_call code_id closure_id ~return_arity
+      | Function Indirect ->
+        begin
+          match arities with
+          | Some { params_arity; ret_arity } ->
+            let param_arity = arity params_arity in
+            let return_arity = arity ret_arity in
+            Call_kind.indirect_function_call_known_arity
+              ~param_arity ~return_arity
+          | None ->
+            Call_kind.indirect_function_call_unknown_arity ()
+        end
+      | C_call { alloc } ->
+        begin
+          match arities with
+          | Some { params_arity; ret_arity } ->
+            let param_arity = arity params_arity in
+            let return_arity = arity ret_arity in
+            Call_kind.c_call ~alloc ~param_arity ~return_arity
+          | None ->
+            Misc.fatal_errorf "Must specify arities for C call"
+        end
     in
-    let continuation, _arity = find_cont env continuation in
     let exn_continuation = find_exn_cont env exn_continuation in
     let apply =
       Flambda.Apply.create
@@ -716,23 +780,16 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
     in
     Flambda.Expr.create_apply apply
 
-  | Apply _ ->
-    failwith "TODO apply"
-
   | _ ->
-    failwith "TODO"
+    failwith "TODO expr"
 
 let conv (* ~backend:_ *) (fexpr : Fexpr.flambda_unit) : Flambda_unit.t =
-  let env = init_env in
-  let return_continuation, env = fresh_cont env fexpr.return_cont 1 in
-  let exn_continuation, env =
-    match fexpr.exception_cont with
-    | None ->
-      (* Not bound *)
-      Continuation.create ~sort:Exn (), env
-    | Some exn_cont ->
-      fresh_cont env ~sort:Exn exn_cont 1
+  let return_continuation = Continuation.create () in
+  let exn_continuation = Continuation.create ~sort:Exn () in
+  let exn_continuation_as_exn_continuation =
+    Exn_continuation.create ~exn_handler:exn_continuation ~extra_args:[]
   in
+  let env = init_env return_continuation exn_continuation_as_exn_continuation in
   let body = expr env fexpr.body in
   Flambda_unit.create
     ~imported_symbols:Symbol.Map.empty

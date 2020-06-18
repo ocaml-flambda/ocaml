@@ -7,7 +7,7 @@ type 'a located = {
 }
 
 type variable = string located
-type continuation = string located
+type continuation_id = string located
 type code_id = string located
 type closure_id = string located
 type var_within_closure = string located
@@ -122,25 +122,33 @@ type flambda_arity = kind list
 
 type function_call =
   | Direct of {
-      closure_id : closure_id;
-      return_arity : flambda_arity;
+      code_id : code_id;
     }
-  | Indirect_unknown_arity
-  | Indirect_known_arity of {
-      param_arity : flambda_arity;
-      return_arity : flambda_arity;
-    }
+  | Indirect (* Will translate to indirect_known_arity or
+                indirect_unknown_arity depending on whether the apply record's
+                arities field has a value *)
 
 type method_kind = Self | Public | Cached
 
 type call_kind =
   | Function of function_call
-  | Method of { kind : method_kind; obj : name; }
+  (* | Method of { kind : method_kind; obj : simple; } *)
   | C_call of {
       alloc : bool;
-      (* param_arity : flambda_arity; To recover from args *)
-      return_arity : flambda_arity option;
     }
+
+type special_continuation =
+  | Done (* top-level normal continuation *)
+  | Error (* top-level exception continuation *)
+
+type continuation =
+  | Named of continuation_id
+  | Special of special_continuation
+
+type function_arities = {
+  params_arity : flambda_arity;
+  ret_arity : flambda_arity;
+}
 
 type apply = {
     func : name;
@@ -148,6 +156,7 @@ type apply = {
     exn_continuation : continuation;
     args : simple list;
     call_kind : call_kind;
+    arities : function_arities option;
     (* dbg : Debuginfo.t; *)
     (* inline : inline_attribute;
      * specialise : specialise_attribute; *)
@@ -200,7 +209,7 @@ and let_cont = {
 and let_cont_handlers = continuation_handler list
 
 and continuation_handler = {
-  name : continuation;
+  name : continuation_id;
   params : kinded_parameter list;
   stub : bool;
   is_exn_handler : bool;
@@ -230,8 +239,8 @@ and code_binding = {
   params : kinded_parameter list;
   closure_var : variable;
   vars_within_closures : kinded_var_within_closure list;
-  ret_cont : continuation;
-  exn_cont : continuation option;
+  ret_cont : continuation_id;
+  exn_cont : continuation_id option;
   ret_arity : flambda_arity option;
   recursive : is_recursive;
   expr : expr;
@@ -243,7 +252,5 @@ and static_closure_binding = {
 }
 
 type flambda_unit = {
-  return_cont : continuation;
-  exception_cont : continuation option;
   body : expr;
 }

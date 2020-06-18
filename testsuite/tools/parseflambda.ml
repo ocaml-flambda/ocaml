@@ -7,17 +7,10 @@ let check_invariants program =
       Flambda_unit.print program;
     raise exn
 
-let make_compilation_unit file =
-  let basename = Filename.chop_suffix file ".fl" |> Filename.basename in
-  let name = String.capitalize_ascii basename in
-  let linkage_name = Linkage_name.create name in
-  let id = Ident.create_persistent name in
-  Compilation_unit.create id linkage_name
-
 let parse_flambda ~backend file =
     match Parse_flambda.parse_fexpr file with
     | Ok unit ->
-      let comp_unit = make_compilation_unit file in
+      let comp_unit = Parse_flambda.make_compilation_unit file in
       Compilation_unit.set_current comp_unit;
       Format.printf "%a@.@."
         Print_fexpr.flambda_unit unit;

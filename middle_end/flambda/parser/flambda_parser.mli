@@ -3,8 +3,10 @@
 
 type token = 
   | WITH
+  | WHERE
   | VAL
   | UNREACHABLE
+  | UNIT
   | UNDERSCORE
   | UIDENT of (string)
   | SYMBOL
@@ -15,13 +17,14 @@ type token =
   | SEGMENT
   | RPAREN
   | REC
-  | RBRACKET
   | RBRACE
   | RANGLE
   | PROJECT_VAR
   | PLUSDOT
   | PLUS
+  | PIPE
   | OPAQUE
+  | NOALLOC
   | NEWER_VERSION_OF
   | NATIVEINT
   | MINUSGREATER
@@ -29,9 +32,7 @@ type token =
   | MINUS
   | LPAREN
   | LIDENT of (string)
-  | LETK
   | LET
-  | LBRACKET
   | LBRACE
   | LANGLE
   | INT64
@@ -44,11 +45,15 @@ type token =
   | FLOAT of (string * char option)
   | FABRICATED
   | EXN
+  | ERROR
   | EQUAL
   | EOF
   | END
   | DOT
+  | DONE
+  | DIRECT
   | CONT
+  | COMMA
   | COLON
   | CODE
   | CLOSURE
@@ -56,6 +61,7 @@ type token =
   | BLOCK
   | AT
   | APPLY
+  | ANDWHERE
   | AND
 
 (* This exception is raised by the monolithic API functions. *)

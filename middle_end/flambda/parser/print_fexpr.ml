@@ -1,3 +1,6 @@
+(* CR lmaurer: Need to adjust to new syntax once that's more settled. (Also
+ * need to update error messages once the syntax is settled.) *)
+
 open Fexpr
 
 let pp_list ~sep f ppf =
@@ -30,9 +33,6 @@ let is_exn ppf = function
   | false -> ()
   | true -> Format.fprintf ppf "@ exn"
 
-let csymbol ppf { txt = s; loc = _ } =
-  Format.fprintf ppf "%s" s
-
 let symbol ppf { txt = s; loc = _ } =
   Format.fprintf ppf "%s" s
 
@@ -53,15 +53,21 @@ let code_id ppf ({ txt = s; loc = _ } : code_id) =
 let closure_id ppf ({ txt = s; loc = _ } : closure_id) =
   Format.fprintf ppf "%s" s
 
-let continuation ppf ({ txt = s; loc = _ } : continuation) =
+let continuation_id ppf ({ txt = s; loc = _ } : continuation_id) =
   Format.fprintf ppf "%s" s
+
+let special_continuation ppf special_cont =
+  match special_cont with
+  | Done -> Format.fprintf ppf "done"
+  | Error -> Format.fprintf ppf "error"
+
+let continuation ppf cont =
+  match cont with
+  | Named id -> continuation_id ppf id
+  | Special special_cont -> special_continuation ppf special_cont
 
 let exn_continuation ppf c =
   Format.fprintf ppf " * %a" continuation c
-
-let exn_continuation_opt ppf = function
-  | None -> ()
-  | Some c -> exn_continuation ppf c
 
 let kind ppf (k : kind) =
   let s =
@@ -79,6 +85,11 @@ let kind ppf (k : kind) =
     | Fabricated -> "fabricated"
   in
   Format.pp_print_string ppf s
+
+let arity ppf (a : flambda_arity) =
+  match a with
+  | [] -> Format.fprintf ppf "unit"
+  | _ -> pp_star_list kind ppf a
 
 let kinded_variable ppf (v, (k:kind option)) =
   match k with
@@ -190,9 +201,6 @@ let prim ppf = function
   | Block (_, Mutable, _) ->
       failwith "TODO mutable block"
 
-let arity ppf a =
-  pp_star_list kind ppf a
-
 let closure ppf c =
   Format.fprintf ppf "@[<hov 2>closure %a]"
     code_id c
@@ -242,7 +250,44 @@ let static_closure_binding ppf (scb : static_closure_binding) =
     symbol scb.symbol
     code_id scb.code_id
 
-let rec expr ppf = function
+let call_kind ppf ck =
+  match ck with
+  | Function Indirect -> ()
+  | Function (Direct { code_id = c }) ->
+    (* CR-someday lmaurer: Find a way to write this without leaking
+     * implementation details from the caller---in particular, without knowing
+     * that the calling function wants a space *after* the call kind if anything
+     * is printed. If need be, extend Format by adding a way to collapse
+     * multiple consecutive spaces into one. *)
+    Format.fprintf ppf "direct(%a)@ " code_id c
+  | C_call { alloc } ->
+    Format.fprintf ppf "ccall@ ";
+    if not alloc then Format.fprintf ppf "noalloc@ "
+
+
+let func_name_with_optional_arities ppf (n, arities) =
+  match arities with
+  | None -> name ppf n
+  | Some { params_arity; ret_arity } ->
+    Format.fprintf ppf "(%a : %a -> %a)"
+      name n
+      arity params_arity
+      arity ret_arity
+
+
+type scope =
+  | Outer
+  | Where_body
+  | Continuation_body
+
+
+let parens ~if_scope_is scope ppf f =
+  if if_scope_is = scope
+  then Format.fprintf ppf "(%t)" (f Outer)
+  else f scope ppf
+
+
+let rec expr scope ppf = function
   | Invalid inv ->
     invalid ppf inv
   | Apply_cont (cont, None, []) ->
@@ -253,11 +298,60 @@ let rec expr ppf = function
       (pp_space_list simple) args
   | Apply_cont _ ->
       failwith "TODO Apply_cont"
-  | Let { bindings = [ { var = None; defining_expr; _ } ]; body; _ } ->
+  | Let let_ ->
+    parens ~if_scope_is:Where_body scope ppf (fun scope ppf ->
+      let_expr scope ppf let_
+    )
+  | Let_cont { recursive = recu; body;
+               handlers =
+                 { name; params; stub; is_exn_handler; handler } :: rem_cont;
+             } ->
+    parens ~if_scope_is:Continuation_body scope ppf (fun _scope ppf ->
+      Format.fprintf ppf "@[<v>@[<v 2>@[<hov 2>letk%a%a%a %a%a@] {@ %a@]@,}%a@ in@ %a@]"
+        recursive recu
+        is_exn is_exn_handler
+        is_stub stub
+        continuation_id name
+        kinded_parameters params
+        (expr Continuation_body) handler
+        andk rem_cont
+        (expr Where_body) body
+    )
+  | Let_cont _ ->
+    Format.pp_print_string ppf "<malformed letk>"
+  
+  | Let_symbol l ->
+    parens ~if_scope_is:Where_body scope ppf (fun scope ppf ->
+      let_symbol_expr scope ppf l
+    )
+
+  | Switch { scrutinee; cases } ->
+    Format.fprintf ppf "@[<v>@[<v 2>switch %a {%a@]@ }@]"
+      simple scrutinee
+      (pp_semi_list switch_case) cases
+      (* (fun ppf () -> if cases <> [] then Format.pp_print_cut ppf ()) () *)
+
+  | Apply {
+      call_kind = kind;
+      continuation = ret;
+      exn_continuation = ek;
+      args;
+      func;
+      arities } ->
+    Format.fprintf ppf "@[<hov 2>apply@ %a%a%a->@ %a@ %a@]"
+      func_name_with_optional_arities (func, arities)
+      call_kind kind
+      simple_args args
+      continuation ret
+      exn_continuation ek
+
+
+and let_expr scope ppf : let_ -> unit = function
+  | { bindings = [ { var = None; defining_expr; _ } ]; body; _ } ->
     Format.fprintf ppf "@[<hov>@[<2>%a@];@]@,%a"
       named defining_expr
-      expr body
-  | Let { bindings = first :: rest; body; closure_elements = ces; } ->
+      (expr scope) body
+  | { bindings = first :: rest; body; closure_elements = ces; } ->
     Format.fprintf ppf "@[<hov>@[<2>let %a =@ %a@]"
       variable_opt first.var
       named first.defining_expr;
@@ -268,80 +362,32 @@ let rec expr ppf = function
     ) rest;
     Format.fprintf ppf "%a@ in@]@ %a"
       (closure_elements ~first:false) ces
-      expr body;
-  | Let _ ->
+      (expr scope) body;
+  | _ ->
     failwith "empty let?"
-  | Let_cont { recursive = recu; body;
-               handlers =
-                 { name; params; stub; is_exn_handler; handler } :: rem_cont;
-             } ->
-    Format.fprintf ppf "@[<v>@[<v 2>@[<hov 2>letk%a%a%a %a%a@] {@ %a@]@,}%a@ in@ %a@]"
-      recursive recu
-      is_exn is_exn_handler
-      is_stub stub
-      continuation name
-      kinded_parameters params
-      expr handler
-      andk rem_cont
-      expr body
-  | Let_cont _ ->
-    Format.pp_print_string ppf "<malformed letk>"
-  
-  | Let_symbol { bindings = Simple ss; body } ->
+
+
+and let_symbol_expr scope ppf = function
+  | { bindings = Simple ss; body } ->
     Format.fprintf ppf "@[<hov>@[<2>let symbol %a@]@ in@]@ %a"
       static_structure ss
-      expr body
+      (expr scope) body
 
-  | Let_symbol { bindings = Segments [ seg ]; body } ->
+  | { bindings = Segments [ seg ]; body } ->
     Format.fprintf ppf "@[<hov>@[<2>let%a@]@ in@]@ %a"
       segment_body seg
-      expr body
+      (expr scope) body
 
-  | Let_symbol { bindings = Segments (first :: rest); body } ->
+  | { bindings = Segments (first :: rest); body } ->
     Format.fprintf ppf "@[<hov>@[<2>let %a@]" segment first;
     List.iter (fun (seg : segment) ->
       Format.fprintf ppf "@ @[<2>and %a@]" segment seg
     ) rest;
-    Format.fprintf ppf "@ in@]@ %a" expr body
+    Format.fprintf ppf "@ in@]@ %a" (expr scope) body
 
-  | Let_symbol _ ->
+  | _ ->
     Format.fprintf ppf "<malformed Let_symbol>"
 
-  | Switch { scrutinee; cases } ->
-    Format.fprintf ppf "@[<v>@[<v 2>switch%a {%a@]@ }@]"
-      simple scrutinee
-      (pp_semi_list switch_case) cases
-      (* (fun ppf () -> if cases <> [] then Format.pp_print_cut ppf ()) () *)
-
-  | Apply {
-      call_kind = C_call {
-          alloc = true;
-          return_arity = None;
-        };
-      continuation = ret;
-      exn_continuation = ek;
-      args;
-      func = Symbol s } ->
-    Format.fprintf ppf "@[<hov 2>ccall@,[%a]%a-> %a %a@]"
-      csymbol s
-      simple_args args
-      continuation ret
-      exn_continuation ek
-
-  | Apply {
-      call_kind = Function Indirect_unknown_arity;
-      continuation = ret;
-      exn_continuation = ek;
-      args;
-      func } ->
-    Format.fprintf ppf "@[<hov 2>apply@ %a%a-> %a %a@]"
-      name func
-      simple_args args
-      continuation ret
-      exn_continuation ek
-
-  | Apply _ ->
-      failwith "TODO Apply"
 
 
 and andk ppf l =
@@ -349,9 +395,9 @@ and andk ppf l =
     Format.fprintf ppf " @[<v 2>@[<hov 2>and%a%a %a%a@] {@ %a@]@,}"
       is_exn is_exn_handler
       is_stub stub
-      continuation name
+      continuation_id name
       kinded_parameters params
-      expr handler
+      (expr Continuation_body) handler
   in
   List.iter cont l
 
@@ -388,14 +434,12 @@ and code_binding ppf (cb : code_binding) =
     kinded_parameters cb.params
     variable cb.closure_var
     pp_vars_within_closures cb.vars_within_closures
-    continuation cb.ret_cont
-    (pp_option ~prefix:"@ * " continuation) cb.exn_cont
+    continuation_id cb.ret_cont
+    (pp_option ~prefix:"@ * " continuation_id) cb.exn_cont
     (pp_option ~prefix:"@ : " arity) cb.ret_arity
-    expr cb.expr
+    (expr Outer) cb.expr
 
-let flambda_unit ppf ({ return_cont; exception_cont; body } : flambda_unit) =
-  Format.fprintf ppf "@[<v>-> %a%a@ %a@]"
-    continuation return_cont
-    exn_continuation_opt exception_cont
-    expr body
+let flambda_unit ppf ({ body } : flambda_unit) =
+  Format.fprintf ppf "@[%a@]"
+    (expr Outer) body
 

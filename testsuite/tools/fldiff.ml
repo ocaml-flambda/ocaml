@@ -1,16 +1,7 @@
-let make_compilation_unit file =
-  let basename = Filename.chop_suffix file ".fl" |> Filename.basename in
-  let name = String.capitalize_ascii basename in
-  let linkage_name = Linkage_name.create name in
-  let id = Ident.create_persistent name in
-  Compilation_unit.create id linkage_name
-
 let parse_flambda file =
   match Parse_flambda.parse_fexpr file with
   | Ok unit ->
-    let comp_unit = make_compilation_unit file in
-    Compilation_unit.set_current comp_unit;
-    Fexpr_to_flambda.conv unit
+    unit
   | Error e ->
     begin match e with
     | Parsing_error (msg, loc) ->
