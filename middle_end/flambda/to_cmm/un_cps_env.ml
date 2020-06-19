@@ -411,7 +411,8 @@ let inline_found_eff env var v b r =
   if not (Variable.equal var v) then
     inline_not_found env var
   else begin
-    if b.inline then begin
+    if b.inline &&
+       Flambda_features.Expert.inline_effects_in_cmm () then begin
       let env = { env with stages = r } in
       inline_res env b
     end else
