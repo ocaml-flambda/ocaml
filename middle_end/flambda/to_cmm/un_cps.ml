@@ -620,10 +620,14 @@ let decide_inline_let effs v body =
   | Zero ->
     begin match Env.classify effs with
     | Coeffect | Pure -> Skip
-    | Effect -> Regular (* Could be Inline technically, but it's not clear the
-                           code would be better (nor more readable). *)
+    | Effect -> Regular (* Could be Inline technically, but it doesn't matter
+                           since it can only be flushed by the env. *)
     end
-  | One -> Inline
+  | One ->
+    begin match Env.classify effs with
+    | Effect when not (Flambda_features.Expert.inline_effects_in_cmm ()) -> Regular
+    | _ -> Inline
+    end
   | More_than_one -> Regular
 
 (* Helpers for translating functions *)
@@ -1255,8 +1259,9 @@ and let_dynamic_set_of_closures env res body closure_vars decls elts =
                  (List.map fst (Var_within_closure.Map.bindings elts))
   in
   (* Allocating the closure has at least generative effects *)
-  let effs = Effects.Only_generative_effects Immutable,
-             Coeffects.No_coeffects in
+  let effs =
+    Effects.Only_generative_effects Immutable, Coeffects.No_coeffects
+  in
   let l, env, effs = fill_layout decls elts env effs [] 0 layout in
   let csoc = C.make_closure_block l in
   (* Create a variable to hold the set of closure *)
