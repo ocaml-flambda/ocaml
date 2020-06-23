@@ -45,10 +45,10 @@ parseflambda_DIRS=\
   parsing \
   typing \
   utils \
-  middle_end/flambda2.0/compilenv_deps \
-  middle_end/flambda2.0/terms \
-  middle_end/flambda2.0/parser \
-  middle_end/flambda2.0/simplify
+  middle_end/flambda/compilenv_deps \
+  middle_end/flambda/terms \
+  middle_end/flambda/parser \
+  middle_end/flambda/simplify
 parseflambda_OCAMLFLAGS = $(addprefix -I $(TOPDIR)/, $(parseflambda_DIRS))
 
 parseflambda_LIBS = $(addprefix $(COMPILERLIBSDIR)/,\
@@ -61,10 +61,10 @@ fldiff_DIRS=\
   parsing \
   typing \
   utils \
-  middle_end/flambda2.0/compilenv_deps \
-  middle_end/flambda2.0/terms \
-  middle_end/flambda2.0/parser \
-  middle_end/flambda2.0/compare
+  middle_end/flambda/compilenv_deps \
+  middle_end/flambda/terms \
+  middle_end/flambda/parser \
+  middle_end/flambda/compare
 fldiff_OCAMLFLAGS = $(addprefix -I $(TOPDIR)/, $(fldiff_DIRS))
 
 fldiff_LIBS = $(addprefix $(COMPILERLIBSDIR)/,\

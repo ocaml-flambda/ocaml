@@ -14,11 +14,12 @@ let parse_flambda ~backend file =
       Compilation_unit.set_current comp_unit;
       Format.printf "%a@.@."
         Print_fexpr.flambda_unit unit;
-      let fl2 = Fexpr_to_flambda.conv unit in
+      let module_ident = Compilation_unit.get_persistent_ident comp_unit in
+      let fl2 = Fexpr_to_flambda.conv ~backend ~module_ident unit in
       Format.printf "flambda:@.%a@.@."
         Flambda_unit.print fl2;
       check_invariants fl2;
-      let fl2' = Simplify.run ~backend ~round:1 fl2 in
+      let { Simplify.unit = fl2'; _ } = Simplify.run ~backend ~round:1 fl2 in
       Format.printf "simplify:@.%a@."
         Flambda_unit.print fl2';
       fl2'
@@ -43,6 +44,6 @@ let _ =
   let file = Sys.argv.(1) in
   let ext = Filename.extension file in
   match ext with
-  | ".fl" -> parse_flambda ~backend:(module Asmgen.Flambda2_backend) file
+  | ".fl" -> parse_flambda ~backend:(module Asmgen.Flambda_backend) file
   | _ ->
     Misc.fatal_errorf "Unrecognized extension %s" ext

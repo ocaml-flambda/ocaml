@@ -298,23 +298,11 @@ let binop (binop:Fexpr.binop) : Flambda_primitive.binary_primitive =
   | Block_load (Block Value, Immutable) ->
           (* CR maurerl Add real tag and size to fexpr syntax and use them here
            *)
-          Block_load (Block { elt_kind = Value (Anything);
-                              tag = Tag.zero;
-                              size = Unknown }, Immutable)
+          Block_load (Values { field_kind = Any_value;
+                               tag = Tag.Scannable.zero;
+                               size = Unknown }, Immutable)
   | Block_load (_, _) ->
     failwith "TODO binop"
-
-let convert_mutable_flag (flag : Fexpr.mutable_or_immutable)
-      : Effects.mutable_or_immutable =
-  match flag with
-  | Mutable -> Mutable
-  | Immutable -> Immutable
-
-let convert_static_mutable_flag (flag : Fexpr.mutable_or_immutable)
-      : Mutable_or_immutable.t =
-  match flag with
-  | Mutable -> Mutable
-  | Immutable -> Immutable
 
 let convert_recursive_flag (flag : Fexpr.is_recursive) : Recursive.t =
   match flag with
@@ -322,7 +310,9 @@ let convert_recursive_flag (flag : Fexpr.is_recursive) : Recursive.t =
   | Nonrecursive -> Non_recursive
 
 let convert_block_shape ~num_fields =
-  List.init num_fields (fun _field : Flambda_primitive.Value_kind.t -> Anything)
+  List.init num_fields (
+    fun _field : Flambda_primitive.Block_of_values_field.t -> Any_value
+  )
 
 let defining_expr env (named:Fexpr.named) : Flambda.Named.t =
   match named with
@@ -344,10 +334,9 @@ let defining_expr env (named:Fexpr.named) : Flambda.Named.t =
     in
     Flambda.Named.create_prim prim Debuginfo.none
   | Prim (Block (tag, mutability, args)) ->
-    let mutability = convert_mutable_flag mutability in
     let shape = convert_block_shape ~num_fields:(List.length args) in
-    let kind : Flambda_primitive.make_block_kind =
-      Full_of_values (Tag.Scannable.create_exn tag, shape)
+    let kind : Flambda_primitive.Block_kind.t =
+      Values (Tag.Scannable.create_exn tag, shape)
     in
     let prim : Flambda_primitive.t =
       Flambda_primitive.Variadic (
@@ -586,7 +575,6 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
           Flambda.Let_symbol_expr.Bound_symbols.Singleton symbol
         in
         let static_const =
-          let mutability = convert_static_mutable_flag mutability in
           let tag = Tag.Scannable.create_exn tag in
           Flambda.Static_const.Block
             (tag, mutability,
@@ -783,7 +771,12 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
   | _ ->
     failwith "TODO expr"
 
-let conv (* ~backend:_ *) (fexpr : Fexpr.flambda_unit) : Flambda_unit.t =
+let conv ~backend ~module_ident (fexpr : Fexpr.flambda_unit) : Flambda_unit.t =
+  let module Backend = (val backend : Flambda_backend_intf.S) in
+  let module_symbol =
+    Backend.symbol_for_global' (
+      Ident.create_persistent (Ident.name module_ident))
+  in
   let return_continuation = Continuation.create () in
   let exn_continuation = Continuation.create ~sort:Exn () in
   let exn_continuation_as_exn_continuation =
@@ -792,7 +785,7 @@ let conv (* ~backend:_ *) (fexpr : Fexpr.flambda_unit) : Flambda_unit.t =
   let env = init_env return_continuation exn_continuation_as_exn_continuation in
   let body = expr env fexpr.body in
   Flambda_unit.create
-    ~imported_symbols:Symbol.Map.empty
     ~return_continuation
     ~exn_continuation
     ~body
+    ~module_symbol

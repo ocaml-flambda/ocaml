@@ -1,5 +1,5 @@
 let parse_flambda file =
-  match Parse_flambda.parse_fexpr file with
+  match Parse_flambda.parse ~backend:(module Asmgen.Flambda_backend) file with
   | Ok unit ->
     unit
   | Error e ->

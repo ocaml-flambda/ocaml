@@ -926,7 +926,7 @@ let fields env (field1 : Static_const.Field_of_block.t)
 
 let blocks env block1 block2 =
   triples ~f1:(Comparator.of_predicate ~f:Tag.Scannable.equal)
-    ~f2:(Comparator.of_ordering ~f:(Mutable_or_immutable.compare))
+    ~f2:(Comparator.of_ordering ~f:(Mutability.compare))
     ~f3:(lists ~f:fields ~subst:subst_field ~subst_snd:true)
     ~subst2:(fun _ mut -> mut)
     ~subst3:(fun env -> List.map (subst_field env))
@@ -1340,11 +1340,11 @@ let flambda_units u1 u2 =
   let body2 = Expr.apply_name_permutation (Flambda_unit.body u2) (mk_perm u2) in
   exprs env body1 body2
   |> Comparison.map ~f:(fun body ->
-       let imported_symbols = Flambda_unit.imported_symbols u1 in
+       let module_symbol = Flambda_unit.module_symbol u1 in
        Flambda_unit.create
-         ~imported_symbols
          ~return_continuation:ret_cont
          ~exn_continuation:exn_cont
          ~body
+         ~module_symbol
      )
 ;;

@@ -11,5 +11,6 @@ val make_compilation_unit
   -> Compilation_unit.t
 
 val parse
-   : string
+   : backend:(module Flambda_backend_intf.S)
+  -> string
   -> (Flambda_unit.t, error) result
