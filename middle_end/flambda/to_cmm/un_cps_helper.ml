@@ -190,7 +190,8 @@ let store ?(dbg=Debuginfo.none) kind init addr value =
   Cmm.Cop (Cmm.Cstore (kind, init), [addr; value], dbg)
 
 let extcall ?(dbg=Debuginfo.none) ?label ~alloc name typ_res args =
-  Cmm.Cop (Cextcall (name, typ_res, alloc, label), args, dbg)
+  Cmm.Cop (Cextcall  { func = name; ty = typ_res;
+                       alloc; label_after = label; }, args, dbg)
 
 
 (* Arithmetic helpers *)
