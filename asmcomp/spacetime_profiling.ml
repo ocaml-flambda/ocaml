@@ -112,7 +112,7 @@ let code_for_function_prologue ~function_name ~fun_dbg:dbg ~node_hole =
             Clet (VP.create pc, cconst_symbol function_name,
                   Cop (Cextcall  { func = "caml_spacetime_allocate_node";
                                    ty = [| Int |]; alloc = false;
-                                   label_after = None; },
+                                   label_after = None; returns = true; },
                 [cconst_int (1 (* header *) + !index_within_node);
                 Cvar pc;
                 Cvar node_hole;
@@ -153,7 +153,8 @@ let code_for_blockheader ~value's_header ~node ~dbg =
        a point to a location.
     *)
     Cop (Cextcall { func = "caml_spacetime_generate_profinfo";
-                    ty = [| Int |]; alloc= false; label_after = Some label; },
+                    ty = [| Int |]; alloc= false;
+                    label_after = Some label; returns = true; },
       [Cvar address_of_profinfo;
        cconst_int (index_within_node + 1)],
       dbg)
@@ -273,7 +274,8 @@ let code_for_call ~node ~callee ~is_tail ~label dbg =
         else cconst_int 1  (* [Val_unit] *)
       in
       Cop (Cextcall { func = "caml_spacetime_indirect_node_hole_ptr";
-                      ty = [| Int |]; alloc = false; label_after = None; },
+                      ty = [| Int |]; alloc = false;
+                      label_after = None; returns = true; },
         [callee; Cvar place_within_node; caller_node],
         dbg))
 
@@ -337,7 +339,7 @@ class virtual instruction_selection = object (self)
         assert (Array.length arg = 1);
         self#instrument_indirect_call ~env ~callee:arg.(0)
           ~is_tail:true ~label_after dbg
-      | M.Iop (M.Iextcall { func; alloc = true; label_after; }) ->
+      | M.Iop (M.Iextcall { func; alloc = true; label_after; returns = _ }) ->
         (* N.B. No need to instrument "noalloc" external calls. *)
         assert (Array.length arg = 0);
         self#instrument_direct_call ~env ~func ~is_tail:false ~label_after dbg

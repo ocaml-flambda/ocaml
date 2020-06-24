@@ -165,7 +165,8 @@ and operation =
     Capply of machtype
   | Cextcall of
       { func : string; ty : machtype;
-        alloc : bool ; label_after : label option; }
+        alloc : bool ; label_after : label option;
+        returns : bool; }
   | Cload of memory_chunk * Asttypes.mutable_flag
   | Calloc
   | Cstore of memory_chunk * Lambda.initialization_or_assignment

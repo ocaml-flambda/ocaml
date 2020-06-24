@@ -105,7 +105,7 @@ let instrument_initialiser c dbg =
     (Csequence
        (Cop (Cextcall { func = "caml_setup_afl";
                         ty = typ_int; alloc = false;
-                        label_after = None; },
+                        label_after = None; returns = true; },
              [Cconst_int (0, dbg ())],
              dbg ()),
         c))

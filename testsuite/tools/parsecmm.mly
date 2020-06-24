@@ -226,6 +226,7 @@ expr:
                {Cop(Cextcall {
                  func = $3; ty = $5;
                  alloc = false; label_after = None;
+                 returns = true;
                 }, List.rev $4, debuginfo ()) }
   | LPAREN ALLOC machtype exprlist RPAREN { Cop(Calloc, List.rev $4, debuginfo ()) }
   | LPAREN SUBF expr RPAREN { Cop(Cnegf, [$3], debuginfo ()) }
