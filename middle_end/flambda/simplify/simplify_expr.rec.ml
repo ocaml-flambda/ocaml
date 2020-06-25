@@ -691,35 +691,38 @@ Format.eprintf "Simplifying inlined body with DE depth delta = %d\n%!"
   *)
     simplify_expr dacc inlined k
   | None ->
-    begin match Apply.continuation apply with
-    | Never_returns ->
-      Misc.fatal_errorf "Never returning direct calls are \
-                         not handled at the moment (but could be)"
-    | Return apply_return_continuation ->
-      let dacc, use_id =
-        DA.record_continuation_use dacc apply_return_continuation Non_inlinable
-          ~typing_env_at_use:(DA.typing_env dacc)
-          ~arg_types:(T.unknown_types_from_arity result_arity)
-      in
-      let dacc, exn_cont_use_id =
-        DA.record_continuation_use dacc
-          (Exn_continuation.exn_handler (Apply.exn_continuation apply))
-          Non_inlinable
-          ~typing_env_at_use:(DA.typing_env dacc)
-          ~arg_types:(T.unknown_types_from_arity (
-            Exn_continuation.arity (Apply.exn_continuation apply)))
-      in
-      let user_data, uacc = k dacc in
-      let apply =
-        Simplify_common.update_exn_continuation_extra_args uacc ~exn_cont_use_id
-          apply
-      in
-      let expr =
+    let dacc, use_id =
+      match Apply.continuation apply with
+      | Never_returns -> dacc, None
+      | Return apply_return_continuation ->
+        let dacc, use_id =
+          DA.record_continuation_use dacc apply_return_continuation Non_inlinable
+            ~typing_env_at_use:(DA.typing_env dacc)
+            ~arg_types:(T.unknown_types_from_arity result_arity)
+        in
+        dacc, Some use_id
+    in
+    let dacc, exn_cont_use_id =
+      DA.record_continuation_use dacc
+        (Exn_continuation.exn_handler (Apply.exn_continuation apply))
+        Non_inlinable
+        ~typing_env_at_use:(DA.typing_env dacc)
+        ~arg_types:(T.unknown_types_from_arity (
+          Exn_continuation.arity (Apply.exn_continuation apply)))
+    in
+    let user_data, uacc = k dacc in
+    let apply =
+      Simplify_common.update_exn_continuation_extra_args uacc ~exn_cont_use_id
+        apply
+    in
+    let expr =
+      match use_id with
+      | None -> Expr.create_apply apply
+      | Some use_id ->
         Simplify_common.add_wrapper_for_fixed_arity_apply uacc ~use_id
           result_arity apply
-      in
-      expr, user_data, uacc
-    end
+    in
+    expr, user_data, uacc
 
 and simplify_direct_partial_application
   : 'a. DA.t -> Apply.t -> callee's_code_id:Code_id.t
