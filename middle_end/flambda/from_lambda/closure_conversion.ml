@@ -1071,6 +1071,8 @@ let ilambda_to_flambda ~backend ~module_ident ~module_block_size_in_words
       current_unit_id = Compilation_unit.get_persistent_ident compilation_unit;
       symbol_for_global' = Backend.symbol_for_global';
       filename;
+      (* CR: externals such as bound_error_symbol should ideally not be par of
+         the imported symbols, and not be required to be in the typing env. *)
       imported_symbols = Symbol.Set.singleton bound_error_symbol;
       declared_symbols = [];
       shareable_constants = Static_const.Map.empty;

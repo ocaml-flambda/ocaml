@@ -797,7 +797,7 @@ method emit_expr (env:environment) exp =
           self#insert_debug env  (Iraise k) dbg rd [||];
           set_traps_for_raise env;
           None
-    end
+      end
   | Cop(Ccmpf _, _, dbg) ->
       self#emit_expr env
         (Cifthenelse (exp,
@@ -851,7 +851,7 @@ method emit_expr (env:environment) exp =
               let loc_res =
                 self#insert_op_debug env new_op dbg
                   loc_arg (Proc.loc_external_results rd) in
-              if returns then self#insert_move_results env loc_res rd stack_ofs;
+              self#insert_move_results env loc_res rd stack_ofs;
               set_traps_for_raise env;
               if returns then Some rd else None
           | Ialloc { bytes = _; spacetime_index; label_after_call_gc; } ->

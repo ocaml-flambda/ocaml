@@ -139,7 +139,7 @@ let method_call kind ~obj = Method { kind; obj; }
 
 let c_call ~alloc ~param_arity ~return_arity =
   let t = C_call { alloc; param_arity; return_arity; } in
-     invariant0 t;
+  invariant0 t;
   t
 
 let return_arity t : Flambda_arity.t =

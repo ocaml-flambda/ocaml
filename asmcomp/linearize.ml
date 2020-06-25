@@ -164,8 +164,6 @@ let linear i n contains_calls =
           copy_instr (Lop op) i (discard_dead_code n)
         else
           copy_instr (Lop op) i (linear env i.Mach.next n)
-    | Iop(Iextcall { func = "caml_ml_array_bound_error"; _ } as op) ->
-        copy_instr (Lop op) i (discard_dead_code n)
     | Iop(Imove | Ireload | Ispill)
       when i.Mach.arg.(0).loc = i.Mach.res.(0).loc ->
         linear env i.Mach.next n
