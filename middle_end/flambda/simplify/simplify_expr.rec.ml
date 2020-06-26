@@ -1279,54 +1279,43 @@ and simplify_c_call
       Apply.print apply
   end;
 *)
-  begin match Apply.continuation apply with
-  | Never_returns ->
-    let dacc, exn_cont_use_id =
-      (* CR mshinwell: Try to factor out these stanzas, here and above. *)
-      DA.record_continuation_use dacc
-        (Exn_continuation.exn_handler (Apply.exn_continuation apply))
-        Non_inlinable
-        ~typing_env_at_use:(DA.typing_env dacc)
-        ~arg_types:(T.unknown_types_from_arity (
-          Exn_continuation.arity (Apply.exn_continuation apply)))
-    in
-    let user_data, uacc = k dacc in
-    (* CR mshinwell: Make sure that [resolve_continuation_aliases] has been
-       called before building of any term that contains a continuation *)
-    let apply =
-      Simplify_common.update_exn_continuation_extra_args uacc ~exn_cont_use_id
-        apply
-    in
-    let expr = Expr.create_apply apply in
-    expr, user_data, uacc
-  | Return apply_continuation ->
-    let dacc, use_id =
-      DA.record_continuation_use dacc apply_continuation Non_inlinable
-        ~typing_env_at_use:(DA.typing_env dacc)
-        ~arg_types:(T.unknown_types_from_arity return_arity)
-    in
-    let dacc, exn_cont_use_id =
-      (* CR mshinwell: Try to factor out these stanzas, here and above. *)
-      DA.record_continuation_use dacc
-        (Exn_continuation.exn_handler (Apply.exn_continuation apply))
-        Non_inlinable
-        ~typing_env_at_use:(DA.typing_env dacc)
-        ~arg_types:(T.unknown_types_from_arity (
-          Exn_continuation.arity (Apply.exn_continuation apply)))
-    in
-    let user_data, uacc = k dacc in
-    (* CR mshinwell: Make sure that [resolve_continuation_aliases] has been
-       called before building of any term that contains a continuation *)
-    let apply =
-      Simplify_common.update_exn_continuation_extra_args uacc ~exn_cont_use_id
-        apply
-    in
-    let expr =
+  let dacc, use_id =
+    match Apply.continuation apply with
+    | Return apply_continuation ->
+      let dacc, use_id =
+        DA.record_continuation_use dacc apply_continuation Non_inlinable
+          ~typing_env_at_use:(DA.typing_env dacc)
+          ~arg_types:(T.unknown_types_from_arity return_arity)
+      in
+      dacc, Some use_id
+    | Never_returns ->
+      dacc, None
+  in
+  let dacc, exn_cont_use_id =
+    (* CR mshinwell: Try to factor out these stanzas, here and above. *)
+    DA.record_continuation_use dacc
+      (Exn_continuation.exn_handler (Apply.exn_continuation apply))
+      Non_inlinable
+      ~typing_env_at_use:(DA.typing_env dacc)
+      ~arg_types:(T.unknown_types_from_arity (
+        Exn_continuation.arity (Apply.exn_continuation apply)))
+  in
+  let user_data, uacc = k dacc in
+  (* CR mshinwell: Make sure that [resolve_continuation_aliases] has been
+     called before building of any term that contains a continuation *)
+  let apply =
+    Simplify_common.update_exn_continuation_extra_args uacc ~exn_cont_use_id
+      apply
+  in
+  let expr =
+    match use_id with
+    | Some use_id ->
       Simplify_common.add_wrapper_for_fixed_arity_apply uacc ~use_id
         return_arity apply
-    in
-    expr, user_data, uacc
-  end
+    | None ->
+      Expr.create_apply apply
+  in
+  expr, user_data, uacc
 
 and simplify_apply
   : 'a. DA.t -> Apply.t -> 'a k -> Expr.t * 'a * UA.t
