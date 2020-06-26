@@ -139,7 +139,6 @@ let invariant env
       end
     end;
     begin match continuation with
-    (* CR gbury: check arity of the call in this case ? *)
     | Never_returns ->
       begin match Call_kind.return_arity call_kind with
       | [] -> ()
