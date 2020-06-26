@@ -47,7 +47,7 @@ val body : t -> Flambda.Expr.t
 
 val iter_sets_of_closures
    : t
-  -> f:(closure_symbols:Symbol.t Closure_id.Map.t option
+  -> f:(closure_symbols:Flambda.Let_symbol_expr.Closure_binding.t list option
      -> Flambda.Set_of_closures.t
      -> unit)
   -> unit

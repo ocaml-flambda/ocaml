@@ -902,7 +902,7 @@ and simplify_direct_partial_application
         ~name:(Closure_id.to_string callee's_closure_id ^ "_partial")
         (Compilation_unit.get_current_exn ())
     in
-    let function_decl =
+    let func_decl =
       Function_declaration.create ~code_id
         ~params_arity:(KP.List.arity remaining_params)
         ~result_arity
@@ -914,7 +914,7 @@ and simplify_direct_partial_application
     in
     let function_decls =
       Function_declarations.create
-        (Closure_id.Map.singleton wrapper_closure_id function_decl)
+        [{ closure_id = wrapper_closure_id; func_decl }]
     in
     let closure_elements =
       Var_within_closure.Map.of_list applied_args_with_closure_vars

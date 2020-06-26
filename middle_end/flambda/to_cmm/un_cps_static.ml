@@ -247,8 +247,10 @@ and fill_static_up_to j acc i =
   else fill_static_up_to j (C.cint 1n :: acc) (i + 1)
 
 let update_env_for_set_of_closure env { SCCSC.code; set_of_closures = _; } =
-  Code_id.Map.fold
-    (fun code_id SC.Code.({ params_and_body = p; newer_version_of; }) env ->
+  List.fold_left
+    (fun env SC.Code_binding.({
+      code_id; code = { params_and_body = p;
+                        newer_version_of; } }) ->
        (* Check scope of the closure id *)
        let env =
          match newer_version_of with
@@ -263,7 +265,7 @@ let update_env_for_set_of_closure env { SCCSC.code; set_of_closures = _; } =
        | Present p ->
          (* Function info should be already computed *)
          env
-    ) code env
+    ) env code
 
 let add_function env r ~params_and_body code_id p =
   let fun_symbol = Code_id.code_symbol code_id in
@@ -275,18 +277,25 @@ let add_function env r ~params_and_body code_id p =
 
 let add_functions
     env ~params_and_body r { SCCSC.code; set_of_closures = _; }  =
-  let aux code_id SC.Code.({ params_and_body = p; newer_version_of = _; }) r =
+  let aux r SC.Code_binding.({ code_id; code = { params_and_body = p;
+                                                 newer_version_of = _; } }) =
     match (p : _ SC.Code.or_deleted) with
     | Deleted -> r
     | Present p -> add_function env r ~params_and_body code_id p
   in
-  Code_id.Map.fold aux code r
+  List.fold_left aux r code
 
 let preallocate_set_of_closures
     (r, updates, env)
     { BSCSC.code_ids = _; closure_symbols; }
     { SCCSC.code = _; set_of_closures; } =
   let env, data, updates =
+    let closure_symbols =
+      List.map (fun { Let_symbol.Closure_binding.closure_id; symbol } ->
+        (closure_id, symbol)
+      ) closure_symbols
+      |> Closure_id.Map.of_list
+    in
     static_set_of_closures env closure_symbols set_of_closures updates
   in
   let r = R.set_data r data in

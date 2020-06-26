@@ -861,6 +861,12 @@ and close_functions t external_env function_declarations =
       Closure_id.Map.empty
       func_decl_list
   in
+  (* CR lmaurer: funs has arbitrary order (ultimately coming from
+     function_declarations) *)
+  let funs =
+    List.map Function_declarations.Binding.of_pair
+      (Closure_id.Map.bindings funs)
+  in
   let function_decls = Flambda.Function_declarations.create funs in
   let closure_elements =
     Ident.Map.fold (fun id var_within_closure map ->
@@ -1169,7 +1175,7 @@ let ilambda_to_flambda ~backend ~module_ident ~module_block_size_in_words
         let bound_symbols : Let_symbol.Bound_symbols.t =
           Sets_of_closures [{
             code_ids = Code_id.Set.singleton code_id;
-            closure_symbols = Closure_id.Map.empty;
+            closure_symbols = [];
           }]
         in
         let static_const : Static_const.t =
@@ -1179,7 +1185,7 @@ let ilambda_to_flambda ~backend ~module_ident ~module_block_size_in_words
             }
           in
           Sets_of_closures [{
-            code = Code_id.Map.singleton code_id code;
+            code = [{ code_id; code }];
             set_of_closures = Set_of_closures.empty;
           }]
         in

@@ -44,13 +44,26 @@ val empty : t
 
 val is_empty : t -> bool
 
+module Binding : sig
+  type t = {
+    closure_id : Closure_id.t;
+    func_decl : Function_declaration.t;
+  }
+
+  val of_pair : Closure_id.t * Function_declaration.t -> t
+end
+
 (** Create a set of function declarations given the individual
     declarations. *)
-val create : Function_declaration.t Closure_id.Map.t -> t
+val create : Binding.t list -> t
 
 (** The function(s) defined by the set of function declarations, indexed
     by closure ID. *)
 val funs : t -> Function_declaration.t Closure_id.Map.t
+
+(** The function(s) defined by the set of function declarations, in the order
+    originally given. *)
+val funs_in_order : t -> Binding.t list
 
 (** [find f t] raises [Not_found] if [f] is not in [t]. *)
 val find : t -> Closure_id.t -> Function_declaration.t
