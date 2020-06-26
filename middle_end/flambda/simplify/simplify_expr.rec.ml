@@ -1210,7 +1210,7 @@ and simplify_method_call
   let apply_cont =
     match Apply.continuation apply with
     | Never_returns ->
-      Misc.fatal_error "cannot simplify a mathod call that never returns"
+      Misc.fatal_error "cannot simplify a method call that never returns"
     | Return continuation -> continuation
   in
   let denv = DA.denv dacc in
