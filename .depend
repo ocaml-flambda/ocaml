@@ -4615,6 +4615,7 @@ middle_end/flambda/compare/compare.cmo : \
     middle_end/flambda/basic/recursive.cmi \
     middle_end/flambda/naming/name_permutation.cmi \
     middle_end/flambda/basic/name.cmi \
+    middle_end/flambda/basic/mutability.cmi \
     middle_end/flambda/basic/invalid_term_semantics.cmi \
     middle_end/flambda/basic/inline_attribute.cmi \
     middle_end/flambda/terms/function_declarations.cmi \
@@ -4646,6 +4647,7 @@ middle_end/flambda/compare/compare.cmx : \
     middle_end/flambda/basic/recursive.cmx \
     middle_end/flambda/naming/name_permutation.cmx \
     middle_end/flambda/basic/name.cmx \
+    middle_end/flambda/basic/mutability.cmx \
     middle_end/flambda/basic/invalid_term_semantics.cmx \
     middle_end/flambda/basic/inline_attribute.cmx \
     middle_end/flambda/terms/function_declarations.cmx \
@@ -5653,6 +5655,7 @@ middle_end/flambda/parser/parse_flambda.cmi : \
     parsing/location.cmi \
     middle_end/flambda/terms/flambda_unit.cmi \
     middle_end/flambda/parser/flambda_lex.cmo \
+    middle_end/flambda/flambda_backend_intf.cmi \
     middle_end/flambda/parser/fexpr.cmo \
     middle_end/flambda/compilenv_deps/compilation_unit.cmi
 middle_end/flambda/parser/print_fexpr.cmo : \
