@@ -369,12 +369,13 @@ let arity a = Flambda_arity.create (List.map value_kind a)
 let set_of_closures env code_ids closure_elements =
   let fun_decls : Function_declarations.t =
     let code_id_to_binding (code_id : Fexpr.code_id)
-          : Function_declarations.Binding.t =
+          : Closure_id.t * Function_declaration.t =
       let code_id = find_code_id env code_id in
       let { decl; closure_id } = find_fun_decl env code_id in
-      { Function_declarations.Binding.closure_id; func_decl = decl }
+      closure_id, decl
     in
     List.map code_id_to_binding code_ids
+    |> Closure_id.Lmap.of_list
     |> Function_declarations.create
   in
   let closure_elements = Option.value closure_elements ~default:[] in
@@ -598,40 +599,38 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
     (* Now assemble the set of closures in each segment, along with the
      * map from each closure id to the symbol defined for it *)
     let (sets_of_closures
-           : ( Flambda.Let_symbol_expr.Closure_binding.t list *
-               Set_of_closures.t ) list),
+           : ( Symbol.t Closure_id.Lmap.t * Set_of_closures.t ) list),
         env =
       let process_segment env (seg : Fexpr.segment)
-            : ( Flambda.Let_symbol_expr.Closure_binding.t list *
-                Set_of_closures.t ) * env =
+            : ( Symbol.t Closure_id.Lmap.t * Set_of_closures.t ) * env =
         let code_ids =
           List.map (fun ({ code_id; _ } : Fexpr.static_closure_binding) ->
             code_id
           ) seg.closure_bindings
         in
         let set = set_of_closures env code_ids seg.closure_elements in
-        let map, env =
+        let pairs, env =
           let make_pair env ({ symbol; code_id } : Fexpr.static_closure_binding)
-                : Flambda.Let_symbol_expr.Closure_binding.t * env =
+                : ( Closure_id.t * Symbol.t ) * env =
             let code_id = find_code_id env code_id in
             let { closure_id; _ } : fun_decl_info = find_fun_decl env code_id in
             let symbol, env = declare_symbol env symbol in
-            { symbol; closure_id; }, env
+            (closure_id, symbol), env
           in
           map_accum_left make_pair env seg.closure_bindings
         in
-        (map, set), env
+        (pairs |> Closure_id.Lmap.of_list, set), env
       in
       map_accum_left process_segment env segments
     in
     (* Finally, process the code definitions *)
-    let codes : Flambda.Static_const.Code_binding.t list list =
+    let codes : Flambda.Static_const.Code.t Code_id.Lmap.t list =
       let process_segment (seg : Fexpr.segment) =
         let process_code ({
               id; newer_version_of; params; closure_var; ret_cont; exn_cont;
               ret_arity; expr = code_expr
             } : Fexpr.code_binding)
-              : Flambda.Static_const.Code_binding.t =
+              : Code_id.t * Flambda.Static_const.Code.t =
           let code_id = find_code_id env id in
           let env = enter_code env in
           let my_closure, env = fresh_var env closure_var in
@@ -675,20 +674,17 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
                 newer_version_of;
               }
           in 
-          { Flambda.Static_const.Code_binding.code_id; code }
+          code_id, code
         in
         List.map process_code seg.code_bindings
+        |> Code_id.Lmap.of_list
       in
       List.map process_segment segments
     in
     let bound_symbols : Flambda.Let_symbol_expr.Bound_symbols.t =
       let codes_and_sets_of_closures =
         List.map2 (fun code_bindings (closure_symbols, _) ->
-          let code_ids =
-            List.map (fun { Flambda.Static_const.Code_binding.code_id; _ } ->
-              code_id
-            ) code_bindings
-            |> Code_id.Set.of_list
+          let code_ids = Code_id.Lmap.keys code_bindings |> Code_id.Set.of_list
           in
           ({ code_ids; closure_symbols }
              : Flambda.Let_symbol_expr.Bound_symbols.Code_and_set_of_closures.t)
@@ -758,7 +754,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
     let apply =
       Flambda.Apply.create
         ~callee:(name env func)
-        ~continuation
+        ~continuation:(Return continuation)
         exn_continuation
         ~args:((List.map (simple env)) args)
         ~call_kind

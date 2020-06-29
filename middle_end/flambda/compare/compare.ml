@@ -261,10 +261,12 @@ let subst_func_decl env decl =
 
 let subst_func_decls env decls =
   Function_declarations.funs_in_order decls
-  |> List.map (fun { Function_declarations.Binding.closure_id; func_decl } ->
+  |> Closure_id.Lmap.bindings
+  |> List.map (fun (closure_id, func_decl) ->
        let closure_id = subst_closure_id env closure_id in
        let func_decl = subst_func_decl env func_decl in
-       { Function_declarations.Binding.closure_id; func_decl })
+       closure_id, func_decl)
+  |> Closure_id.Lmap.of_list
   |> Function_declarations.create
 ;;
 
@@ -344,11 +346,11 @@ and subst_bound_symbols env (bound_symbols : Let_symbol_expr.Bound_symbols.t)
           (* The symbols are in binding position, so we don't need to
              substitute, but we still need to substitute the closure ids *)
           let closure_symbols =
-            List.map (
-              fun (closure_binding : Let_symbol_expr.Closure_binding.t) ->
-              { closure_binding with
-                closure_id = subst_closure_id env closure_binding.closure_id
-              }) closure_symbols
+            Closure_id.Lmap.bindings closure_symbols
+            |> List.map (fun (closure_id, symbol) ->
+                 let closure_id = subst_closure_id env closure_id in
+                 closure_id, symbol)
+            |> Closure_id.Lmap.of_list
           in
           { Let_symbol_expr.Bound_symbols.Code_and_set_of_closures.code_ids;
             closure_symbols
@@ -371,12 +373,9 @@ and subst_static_const env (static_const : Static_const.t)
     static_const
 and subst_code_and_set_of_closures env
       { Static_const.Code_and_set_of_closures.code; set_of_closures } =
-  let code = List.map (subst_code_binding env) code in
+  let code = Code_id.Lmap.map (subst_code env) code in
   let set_of_closures = subst_set_of_closures env set_of_closures in
   { Static_const.Code_and_set_of_closures.code; set_of_closures }
-and subst_code_binding env
-        (code_binding : Static_const.Code_binding.t) =
-  { code_binding with code = subst_code env code_binding.code }
 and subst_code env (code : Static_const.Code.t)
       : Static_const.Code.t =
   let params_and_body =
@@ -467,6 +466,8 @@ and subst_switch env switch =
   in
   Expr.create_switch ~scrutinee ~arms
 ;;
+
+let subst_code_binding env (code_id, code) = code_id, subst_code env code
 
 module Comparator = struct
   type 'a t = Env.t -> 'a -> 'a -> 'a Comparison.t
@@ -860,7 +861,6 @@ let bound_symbols env bound_symbols1 bound_symbols2
     Env.add_symbol env symbol1 symbol2;
     Equivalent
   | BS.Sets_of_closures segments1, BS.Sets_of_closures segments2 ->
-    let module CB = Let_symbol_expr.Closure_binding in
     let segments env (segment1 : BS.Code_and_set_of_closures.t)
           (segment2 : BS.Code_and_set_of_closures.t)
           : BS.Code_and_set_of_closures.t Comparison.t =
@@ -873,21 +873,25 @@ let bound_symbols env bound_symbols1 bound_symbols2
       (* The symbol in a closure binding is in binding position, so we don't
        * need them to match but we do need to record them *)
       let closure_bindings env
-            { CB.symbol = symbol1; closure_id = closure_id1 }
-            { CB.symbol = symbol2; closure_id = closure_id2 }
-            : CB.t Comparison.t =
+            (closure_id1, symbol1) (closure_id2, symbol2)
+            : (Closure_id.t * Symbol.t) Comparison.t =
         Env.add_symbol env symbol1 symbol2;
         closure_ids env closure_id1 closure_id2
-        |> Comparison.map ~f:(fun closure_id1' ->
-            { CB.symbol = symbol2; closure_id = closure_id1' })
+        |> Comparison.map ~f:(fun closure_id1' -> closure_id1', symbol2)
       in
-      let subst_closure_binding env (cb : CB.t) =
-        { cb with closure_id = subst_closure_id env cb.closure_id }
+      let subst_closure_binding env (closure_id, symbol) =
+        subst_closure_id env closure_id, symbol
       in
       let closure_binding_lists =
         lists ~f:closure_bindings ~subst:subst_closure_binding ~subst_snd:false
       in
-      pairs ~f1:code_id_sets ~f2:closure_binding_lists
+      let closure_binding_lmaps env m1 m2 =
+        closure_binding_lists env
+          (m1 |> Closure_id.Lmap.bindings)
+          (m2 |> Closure_id.Lmap.bindings)
+        |> Comparison.map ~f:Closure_id.Lmap.of_list
+      in
+      pairs ~f1:code_id_sets ~f2:closure_binding_lmaps
         env (segment1.code_ids, segment1.closure_symbols)
         (segment2.code_ids, segment2.closure_symbols)
       |> Comparison.map ~f:(fun (code_ids1', closure_symbols1') ->
@@ -898,9 +902,12 @@ let bound_symbols env bound_symbols1 bound_symbols2
           : BS.Code_and_set_of_closures.t =
       let code_ids = Code_id.Set.map (subst_code_id env) segment.code_ids in
       let closure_symbols =
-        List.map (fun { CB.symbol; closure_id } ->
-          { CB.symbol; closure_id = subst_closure_id env closure_id }
-        ) segment.closure_symbols
+        segment.closure_symbols
+        |> Closure_id.Lmap.bindings
+        |> List.map (fun (closure_id, symbol) ->
+            subst_closure_id env closure_id, symbol
+        )
+        |> Closure_id.Lmap.of_list
       in
       { code_ids; closure_symbols }
     in
@@ -992,7 +999,9 @@ let call_kinds env (call_kind1 : Call_kind.t) (call_kind2 : Call_kind.t)
 
 let apply_exprs env apply1 apply2 : Expr.t Comparison.t =
   let atomic_things_equal =
-    Continuation.equal (Apply.continuation apply1) (Apply.continuation apply2)
+    Apply.Result_continuation.equal
+      (Apply.continuation apply1)
+      (Apply.continuation apply2)
     && Exn_continuation.equal
          (Apply.exn_continuation apply1)
          (Apply.exn_continuation apply2)
@@ -1139,9 +1148,7 @@ and let_symbol_exprs env let_symbol1 let_symbol2 : Expr.t Comparison.t =
     match static_const with
     | Sets_of_closures segments ->
       List.map (fun (segment : SC.Code_and_set_of_closures.t) ->
-        List.map (fun (code_binding : SC.Code_binding.t) ->
-          code_binding.code_id
-        ) segment.code
+        Code_id.Lmap.keys segment.code
       ) segments
     | _ ->
       []
@@ -1159,13 +1166,10 @@ and let_symbol_exprs env let_symbol1 let_symbol2 : Expr.t Comparison.t =
     |> Comparison.chain ~ok ~default:bound_symbols2
   in
   (* Step 3 *)
-  let code_bindings env
-        { SC.Code_binding.code_id = code_id1; code = code1 }
-        { SC.Code_binding.code_id = _; code = code2 } =
+  let code_bindings env (code_id1, code1) (_code_id2, code2) =
     (* We're handling the code ids separately, so only worry about the code *)
     codes env code1 code2
-    |> Comparison.map ~f:(fun code1' ->
-         { SC.Code_binding.code_id = code_id1; code = code1' })
+    |> Comparison.map ~f:(fun code1' -> code_id1, code1')
   in
   let segments env
         { SC.Code_and_set_of_closures.code = code_bindings1;
@@ -1175,9 +1179,12 @@ and let_symbol_exprs env let_symbol1 let_symbol2 : Expr.t Comparison.t =
     pairs ~f1:(lists ~f:code_bindings ~subst:subst_code_binding
                  ~subst_snd:false) 
           ~f2:sets_of_closures
-      env (code_bindings1, closures1) (code_bindings2, closures2)
+      env
+      (code_bindings1 |> Code_id.Lmap.bindings, closures1)
+      (code_bindings2 |> Code_id.Lmap.bindings, closures2)
     |> Comparison.map ~f:(fun (code, set_of_closures) ->
-         { SC.Code_and_set_of_closures.code; set_of_closures })
+         { SC.Code_and_set_of_closures.code = Code_id.Lmap.of_list code;
+           set_of_closures })
   in
   let defining_expr_comp : Static_const.t Comparison.t =
     match LS.defining_expr let_symbol1, LS.defining_expr let_symbol2 with
