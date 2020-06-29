@@ -477,9 +477,9 @@ let deleted_pieces_of_code ?newer_versions_of code_ids =
             newer_version_of;
           }
         in
-        Code_id.Map.add id code code_map)
+        Code_id.Lmap.add id code code_map)
       code_ids
-      Code_id.Map.empty
+      Code_id.Lmap.empty
   in
   let static_const : Static_const.t =
     Sets_of_closures [{
@@ -489,8 +489,8 @@ let deleted_pieces_of_code ?newer_versions_of code_ids =
   in
   let bound_symbols : Bound_symbols.t =
     Sets_of_closures [{
-      code_ids = Code_id.Map.keys code;
-      closure_symbols = Closure_id.Map.empty;
+      code_ids = Code_id.Lmap.keys code |> Code_id.Set.of_list;
+      closure_symbols = Closure_id.Lmap.empty;
     }]
   in
   bound_symbols, static_const
