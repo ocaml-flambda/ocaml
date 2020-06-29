@@ -70,6 +70,13 @@ utils/int_replace_polymorphic_compare.cmo : \
 utils/int_replace_polymorphic_compare.cmx : \
     utils/int_replace_polymorphic_compare.cmi
 utils/int_replace_polymorphic_compare.cmi :
+utils/lmap.cmo : \
+    utils/misc.cmi \
+    utils/lmap.cmi
+utils/lmap.cmx : \
+    utils/misc.cmx \
+    utils/lmap.cmi
+utils/lmap.cmi :
 utils/load_path.cmo : \
     utils/misc.cmi \
     utils/load_path.cmi
@@ -6887,6 +6894,7 @@ middle_end/flambda/terms/flambda.cmi : \
     middle_end/flambda/naming/name_occurrences.cmi \
     middle_end/flambda/basic/name.cmi \
     middle_end/flambda/basic/mutability.cmi \
+    utils/lmap.cmi \
     middle_end/flambda/basic/kinded_parameter.cmi \
     middle_end/flambda/basic/invalid_term_semantics.cmi \
     utils/identifiable.cmi \

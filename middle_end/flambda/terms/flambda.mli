@@ -224,18 +224,11 @@ end and Let_expr : sig
     -> f:(bound_vars:Bindable_let_bound.t -> body1:Expr.t -> body2:Expr.t -> 'a)
     -> 'a
 end and Let_symbol_expr : sig
-  module Closure_binding : sig
-    type t = {
-      symbol : Symbol.t;
-      closure_id : Closure_id.t;
-    }
-  end
-
   module Bound_symbols : sig
     module Code_and_set_of_closures : sig
       type t = {
         code_ids : Code_id.Set.t;
-        closure_symbols : Closure_binding.t list;
+        closure_symbols : Symbol.t Closure_id.Lmap.t
       }
 
       val print : Format.formatter -> t -> unit
@@ -295,8 +288,8 @@ end and Let_symbol_expr : sig
       version of [id2]. *)
   val pieces_of_code
      : ?newer_versions_of:Code_id.t Code_id.Map.t
-    -> ?set_of_closures:(Closure_binding.t list * Set_of_closures.t)
-    -> (Code_id.t * Function_params_and_body.t) list
+    -> ?set_of_closures:(Symbol.t Closure_id.Lmap.t * Set_of_closures.t)
+    -> Function_params_and_body.t Code_id.Lmap.t
     -> Bound_symbols.t * Static_const.t
 
   val deleted_pieces_of_code
@@ -617,21 +610,11 @@ end and Static_const : sig
     val make_deleted : t -> t
   end
 
-  (** The declaration of a single piece of code. *)
-  module Code_binding : sig
-    type t = {
-      code_id : Code_id.t;
-      code : Code.t;
-    }
-
-    val of_pair : Code_id.t * Code.t -> t
-  end
-
   (** The possibly-recursive declaration of pieces of code and any associated
       set of closures. *)
   module Code_and_set_of_closures : sig
     type t = {
-      code : Code_binding.t list;
+      code : Code.t Code_id.Lmap.t;
       (* CR mshinwell: Check the free names of the set of closures *)
       set_of_closures : Set_of_closures.t;
     }
@@ -660,9 +643,9 @@ end and Static_const : sig
   include Identifiable.S with type t := t
   include Contains_names.S with type t := t
 
-  val get_pieces_of_code : t -> Code_binding.t list
+  val get_pieces_of_code : t -> Code.t Code_id.Lmap.t
 
-  val get_pieces_of_code' : t -> Function_params_and_body.t Code_id.Map.t
+  val get_pieces_of_code' : t -> Function_params_and_body.t Code_id.Lmap.t
 
   (** Returns [true] iff the given term does not contain any variables,
       which means that the corresponding value can be statically allocated,

@@ -864,8 +864,7 @@ and close_functions t external_env function_declarations =
   (* CR lmaurer: funs has arbitrary order (ultimately coming from
      function_declarations) *)
   let funs =
-    List.map Function_declarations.Binding.of_pair
-      (Closure_id.Map.bindings funs)
+    Closure_id.Lmap.of_list (Closure_id.Map.bindings funs)
   in
   let function_decls = Flambda.Function_declarations.create funs in
   let closure_elements =
@@ -1175,7 +1174,7 @@ let ilambda_to_flambda ~backend ~module_ident ~module_block_size_in_words
         let bound_symbols : Let_symbol.Bound_symbols.t =
           Sets_of_closures [{
             code_ids = Code_id.Set.singleton code_id;
-            closure_symbols = [];
+            closure_symbols = Closure_id.Lmap.empty;
           }]
         in
         let static_const : Static_const.t =
@@ -1185,7 +1184,7 @@ let ilambda_to_flambda ~backend ~module_ident ~module_block_size_in_words
             }
           in
           Sets_of_closures [{
-            code = [{ code_id; code }];
+            code = Code_id.Lmap.singleton code_id code;
             set_of_closures = Set_of_closures.empty;
           }]
         in

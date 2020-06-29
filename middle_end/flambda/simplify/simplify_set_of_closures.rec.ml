@@ -423,7 +423,7 @@ let simplify_function context r closure_id function_decl
 
 type simplify_set_of_closures0_result = {
   set_of_closures : Flambda.Set_of_closures.t;
-  code : (Code_id.t * Flambda.Function_params_and_body.t) list;
+  code : Flambda.Function_params_and_body.t Code_id.Lmap.t;
   dacc : Downwards_acc.t;
 }
 
@@ -440,11 +440,10 @@ let simplify_set_of_closures0 dacc context set_of_closures
     Function_declarations.funs_in_order function_decls
   in
   let all_function_decls_in_set, code, fun_types, code_age_relation, r =
-    List.fold_left
-      (fun (result_function_decls_in_set, code, fun_types,
-            code_age_relation, r)
-           { Function_declarations.Binding.closure_id;
-             func_decl = function_decl; } ->
+    Closure_id.Lmap.fold
+      (fun closure_id function_decl
+           (result_function_decls_in_set, code, fun_types,
+            code_age_relation, r) ->
         let { function_decl; new_code_id; params_and_body; function_type;
               code_age_relation; r; } =
           simplify_function context r closure_id function_decl
@@ -452,15 +451,15 @@ let simplify_set_of_closures0 dacc context set_of_closures
             code_age_relation
         in
         let result_function_decls_in_set =
-          { Function_declarations.Binding.closure_id;
-            func_decl = function_decl; } :: result_function_decls_in_set
+          Closure_id.Lmap.add closure_id function_decl
+            result_function_decls_in_set
         in
-        let code = (new_code_id, params_and_body) :: code in
+        let code = Code_id.Lmap.add new_code_id params_and_body code in
         let fun_types = Closure_id.Map.add closure_id function_type fun_types in
         result_function_decls_in_set, code, fun_types, code_age_relation, r)
-      ([], [], Closure_id.Map.empty,
-        TE.code_age_relation (DA.typing_env dacc), DA.r dacc)
       all_function_decls_in_set
+      (Closure_id.Lmap.empty, Code_id.Lmap.empty, Closure_id.Map.empty,
+        TE.code_age_relation (DA.typing_env dacc), DA.r dacc)
   in
   let closure_types_by_bound_name =
     let closure_types_via_aliases =
@@ -520,7 +519,7 @@ let simplify_and_lift_set_of_closures dacc ~closure_bound_vars_inverse
       ~closure_bound_vars set_of_closures ~closure_elements =
   let function_decls = Set_of_closures.function_decls set_of_closures in
   let closure_symbols =
-    Closure_id.Map.mapi (fun closure_id _func_decl ->
+    Closure_id.Lmap.mapi (fun closure_id _func_decl ->
         let name =
           closure_id
           |> Closure_id.rename
@@ -528,10 +527,13 @@ let simplify_and_lift_set_of_closures dacc ~closure_bound_vars_inverse
           |> Linkage_name.create
         in
         Symbol.create (Compilation_unit.get_current_exn ()) name)
-      (Function_declarations.funs function_decls)
+      (Function_declarations.funs_in_order function_decls)
+  in
+  let closure_symbols_map =
+    Closure_id.Lmap.bindings closure_symbols |> Closure_id.Map.of_list
   in
   let closure_bound_names =
-    Closure_id.Map.map Name_in_binding_pos.symbol closure_symbols
+    Closure_id.Map.map Name_in_binding_pos.symbol closure_symbols_map
   in
   let closure_element_types =
     Var_within_closure.Map.map (fun closure_element ->
@@ -546,7 +548,7 @@ let simplify_and_lift_set_of_closures dacc ~closure_bound_vars_inverse
                   T.alias_type_of K.value closure_element
                 | closure_id ->
                   let closure_symbol =
-                    Closure_id.Map.find closure_id closure_symbols
+                    Closure_id.Map.find closure_id closure_symbols_map
                   in
                   T.alias_type_of K.value (Simple.symbol closure_symbol))
               ~symbol:(fun _sym -> T.alias_type_of K.value closure_element)))
@@ -572,10 +574,10 @@ let simplify_and_lift_set_of_closures dacc ~closure_bound_vars_inverse
       ~closure_element_types
   in
   let closure_symbols_set =
-    Symbol.Set.of_list (Closure_id.Map.data closure_symbols)
+    Symbol.Set.of_list (Closure_id.Lmap.data closure_symbols)
   in
   assert (Symbol.Set.cardinal closure_symbols_set
-    = Closure_id.Map.cardinal closure_symbols);
+    = Closure_id.Map.cardinal closure_symbols_map);
   let types_of_symbols =
     Symbol.Set.fold (fun symbol types_of_symbols ->
         let typ = DE.find_symbol (DA.denv dacc) symbol in
@@ -584,27 +586,19 @@ let simplify_and_lift_set_of_closures dacc ~closure_bound_vars_inverse
       Symbol.Map.empty
   in
   let bound_symbols : Bound_symbols.t =
-    let closure_symbols =
-      List.map (fun (closure_id, symbol) ->
-        { Flambda.Let_symbol_expr.Closure_binding.closure_id; symbol }
-      ) (Closure_id.Map.bindings closure_symbols)
-    in
     Sets_of_closures [{
-      code_ids = List.map fst code |> Code_id.Set.of_list;
+      code_ids = Code_id.Lmap.keys code |> Code_id.Set.of_list;
       closure_symbols;
     }]
   in
   let static_const : SC.t =
     let code =
-      List.map (fun (code_id, params_and_body) : SC.Code_binding.t ->
+      Code_id.Lmap.mapi (fun code_id params_and_body : SC.Code.t ->
           let newer_version_of =
             Code_id.Map.find code_id (C.new_to_old_code_ids_all_sets context)
           in
-          { code_id;
-            code = 
-              { params_and_body = Present params_and_body;
-                newer_version_of = Some newer_version_of;
-              }
+          { params_and_body = Present params_and_body;
+            newer_version_of = Some newer_version_of;
           })
         code
     in
@@ -631,7 +625,7 @@ let simplify_and_lift_set_of_closures dacc ~closure_bound_vars_inverse
   *)
   let denv, bindings =
     Closure_id.Map.fold (fun closure_id bound_var (denv, bindings) ->
-        match Closure_id.Map.find closure_id closure_symbols with
+        match Closure_id.Map.find closure_id closure_symbols_map with
         | exception Not_found ->
           Misc.fatal_errorf "No closure symbol for closure ID %a"
             Closure_id.print closure_id
@@ -789,17 +783,16 @@ let simplify_lifted_set_of_closures0 context ~closure_symbols
       ~closure_bound_names_inside ~closure_elements ~closure_element_types
       set_of_closures =
   let closure_bound_names =
-    Closure_id.Map.of_list (List.map
-      (fun { Let_symbol.Closure_binding.closure_id; symbol } ->
-        closure_id, Name_in_binding_pos.symbol symbol
-      ) closure_symbols)
+    Closure_id.Lmap.map Name_in_binding_pos.symbol closure_symbols
+    |> Closure_id.Lmap.bindings
+    |> Closure_id.Map.of_list
   in
   let dacc =
     DA.map_denv (C.dacc_prior_to_sets context) ~f:(fun denv ->
-      List.fold_left (fun denv { Let_symbol.Closure_binding.symbol; _ } ->
+      Closure_id.Lmap.fold (fun _closure_id symbol denv ->
           DE.define_symbol_if_undefined denv symbol K.value)
-        denv
-        closure_symbols)
+        closure_symbols
+        denv)
   in
   let { set_of_closures;
         code;
@@ -811,32 +804,26 @@ let simplify_lifted_set_of_closures0 context ~closure_symbols
   let dacc =
     DA.map_denv dacc ~f:(fun denv ->
       (* CR mshinwell: factor out *)
-      List.fold_left (fun denv (code_id, params_and_body) ->
+      Code_id.Lmap.fold (fun code_id params_and_body denv ->
           let newer_version_of =
             Code_id.Map.find code_id (C.new_to_old_code_ids_all_sets context)
           in
           DE.define_code ~newer_version_of denv ~code_id ~params_and_body)
-        denv
-        code)
+        code
+        denv)
   in
   let code =
-    List.map (fun (code_id, params_and_body) : SC.Code_binding.t ->
+    Code_id.Lmap.mapi (fun code_id params_and_body : SC.Code.t ->
         let newer_version_of =
           Code_id.Map.find_opt code_id (C.new_to_old_code_ids_all_sets context)
         in
-        { code_id;
-          code = { params_and_body = Present params_and_body;
-                   newer_version_of;
-                 }
+        { params_and_body = Present params_and_body;
+          newer_version_of;
         })
       code
   in
-  let code_ids =
-    List.map (fun { SC.Code_binding.code_id; _ } -> code_id) code
-    |> Code_id.Set.of_list
-  in
   let bound_symbols_component : Bound_symbols.Code_and_set_of_closures.t =
-    { code_ids;
+    { code_ids = Code_id.Lmap.keys code |> Code_id.Set.of_list;
       closure_symbols;
     }
   in
@@ -870,20 +857,16 @@ let simplify_lifted_sets_of_closures dacc ~orig_bound_symbols ~orig_static_const
              : SC.Code_and_set_of_closures.t) ->
         (* CR mshinwell: Check closure IDs between [closure_symbols] and
            [set_of_closures] too. *)
-        let code_ids' =
-          let code_id { SC.Code_binding.code_id; _ } = code_id in
-          Code_id.Set.of_list (List.map code_id code) in
+        let code_ids' = Code_id.Lmap.keys code |> Code_id.Set.of_list in
         if not (Code_id.Set.equal code_ids code_ids') then begin
           Misc.fatal_errorf "Mismatch on declared code IDs (%a and %a):@ %a"
             Code_id.Set.print code_ids
             Code_id.Set.print code_ids'
             SC.print orig_static_const
         end;
-        List.fold_left
-          (fun dacc 
-               ({ code_id; code = 
-                 { params_and_body;
-                   newer_version_of; } } : SC.Code_binding.t) ->
+        Code_id.Lmap.fold
+          (fun code_id ({ params_and_body; newer_version_of; } : SC.Code.t)
+               dacc ->
             let define_code denv =
               match params_and_body with
               | Deleted -> denv
@@ -893,8 +876,8 @@ let simplify_lifted_sets_of_closures dacc ~orig_bound_symbols ~orig_static_const
             in
             let dacc = DA.map_denv dacc ~f:define_code in
             dacc)
-          dacc
-          code)
+          code
+          dacc)
       dacc
       bound_symbols_components code_and_sets_of_closures
   in
@@ -908,10 +891,9 @@ let simplify_lifted_sets_of_closures dacc ~orig_bound_symbols ~orig_static_const
     List.map
       (fun ({ code_ids = _; closure_symbols; }
              : Bound_symbols.Code_and_set_of_closures.t) ->
-        Closure_id.Map.of_list (List.map (
-          fun { Let_symbol.Closure_binding.closure_id; symbol } ->
-            (closure_id, Name_in_binding_pos.symbol symbol)
-        ) closure_symbols))
+        Closure_id.Lmap.map Name_in_binding_pos.symbol closure_symbols
+        |> Closure_id.Lmap.bindings
+        |> Closure_id.Map.of_list)
       bound_symbols_components
   in
   let closure_elements_and_types_all_sets =

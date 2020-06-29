@@ -65,18 +65,15 @@ let lift_set_of_closures_discovered_via_reified_continuation_param_types dacc
   let module I = T.Function_declaration_type.Inlinable in
   let set_of_closures =
     let function_decls =
-      List.map (fun (closure_id, inlinable) ->
-        let func_decl =
-          Function_declaration.create ~code_id:(I.code_id inlinable)
-            ~params_arity:(I.param_arity inlinable)
-            ~result_arity:(I.result_arity inlinable)
-            ~stub:(I.stub inlinable)
-            ~dbg:(I.dbg inlinable)
-            ~inline:(I.inline inlinable)
-            ~is_a_functor:(I.is_a_functor inlinable)
-            ~recursive:(I.recursive inlinable)
-        in
-        { Function_declarations.Binding.closure_id; func_decl })
+      Closure_id.Lmap.map (fun inlinable ->
+        Function_declaration.create ~code_id:(I.code_id inlinable)
+          ~params_arity:(I.param_arity inlinable)
+          ~result_arity:(I.result_arity inlinable)
+          ~stub:(I.stub inlinable)
+          ~dbg:(I.dbg inlinable)
+          ~inline:(I.inline inlinable)
+          ~is_a_functor:(I.is_a_functor inlinable)
+          ~recursive:(I.recursive inlinable))
         function_decls
       |> Function_declarations.create
     in
@@ -103,7 +100,7 @@ let lift_set_of_closures_discovered_via_reified_continuation_param_types dacc
   match Set_of_closures.Map.find set_of_closures closure_symbols_by_set with
   | exception Not_found ->
     let closure_symbols =
-      List.map (fun (closure_id, _function_decl) ->
+      Closure_id.Lmap.mapi (fun closure_id _function_decl ->
           (* CR mshinwell: share name computation with
              [Simplify_named] *)
           let name =
@@ -112,18 +109,15 @@ let lift_set_of_closures_discovered_via_reified_continuation_param_types dacc
             |> Closure_id.to_string
             |> Linkage_name.create
           in
-          let symbol =
-            Symbol.create (Compilation_unit.get_current_exn ()) name
-          in
-          { Flambda.Let_symbol_expr.Closure_binding.closure_id; symbol })
+          Symbol.create (Compilation_unit.get_current_exn ()) name)
         function_decls
     in
     let dacc =
       DA.map_denv dacc ~f:(fun denv ->
-        List.fold_left (fun denv { Let_symbol.Closure_binding.symbol; _ } ->
-            DE.define_symbol denv symbol K.value)
-          denv
-          closure_symbols)
+        Closure_id.Lmap.fold (fun _closure_id closure_symbol denv ->
+            DE.define_symbol denv closure_symbol K.value)
+          closure_symbols
+          denv)
     in
     let definition =
       (* We don't need to assign new code IDs, since we're not changing the
@@ -137,7 +131,7 @@ let lift_set_of_closures_discovered_via_reified_continuation_param_types dacc
       Let_symbol.pieces_of_code
         ~newer_versions_of:Code_id.Map.empty
         ~set_of_closures:(closure_symbols, set_of_closures)
-        []
+        Code_id.Lmap.empty
     in
     (* This reification process will result in [Let_symbol] bindings containing
        closure symbol definitions but no code.  The code will be simplified
@@ -180,14 +174,11 @@ let lift_set_of_closures_discovered_via_reified_continuation_param_types dacc
       (fst definition, snd definition, extra_deps) :: reified_definitions
     in
     let closure_symbol_map =
-      List.map (fun { Let_symbol.Closure_binding.closure_id; symbol } ->
-          (closure_id, symbol))
-        closure_symbols
+      Closure_id.Lmap.bindings closure_symbols
       |> Closure_id.Map.of_list
     in
     let closure_symbols_by_set =
-      Set_of_closures.Map.add set_of_closures
-        closure_symbol_map
+      Set_of_closures.Map.add set_of_closures closure_symbol_map
         closure_symbols_by_set
     in
     let dacc, reified_continuation_params_to_symbols =
@@ -275,7 +266,10 @@ let reify_types_of_continuation_param_types dacc ~params =
               closure_symbols_by_set
           else
             (* CR lmaurer: function_decls has arbitrary order *)
-            let function_decls = Closure_id.Map.bindings function_decls in
+            let function_decls =
+              Closure_id.Map.bindings function_decls
+              |> Closure_id.Lmap.of_list
+            in
             lift_set_of_closures_discovered_via_reified_continuation_param_types
               dacc var closure_id function_decls ~closure_vars
               ~reified_continuation_params_to_symbols

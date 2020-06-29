@@ -55,21 +55,11 @@ end
 (* CR mshinwell: Somewhere there should be an invariant check that
    code has no free names. *)
 
-(** The definition of a single piece of code. *)
-module Code_binding : sig
-  type t = {
-    code_id : Code_id.t;
-    code : Code.t
-  }
-
-  val of_pair : Code_id.t * Code.t -> t
-end
-
 (** The possibly-recursive declaration of pieces of code and any associated set
     of closures. *)
 module Code_and_set_of_closures : sig
   type t = {
-    code : Code_binding.t list;
+    code : Code.t Code_id.Lmap.t;
     (* CR mshinwell: Check the free names of the set of closures *)
     set_of_closures : Set_of_closures.t;
   }
@@ -98,9 +88,9 @@ include Identifiable.S with type t := t
 include Contains_names.S with type t := t
 include Contains_ids.S with type t := t
 
-val get_pieces_of_code : t -> Code_binding.t list
+val get_pieces_of_code : t -> Code.t Code_id.Lmap.t
 
-val get_pieces_of_code' : t -> Function_params_and_body.t Code_id.Map.t
+val get_pieces_of_code' : t -> Function_params_and_body.t Code_id.Lmap.t
 
 val is_fully_static : t -> bool
 

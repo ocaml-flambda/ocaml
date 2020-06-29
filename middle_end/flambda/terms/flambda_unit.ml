@@ -149,9 +149,8 @@ module Iter_sets_of_closures = struct
              ({ code; set_of_closures; }
               : Static_const.Code_and_set_of_closures.t) ->
             f ~closure_symbols:(Some closure_symbols) set_of_closures;
-            List.iter (fun { Static_const.Code_binding.code_id = _;
-                             code = { Static_const.Code. params_and_body;
-                                      newer_version_of = _; } } ->
+            Code_id.Lmap.iter (fun _ { Static_const.Code. params_and_body;
+                                       newer_version_of = _; } ->
                 match params_and_body with
                 | Deleted -> ()
                 | Present params_and_body ->

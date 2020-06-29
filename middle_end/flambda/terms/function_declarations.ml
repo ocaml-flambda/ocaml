@@ -16,49 +16,37 @@
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
-module Binding = struct
-  type t = {
-    closure_id : Closure_id.t;
-    func_decl : Function_declaration.t;
-  }
-
-  let of_pair (closure_id, func_decl) = { closure_id; func_decl }
-
-  let to_pair { closure_id; func_decl } = closure_id, func_decl
-end
-
 type t = {
   funs : Function_declaration.t Closure_id.Map.t;
-  as_list : Binding.t list
+  in_order : Function_declaration.t Closure_id.Lmap.t
 }
 
 let invariant _env _t = ()
 
 let empty =
   { funs = Closure_id.Map.empty;
-    as_list = []
+    in_order = Closure_id.Lmap.empty
   }
 
 let is_empty { funs; _ } =
   Closure_id.Map.is_empty funs
 
-let create as_list =
-  { funs = Closure_id.Map.of_list (List.map Binding.to_pair as_list);
-    as_list
+let create in_order =
+  { funs = Closure_id.Map.of_list (Closure_id.Lmap.bindings in_order);
+    in_order
   }
 
 let funs t = t.funs
 
-let funs_in_order t = t.as_list
+let funs_in_order t = t.in_order
 
 let find ({ funs; _ } : t) closure_id =
   Closure_id.Map.find closure_id funs
 
-let print_with_cache ~cache ppf { as_list; _ } =
+let print_with_cache ~cache ppf { in_order; _ } =
   Format.fprintf ppf "@[<hov 1>(%a)@]"
-    (Misc.print_assoc
-      Closure_id.print (Function_declaration.print_with_cache ~cache))
-    (List.map Binding.to_pair as_list)
+    (Closure_id.Lmap.print (Function_declaration.print_with_cache ~cache))
+    in_order
 
 let print ppf t = print_with_cache ~cache:(Printing_cache.create ()) ppf t
 
@@ -69,18 +57,14 @@ let free_names { funs; _ } =
     funs
     (Name_occurrences.empty)
 
-let apply_name_permutation ({ as_list; _ } as t) perm =
-  let as_list' =
-    Misc.Stdlib.List.map_sharing (fun (binding : Binding.t) ->
-        let func_decl =
-          Function_declaration.apply_name_permutation binding.func_decl perm
-        in
-        if func_decl == binding.func_decl then binding
-        else { binding with Binding.func_decl })
-      as_list
+let apply_name_permutation ({ in_order; _ } as t) perm =
+  let in_order' =
+    Closure_id.Lmap.map_sharing (fun func_decl ->
+        Function_declaration.apply_name_permutation func_decl perm)
+      in_order
   in
-  if as_list == as_list' then t
-  else create as_list
+  if in_order == in_order' then t
+  else create in_order
 
 let all_ids_for_export { funs; _ } =
   Closure_id.Map.fold
@@ -90,21 +74,16 @@ let all_ids_for_export { funs; _ } =
     funs
     Ids_for_export.empty
 
-let import import_map { as_list; _ } =
-  let as_list = List.map (fun (binding : Binding.t) ->
-    let func_decl = Function_declaration.import import_map binding.func_decl in
-    { binding with func_decl }
-  ) as_list
+let import import_map { in_order; _ } =
+  let in_order =
+    Closure_id.Lmap.map (Function_declaration.import import_map) in_order
   in
-  create as_list
+  create in_order
 
 let compare { funs = funs1; _ } { funs = funs2; _ } =
   Closure_id.Map.compare Function_declaration.compare funs1 funs2
 
 let filter t ~f =
   let funs = Closure_id.Map.filter f t.funs in
-  let as_list =
-    List.filter (fun (binding : Binding.t) ->
-      f binding.closure_id binding.func_decl) t.as_list
-  in
-  { funs; as_list; }
+  let in_order = Closure_id.Lmap.filter f t.in_order in
+  { funs; in_order; }

@@ -215,37 +215,23 @@ module Code = struct
     }
 end
 
-module Code_binding = struct
-  type t = {
-    code_id : Code_id.t;
-    code : Code.t;
-  }
-
-  let of_pair (code_id, code) = { code_id; code }
-
-  let to_pair { code_id; code } = (code_id, code)
-end
-
 module Code_and_set_of_closures = struct
   type t = {
-    code : Code_binding.t list;
+    code : Code.t Code_id.Lmap.t;
     set_of_closures : Set_of_closures.t;
   }
 
   let print_with_cache ~cache ppf { code; set_of_closures; } =
-    let code_map () =
-      Code_id.Map.of_list (List.map Code_binding.to_pair code)
-    in
     if Set_of_closures.is_empty set_of_closures then
-      match code with
-      | [] | _ :: _ :: _ ->
+      match Code_id.Lmap.get_singleton code with
+      | None ->
         fprintf ppf "@[<hov 1>(@<0>%sCode@<0>%s@ (\
             @[<hov 1>%a@]\
             ))@]"
           (Flambda_colours.static_part ())
           (Flambda_colours.normal ())
-          (Code_id.Map.print (Code.print_with_cache ~cache)) (code_map ())
-      | [{ Code_binding.code; code_id = _ }] ->
+          (Code_id.Lmap.print (Code.print_with_cache ~cache)) code
+      | Some (_code_id, code) ->
         fprintf ppf "@[<hov 1>(@<0>%sCode@<0>%s@ (\
             @[<hov 1>%a@]\
             ))@]"
@@ -259,15 +245,14 @@ module Code_and_set_of_closures = struct
           ))@]"
         (Flambda_colours.static_part ())
         (Flambda_colours.normal ())
-        (Code_id.Map.print (Code.print_with_cache ~cache)) (code_map ())
+        (Code_id.Lmap.print (Code.print_with_cache ~cache)) code
         (Set_of_closures.print_with_cache ~cache) set_of_closures
 
   let compare { code = code1; set_of_closures = set1; }
         { code = code2; set_of_closures = set2; } =
     let c =
       let id_set code =
-        Code_id.Set.of_list
-          (List.map (fun { Code_binding.code_id; _ } -> code_id) code)
+        Code_id.Set.of_list (Code_id.Lmap.keys code)
       in
       Code_id.Set.compare (id_set code1) (id_set code2)
     in
@@ -275,23 +260,19 @@ module Code_and_set_of_closures = struct
     else Set_of_closures.compare set1 set2
 
   let free_names { code; set_of_closures; } =
-    List.fold_left (fun free_names { Code_binding.code; _ } ->
+    Code_id.Lmap.fold (fun _code_id code free_names ->
         Name_occurrences.union_list [
           (* [code_id] does not count as a free name. *)
           Code.free_names code;
           free_names;
         ])
-      (Set_of_closures.free_names set_of_closures)
       code
-
-  let map_code_sharing f ({ Code_binding.code_id; code } as binding) =
-    let code' = f code in
-    if code' == code then binding else { Code_binding.code_id; code = code' }
+      (Set_of_closures.free_names set_of_closures)
 
   let apply_name_permutation ({ code; set_of_closures; } as t) perm =
     let code' =
-      Misc.Stdlib.List.map_sharing
-        (map_code_sharing (fun code -> Code.apply_name_permutation code perm))
+      Code_id.Lmap.map_sharing
+        (fun code -> Code.apply_name_permutation code perm)
         code
     in
     let set_of_closures' =
@@ -311,19 +292,20 @@ module Code_and_set_of_closures = struct
     let set_of_closures_ids =
       Set_of_closures.all_ids_for_export set_of_closures
     in
-    List.fold_left (fun ids { Code_binding.code_id; code } ->
+    Code_id.Lmap.fold (fun code_id code ids ->
         Ids_for_export.union ids
           (Ids_for_export.add_code_id (Code.all_ids_for_export code) code_id))
-      set_of_closures_ids
       code
+      set_of_closures_ids
 
   let import import_map { code; set_of_closures; } =
     let code =
-      List.map (fun { Code_binding.code_id; code } ->
+      Code_id.Lmap.bindings code
+      |> List.map (fun (code_id, code) ->
           let code_id = Ids_for_export.Import_map.code_id import_map code_id in
           let code = Code.import import_map code in
-          { Code_binding.code_id; code })
-        code
+          code_id, code)
+      |> Code_id.Lmap.of_list
     in
     let set_of_closures =
       Set_of_closures.import import_map set_of_closures
@@ -331,10 +313,7 @@ module Code_and_set_of_closures = struct
     { code; set_of_closures; }
 
   let map_code t ~f =
-    let f ({ Code_binding.code_id; code }) =
-      { Code_binding.code_id; code = f code_id code }
-    in
-    { code = List.map f t.code;
+    { code = Code_id.Lmap.mapi f t.code;
       set_of_closures = t.set_of_closures;
     }
 end
@@ -479,10 +458,11 @@ end)
 let get_pieces_of_code t =
   match t with
   | Sets_of_closures sets ->
-    List.concat_map
-      (fun ({ code; set_of_closures = _; } : Code_and_set_of_closures.t) ->
-        code)
-      sets
+    Code_id.Lmap.disjoint_union_many
+      (List.map
+        (fun ({ code; set_of_closures = _; } : Code_and_set_of_closures.t) ->
+          code)
+        sets)
   | Block _
   | Boxed_float _
   | Boxed_int32 _
@@ -491,16 +471,14 @@ let get_pieces_of_code t =
   | Immutable_float_block _
   | Immutable_float_array _
   | Mutable_string _
-  | Immutable_string _ -> []
+  | Immutable_string _ -> Code_id.Lmap.empty
 
 let get_pieces_of_code' t =
-  get_pieces_of_code t
-  |> List.filter_map 
-    (fun { Code_binding.code_id; code } ->
+  Code_id.Lmap.filter_map (get_pieces_of_code t)
+    ~f:(fun _ code ->
       match code.Code.params_and_body with
       | Deleted -> None
-      | Present params_and_body -> Some (code_id, params_and_body))
-  |> Code_id.Map.of_list
+      | Present params_and_body -> Some params_and_body)
 
 let free_names t =
   match t with
