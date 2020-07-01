@@ -64,7 +64,7 @@ let apply_name_permutation ({ in_order; _ } as t) perm =
       in_order
   in
   if in_order == in_order' then t
-  else create in_order
+  else create in_order'
 
 let all_ids_for_export { funs; _ } =
   Closure_id.Map.fold
