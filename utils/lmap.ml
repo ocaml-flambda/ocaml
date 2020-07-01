@@ -47,10 +47,31 @@ module Make (T : Thing) : S with type key = T.t = struct
 
   let empty = []
   let is_empty m = m = []
-  let add k v m = (k, v) :: m
+  let rec remove k m = match m with
+    | [] -> []
+    | ((k', _) as pair) :: m -> if T.equal k k' then m else pair :: remove k m
+  let add k v m = (k, v) :: remove k m
   let singleton k v = [(k, v)]
-  let disjoint_union m1 m2 = m1 @ m2
-  let disjoint_union_many ms = List.concat ms
+  let check_for_absence k m =
+    List.iter (fun (k', _) ->
+      if T.equal k k' then invalid_arg "disjoint_union"
+    ) m
+  let disjoint_union m1 m2 =
+    List.iter (fun (k, _) -> check_for_absence k m2) m1;
+    m1 @ m2
+  let disjoint_union_many ms =
+    let rec loop ms prev =
+      match ms with
+      | [] -> ()
+      | m :: ms ->
+          List.iter (fun (k, _) ->
+            List.iter (check_for_absence k) ms;
+            List.iter (check_for_absence k) prev
+          ) m;
+          loop ms (m :: prev)
+    in
+    loop ms [];
+    List.concat ms
   let iter f m = List.iter (fun (k, v) -> f k v) m
   let fold f m b = List.fold_left (fun b (k, v) -> f k v b) b m
   let filter p m = List.filter (fun (k, v) -> p k v) m
