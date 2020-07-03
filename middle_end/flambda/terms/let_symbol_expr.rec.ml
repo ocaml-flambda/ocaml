@@ -118,7 +118,13 @@ module Bound_symbols = struct
   (* CR mshinwell: This should have an [invariant] function.  One thing to
      check is that the [closure_symbols] are all distinct. *)
 
-  let invariant _ _ = ()
+  let invariant _ t =
+    match t with
+    | Singleton _ -> ()
+    | Sets_of_closures sets ->
+      List.iter (fun { Code_and_set_of_closures.closure_symbols; _ } ->
+        Closure_id.Lmap.invariant closure_symbols
+      ) sets
 
   let being_defined t =
     match t with
@@ -387,8 +393,9 @@ let print_with_cache ~cache ppf t =
 let print ppf t = print_with_cache ~cache:(Printing_cache.create ()) ppf t
 
 let invariant env
-      { scoping_rule = _; bound_symbols = _; defining_expr = _; body; } =
+      { scoping_rule = _; bound_symbols; defining_expr = _; body; } =
   (* Static_const.invariant env defining_expr; *) (* CR mshinwell: FIXME *)
+  Bound_symbols.invariant env bound_symbols;
   Expr.invariant env body
 
 let free_names { scoping_rule = _; bound_symbols; defining_expr; body; } =

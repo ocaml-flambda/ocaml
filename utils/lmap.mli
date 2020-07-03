@@ -20,7 +20,23 @@
   {b Warning:} this module is unstable and part of
   {{!Compiler_libs}compiler-libs}.
 
+  This module supports lists of key-value pairs that aren't intended for
+  fast lookup. These are suitable for use in ASTs, where it's uncommon to look
+  up a value directly but very common to fold over the list to produce an
+  environment that is a true Map. They also preserve the order of the elements,
+  which is necessary for performing comparisons up to renaming of closure ids
+  and code ids.
+
+  Several operations on Map are provided here for consistency, but they do not
+  necessarily provide the same checks that a Map would and in most cases the
+  performance is different. Behavior will be the same provided that there are
+  never duplicate keys. You can manually invoke [invariant] to check for
+  duplicates.
 *)
+
+(* CR-soon lmaurer: It would be nice to have convenience functions for
+   conversion between maps and lmaps; this is complicated by the need to be
+   passed the Map.S implementation for the key type. *)
 
 module type Thing = sig
   type t
@@ -62,6 +78,10 @@ module type S = sig
 
   val print :
     (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a t -> unit
+
+  (** Check that there are no duplicates in the list, calling
+      [Misc.fatal_errorf] if a duplicate is found. *)
+  val invariant : 'a t -> unit
 end
 
 module Make (T : Thing) : S with type key = T.t
