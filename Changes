@@ -3,6 +3,9 @@ Working version
 
 ### Runtime system:
 
+- #9688: Expose the main entrypoint in compilerlibs
+  (Stephen Dolan, review by Nicolás Ojeda Bär, Greta Yorsh and David Allsopp)
+
 - #9316: Use typing information from Clambda for mutable Cmm variables.
   (Stephen Dolan, review by Vincent Laviron, Guillaume Bury and Xavier Leroy)
 

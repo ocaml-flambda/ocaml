@@ -9180,6 +9180,27 @@ driver/ilambdac.cmx : \
     asmcomp/asmgen.cmx \
     asmcomp/arch.cmx
 driver/main.cmo : \
+    driver/maindriver.cmi
+driver/main.cmx : \
+    driver/maindriver.cmx
+driver/main_args.cmo : \
+    utils/warnings.cmi \
+    utils/profile.cmi \
+    utils/misc.cmi \
+    utils/config.cmi \
+    driver/compenv.cmi \
+    utils/clflags.cmi \
+    driver/main_args.cmi
+driver/main_args.cmx : \
+    utils/warnings.cmx \
+    utils/profile.cmx \
+    utils/misc.cmx \
+    utils/config.cmx \
+    driver/compenv.cmx \
+    utils/clflags.cmx \
+    driver/main_args.cmi
+driver/main_args.cmi :
+driver/maindriver.cmo : \
     utils/warnings.cmi \
     utils/profile.cmi \
     driver/makedepend.cmi \
@@ -9193,8 +9214,8 @@ driver/main.cmo : \
     bytecomp/bytepackager.cmi \
     bytecomp/bytelink.cmi \
     bytecomp/bytelibrarian.cmi \
-    driver/main.cmi
-driver/main.cmx : \
+    driver/maindriver.cmi
+driver/maindriver.cmx : \
     utils/warnings.cmx \
     utils/profile.cmx \
     driver/makedepend.cmx \
@@ -9208,27 +9229,8 @@ driver/main.cmx : \
     bytecomp/bytepackager.cmx \
     bytecomp/bytelink.cmx \
     bytecomp/bytelibrarian.cmx \
-    driver/main.cmi
-driver/main.cmi :
-driver/main_args.cmo : \
-    utils/warnings.cmi \
-    utils/profile.cmi \
-    utils/misc.cmi \
-    middle_end/flambda/terms/flambda.cmi \
-    utils/config.cmi \
-    driver/compenv.cmi \
-    utils/clflags.cmi \
-    driver/main_args.cmi
-driver/main_args.cmx : \
-    utils/warnings.cmx \
-    utils/profile.cmx \
-    utils/misc.cmx \
-    middle_end/flambda/terms/flambda.cmx \
-    utils/config.cmx \
-    driver/compenv.cmx \
-    utils/clflags.cmx \
-    driver/main_args.cmi
-driver/main_args.cmi :
+    driver/maindriver.cmi
+driver/maindriver.cmi :
 driver/makedepend.cmo : \
     driver/pparse.cmi \
     parsing/parsetree.cmi \
@@ -9302,6 +9304,10 @@ driver/opterrors.cmx : \
     driver/opterrors.cmi
 driver/opterrors.cmi :
 driver/optmain.cmo : \
+    driver/optmaindriver.cmi
+driver/optmain.cmx : \
+    driver/optmaindriver.cmx
+driver/optmaindriver.cmo : \
     utils/warnings.cmi \
     utils/profile.cmi \
     asmcomp/proc.cmi \
@@ -9319,8 +9325,8 @@ driver/optmain.cmo : \
     asmcomp/asmlink.cmi \
     asmcomp/asmlibrarian.cmi \
     asmcomp/arch.cmo \
-    driver/optmain.cmi
-driver/optmain.cmx : \
+    driver/optmaindriver.cmi
+driver/optmaindriver.cmx : \
     utils/warnings.cmx \
     utils/profile.cmx \
     asmcomp/proc.cmx \
@@ -9338,8 +9344,8 @@ driver/optmain.cmx : \
     asmcomp/asmlink.cmx \
     asmcomp/asmlibrarian.cmx \
     asmcomp/arch.cmx \
-    driver/optmain.cmi
-driver/optmain.cmi :
+    driver/optmaindriver.cmi
+driver/optmaindriver.cmi :
 driver/pparse.cmo : \
     utils/warnings.cmi \
     utils/profile.cmi \
