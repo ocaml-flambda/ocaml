@@ -89,7 +89,12 @@ type simple =
 
 type unop =
   | Opaque_identity
+  | Untag_imm
   | Project_var of var_within_closure
+  | Select_closure of {
+      move_from : closure_id;
+      move_to : closure_id;
+    }
 
 type generic_array_specialisation =
   | No_specialisation
@@ -102,8 +107,11 @@ type block_access_kind =
   | Array of kind
   | Generic_array of generic_array_specialisation
 
+type equality_comparison = Flambda_primitive.equality_comparison = Eq | Neq
+
 type binop =
   | Block_load of block_access_kind * Mutability.t
+  | Phys_equal of kind option * equality_comparison
 
 type infix_binop =
   | Plus | Plusdot
@@ -232,12 +240,19 @@ and segment = {
 }
 
 and code_binding = {
-  (* TODO: Allow deleted? *)
   id : code_id;
   closure_id : closure_id option;
   newer_version_of : code_id option;
+  code : code or_deleted
+}
+
+and 'a or_deleted =
+  | Present of 'a
+  | Deleted
+
+and code = {
   params : kinded_parameter list;
-  closure_var : variable;
+  closure_var : variable option;
   vars_within_closures : kinded_var_within_closure list;
   ret_cont : continuation_id;
   exn_cont : continuation_id option;

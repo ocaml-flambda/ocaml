@@ -5,6 +5,7 @@ type token =
   | WITH
   | WHERE
   | VAL
+  | UNTAG_IMM
   | UNREACHABLE
   | UNIT
   | UNDERSCORE
@@ -14,6 +15,7 @@ type token =
   | STUB
   | STAR
   | SEMICOLON
+  | SELECT_CLOSURE
   | SEGMENT
   | RPAREN
   | REC
@@ -23,6 +25,8 @@ type token =
   | PLUSDOT
   | PLUS
   | PIPE
+  | PHYS_NE
+  | PHYS_EQ
   | OPAQUE
   | NOALLOC
   | NEWER_VERSION_OF
@@ -52,6 +56,7 @@ type token =
   | DOT
   | DONE
   | DIRECT
+  | DELETED
   | CONT
   | COMMA
   | COLON

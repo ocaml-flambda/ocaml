@@ -71,6 +71,7 @@ let make_segment
 %token COMMA [@symbol "comma"]
 %token COLON  [@symbol ":"]
 %token CONT  [@symbol "cont"]
+%token DELETED [@symbol "deleted"]
 %token DIRECT [@symbol "direct"]
 %token DONE  [@symbol "done"]
 %token DOT   [@symbol "."]
@@ -99,6 +100,8 @@ let make_segment
 %token NEWER_VERSION_OF [@symbol "newer_version_of"]
 %token NOALLOC [@symbol "noalloc"]
 %token OPAQUE [@symbol "opaque_identity"]
+%token PHYS_EQ [@symbol "phys_eq"]
+%token PHYS_NE [@symbol "phys_ne"]
 %token PIPE [@symbol "|"]
 %token PLUS     [@symbol "+"]
 %token PLUSDOT  [@symbol "+."]
@@ -107,6 +110,7 @@ let make_segment
 %token RBRACE [@symbol "}"]
 %token REC    [@symbol "rec"]
 %token RPAREN [@symbol ")"]
+%token SELECT_CLOSURE [@symbol "select_closure"]
 %token SEMICOLON [@symbol ";"]
 %token SEGMENT [@symbol "segment"]
 %token STUB   [@symbol "stub"]
@@ -117,6 +121,7 @@ let make_segment
 %token UNDERSCORE [@symbol "_"]
 %token UNIT   [@symbol "unit"]
 %token UNREACHABLE [@symbol "Unreachable"]
+%token UNTAG_IMM [@symbol "untag_imm"]
 %token VAL    [@symbol "val"]
 %token WHERE  [@symbol "where"]
 %token WITH   [@symbol "with"]
@@ -184,16 +189,22 @@ code_binding:
     id = code_id;
     closure_id = option(AT; cid = closure_id { cid });
     newer_version_of = option(NEWER_VERSION_OF; id = code_id { id });
-    params = kinded_args;
-    closure_var = variable;
+    code_or_deleted = code_or_deleted;
+    { { id; closure_id; newer_version_of; code = code_or_deleted recursive } }
+;
+
+code_or_deleted:
+  | DELETED { fun _ -> Deleted }
+  | params = kinded_args;
+    closure_var = variable_opt;
     vars_within_closures = kinded_vars_within_closures;
     MINUSGREATER; ret_cont = continuation_id;
     exn_cont = option(exn_continuation_id);
     ret_arity = return_arity;
     EQUAL; expr = expr;
-    { { id; closure_id; newer_version_of; params; closure_var;
-        vars_within_closures; ret_cont; ret_arity; exn_cont; recursive; expr; }
-       : code_binding }
+    { fun recursive : code or_deleted ->
+        Present { params; closure_var; vars_within_closures; ret_cont;
+                ret_arity; exn_cont; recursive; expr; } }
 ;
 
 static_closure_binding:
@@ -207,7 +218,11 @@ recursive:
 
 unop:
   | OPAQUE { Opaque_identity }
-  | PROJECT_VAR; var = var_within_closure; { Project_var var }
+  | UNTAG_IMM { Untag_imm }
+  | PROJECT_VAR; var = var_within_closure { Project_var var }
+  | SELECT_CLOSURE; LPAREN; move_from = closure_id; MINUSGREATER;
+      move_to = closure_id; RPAREN
+    { Select_closure { move_from; move_to } }
 
 infix_binop:
   | PLUS { Plus }
@@ -216,16 +231,30 @@ infix_binop:
   | MINUSDOT { Minusdot }
 ;
 
+prefix_binop:
+  | PHYS_EQ; k = kind_arg_opt { Phys_equal(k, Eq) }
+  | PHYS_NE; k = kind_arg_opt { Phys_equal(k, Neq) }
+
 binop:
   | a = simple DOT LPAREN f = simple RPAREN
     { Binop (Block_load (Block Value, Immutable), a, f) }
+  | op = prefix_binop; LPAREN; arg1 = simple; COMMA; arg2 = simple; RPAREN
+    { Binop (op, arg1, arg2) }
+;
+
+block:
+  | BLOCK; t = tag; LPAREN;
+    elts = separated_list(COMMA, simple);
+    RPAREN
+    { Block (t, Immutable, elts) }
+;
 
 named:
   | s = simple { Simple s }
   | u = unop a = simple { Prim (Unop (u, a)) }
   | a1 = simple b = infix_binop a2 = simple { Prim (Infix_binop (b, a1, a2)) }
   | b = binop { Prim b }
-  | BLOCK t = tag LPAREN elts = simple* RPAREN { Prim (Block (t, Immutable, elts)) }
+  | b = block { Prim b }
   | c = closure { Closure { code_id = c } }
 ;
 
@@ -252,6 +281,11 @@ kinds:
 return_arity:
   | { None }
   | COLON k = kinds { Some k }
+;
+
+kind_arg_opt:
+  | { None }
+  | LBRACE; k = kind; RBRACE { Some k }
 ;
 
 /* expr is staged so that let and where play nicely together. In particular, in
@@ -419,14 +453,12 @@ of_kind_value:
 
 kinded_variable:
   | param = variable { { param; kind = None } }
-  | LPAREN; param = variable; COLON; kind = kind; RPAREN
-    { { param; kind = Some kind } }
+  | param = variable; COLON; kind = kind { { param; kind = Some kind } }
 ;
 
 kinded_variable_opt:
   | v = variable_opt { v, None }
-  | LPAREN; v = variable_opt; COLON; kind = kind; RPAREN
-    { v, Some kind }
+  | v = variable_opt; COLON; kind = kind; { v, Some kind }
 ;
 
 kinded_var_within_closure:

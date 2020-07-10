@@ -166,13 +166,28 @@ let binop ppf binop a b =
       simple a simple b
   | Block_load _ ->
     failwith "TODO Block_load"
+  | Phys_equal (k, comp) ->
+    let name =
+      match comp with
+      | Eq -> "phys_eq"
+      | Neq -> "phys_neq"
+    in
+    Format.fprintf ppf "@[<2>%s%a@]"
+      name
+      (pp_option ~prefix:"@ {" ~suffix:"}" kind) k
 
 let unop ppf u =
   match u with
   | Opaque_identity ->
     Format.pp_print_string ppf "Opaque"
+  | Untag_imm ->
+    Format.pp_print_string ppf "untag_imm"
   | Project_var var ->
-    Format.fprintf ppf "@[<2>Project_var@ %a@]" var_within_closure var 
+    Format.fprintf ppf "@[<2>project_var@ %a@]" var_within_closure var 
+  | Select_closure { move_from; move_to } ->
+    Format.fprintf ppf "@[<2>select_closure@ %a@ -> %a@]"
+      closure_id move_from
+      closure_id move_to
 
 let prim ppf = function
   | Unop (u, a) ->
@@ -426,18 +441,26 @@ and code_binding ppf (cb : code_binding) =
         Format.fprintf ppf "@ <%a>" (pp_space_list kinded_var_within_closure)
           vars
   in
-  Format.fprintf ppf "@[<4>code%a@ %a%a%a%a@ %a%a@ -> %a%a%a@] =@ %a"
-    recursive cb.recursive
+  let rec_ = match cb.code with
+    | Present { recursive; _ } -> recursive
+    | Deleted -> Nonrecursive
+  in
+  Format.fprintf ppf "@[<4>code%a@ %a%a%a"
+    recursive rec_
     code_id cb.id
     (pp_option ~prefix:"@ %@" closure_id) cb.closure_id
-    (pp_option ~prefix:"@ newer_version_of " code_id) cb.newer_version_of
-    kinded_parameters cb.params
-    variable cb.closure_var
-    pp_vars_within_closures cb.vars_within_closures
-    continuation_id cb.ret_cont
-    (pp_option ~prefix:"@ * " continuation_id) cb.exn_cont
-    (pp_option ~prefix:"@ : " arity) cb.ret_arity
-    (expr Outer) cb.expr
+    (pp_option ~prefix:"@ newer_version_of " code_id) cb.newer_version_of;
+  match cb.code with
+    | Deleted -> Format.fprintf ppf "deleted@]"
+    | Present code ->
+      Format.fprintf ppf "%a@ %a%a@ -> %a%a%a@] =@ %a"
+        kinded_parameters code.params
+        variable_opt code.closure_var
+        pp_vars_within_closures code.vars_within_closures
+        continuation_id code.ret_cont
+        (pp_option ~prefix:"@ * " continuation_id) code.exn_cont
+        (pp_option ~prefix:"@ : " arity) code.ret_arity
+        (expr Outer) code.expr
 
 let flambda_unit ppf ({ body } : flambda_unit) =
   Format.fprintf ppf "@[%a@]"

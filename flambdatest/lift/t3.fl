@@ -2,7 +2,8 @@
   let a = Opaque 5555555t in
   let b = Opaque 2222222t in
   let c = Opaque 1t in
-  switch c | 0 -> r1 | 1 -> r2
+  let c_u = Untag_imm c in
+  switch c_u | 0 -> r1 | 1 -> r2
   where
     r1 = cont ret (a, b, b)
   where

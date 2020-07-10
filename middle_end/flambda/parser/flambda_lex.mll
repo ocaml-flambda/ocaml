@@ -46,6 +46,7 @@ let keyword_table =
     "closure", CLOSURE;
     "code", CODE;
     "cont", CONT;
+    "deleted", DELETED;
     "direct", DIRECT;
     "done", DONE;
     "end", END;
@@ -61,13 +62,17 @@ let keyword_table =
     "nativeint", NATIVEINT;
     "newer_version_of", NEWER_VERSION_OF;
     "noalloc", NOALLOC;
+    "phys_eq", PHYS_EQ;
+    "phys_ne", PHYS_NE;
     "project_var", PROJECT_VAR;
     "rec", REC;
     "segment", SEGMENT;
+    "select_closure", SELECT_CLOSURE;
     "stub", STUB;
     "switch", SWITCH;
     "symbol", SYMBOL;
     "unit", UNIT;
+    "untag_imm", UNTAG_IMM;
     "val", VAL;
     "where", WHERE;
     "with", WITH;
