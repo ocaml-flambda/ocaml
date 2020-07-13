@@ -512,17 +512,12 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
       in
       let vars_and_code_ids = List.map binding_to_var_and_code_id bindings in
       let closure_vars, env =
-        let convert_binding env (var, code_id)
-            : (Closure_id.t * Var_in_binding_pos.t) * env =
+        let convert_binding env (var, _code_id) : Var_in_binding_pos.t * env =
           let var, env = fresh_var env var in
           let var = Var_in_binding_pos.create var Name_mode.normal in
-          let { closure_id; _ } : fun_decl_info =
-            find_fun_decl env (find_code_id env code_id)
-          in
-          (closure_id, var), env
+          var, env
         in
-        let pairs, env = map_accum_left convert_binding env vars_and_code_ids in
-        Closure_id.Map.of_list pairs, env
+        map_accum_left convert_binding env vars_and_code_ids
       in
       let bound = Bindable_let_bound.set_of_closures ~closure_vars in
       let named =
