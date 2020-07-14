@@ -40,6 +40,6 @@ val pattern_match_pair
    : t
   -> t
   -> f:(Bindable_let_bound.t -> body1:Expr.t -> body2:Expr.t -> 'a)
-  -> 'a
+  -> ('a, string) Result.t
 
 val create : Bindable_let_bound.t -> defining_expr:Named.t -> body:Expr.t -> t

@@ -31,9 +31,35 @@ let pattern_match t ~f =
     ~f:(fun bindable_let_bound body -> f bindable_let_bound ~body)
 
 let pattern_match_pair t1 t2 ~f =
-  A.pattern_match_pair t1.name_abstraction t2.name_abstraction
-    ~f:(fun bindable_let_bound body1 body2 ->
-      f bindable_let_bound ~body1 ~body2)
+  A.pattern_match t1.name_abstraction
+    ~f:(fun bindable_let_bound1 _ ->
+      A.pattern_match t2.name_abstraction
+        ~f:(fun bindable_let_bound2 _ ->
+          let safe =
+            match bindable_let_bound1, bindable_let_bound2 with
+            | Bindable_let_bound.Singleton _,
+              Bindable_let_bound.Singleton _ ->
+                true
+            | Set_of_closures { closure_vars = vars1; _ },
+              Set_of_closures { closure_vars = vars2; _ } ->
+                List.compare_lengths vars1 vars2 = 0
+            | Symbols _,
+              Symbols _ ->
+                true
+            | _, _ ->
+                false
+          in
+          if safe then
+            let ans =
+              A.pattern_match_pair
+                t1.name_abstraction
+                t2.name_abstraction
+                ~f:(fun bindable_let_bound body1 body2 ->
+                  f bindable_let_bound ~body1 ~body2)
+            in
+            Ok ans
+          else
+            Error "Mismatched let bindings"))
 
 (* For printing "let symbol": *)
 
