@@ -240,7 +240,7 @@ end and Let_expr : sig
      : t
     -> t
     -> f:(Bindable_let_bound.t -> body1:Expr.t -> body2:Expr.t -> 'a)
-    -> 'a
+    -> ('a, string) Result.t
 end and Let_cont_expr : sig
   (** Values of type [t] represent alpha-equivalence classes of the definitions
       of continuations:
