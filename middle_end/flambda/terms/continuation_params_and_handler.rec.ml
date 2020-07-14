@@ -67,6 +67,11 @@ let pattern_match t ~f =
     f params ~handler)
 
 let pattern_match_pair t1 t2 ~f =
-  pattern_match_pair t1 t2 ~f:(
-    fun params { handler = handler1; } { handler = handler2; } ->
-      f params ~handler1 ~handler2)
+  pattern_match t1 ~f:(fun params1 ~handler:_ ->
+    pattern_match t2 ~f:(fun params2 ~handler:_ ->
+      if List.compare_lengths params1 params2 = 0 then
+        pattern_match_pair t1 t2 ~f:(
+          fun params { handler = handler1; } { handler = handler2; } ->
+            Ok (f params ~handler1 ~handler2))
+      else
+        Error "Parameter lists have different lengths"))

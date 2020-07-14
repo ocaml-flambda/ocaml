@@ -52,5 +52,5 @@ val pattern_match_pair
     -> handler1:Expr.t
     -> handler2:Expr.t
     -> 'a)
-  -> 'a
+  -> ('a, string) Result.t
 

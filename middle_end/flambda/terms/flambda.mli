@@ -401,7 +401,7 @@ end and Continuation_params_and_handler : sig
       -> handler1:Expr.t
       -> handler2:Expr.t
       -> 'a)
-    -> 'a
+    -> ('a, string) Result.t
 
 end and Recursive_let_cont_handlers : sig
   (** The representation of the alpha-equivalence class of a group of possibly
