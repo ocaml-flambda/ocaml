@@ -34,12 +34,18 @@ val pattern_match
   -> f:(Bindable_let_bound.t -> body:Expr.t -> 'a)
   -> 'a
 
+module Pattern_match_pair_error : sig
+  type t = Mismatched_let_bindings
+
+  val to_string : t -> string
+end
+
 (** Look inside two [Let]s by choosing members of their alpha-equivalence
     classes, using the same bound variables for both. *)
 val pattern_match_pair
    : t
   -> t
   -> f:(Bindable_let_bound.t -> body1:Expr.t -> body2:Expr.t -> 'a)
-  -> ('a, string) Result.t
+  -> ('a, Pattern_match_pair_error.t) Result.t
 
 val create : Bindable_let_bound.t -> defining_expr:Named.t -> body:Expr.t -> t

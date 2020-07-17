@@ -234,13 +234,19 @@ end and Let_expr : sig
     -> f:(Bindable_let_bound.t -> body:Expr.t -> 'a)
     -> 'a
 
+  module Pattern_match_pair_error : sig
+    type t = Mismatched_let_bindings
+
+    val to_string : t -> string
+  end
+
   (** Look inside two [Let]s by choosing members of their alpha-equivalence
       classes, using the same bound variables for both. *)
   val pattern_match_pair
      : t
     -> t
     -> f:(Bindable_let_bound.t -> body1:Expr.t -> body2:Expr.t -> 'a)
-    -> ('a, string) Result.t
+    -> ('a, Pattern_match_pair_error.t) Result.t
 end and Let_cont_expr : sig
   (** Values of type [t] represent alpha-equivalence classes of the definitions
       of continuations:
@@ -392,6 +398,12 @@ end and Continuation_params_and_handler : sig
       -> 'a)
     -> 'a
 
+  module Pattern_match_pair_error : sig
+    type t = Parameter_lists_have_different_lengths
+
+    val to_string : t -> string
+  end
+
   (** Choose members of two bindings' alpha-equivalence classes using the same
       parameters. *)
   val pattern_match_pair
@@ -401,7 +413,7 @@ end and Continuation_params_and_handler : sig
       -> handler1:Expr.t
       -> handler2:Expr.t
       -> 'a)
-    -> ('a, string) Result.t
+    -> ('a, Pattern_match_pair_error.t) Result.t
 
 end and Recursive_let_cont_handlers : sig
   (** The representation of the alpha-equivalence class of a group of possibly
