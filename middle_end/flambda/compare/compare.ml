@@ -659,7 +659,7 @@ let simple_exprs env simple1 simple2 : Simple.t Comparison.t =
 ;;
 
 let print_list f ppf l =
-  let pp_sep ppf () = Format.fprintf ppf ";@<1 2>" in
+  let pp_sep ppf () = Format.fprintf ppf ";@;<1 2>" in
   Format.fprintf ppf "@[<hv>[@ %a@ ]@]" (Format.pp_print_list ~pp_sep f) l
 ;;
 
@@ -1126,6 +1126,11 @@ and let_exprs env let_expr1 let_expr2 : Expr.t Comparison.t =
         in
         Different { approximant }
     )
+    |> function
+      | Ok comp ->
+        comp
+      | Error _ ->
+        Comparison.Different { approximant = subst_let_expr env let_expr1 }
 and let_symbol_exprs env let_symbol1 let_symbol2 : Expr.t Comparison.t =
   (* Need to be careful of the order in which we do things:
    *
@@ -1302,8 +1307,6 @@ and let_cont_exprs env (let_cont1 : Let_cont.t) (let_cont2 : Let_cont.t)
   | _, _ ->
     Different { approximant = subst_let_cont env let_cont1 }
 and cont_handlers env handler1 handler2 =
-  (* May want to check that the number of arguments matches first to avoid
-   * a fatal error from Name_abstraction.pattern_match_pair *)
   Continuation_params_and_handler.pattern_match_pair 
     (Continuation_handler.params_and_handler handler1)
     (Continuation_handler.params_and_handler handler2)
@@ -1325,6 +1328,11 @@ and cont_handlers env handler1 handler2 =
           (Continuation_handler.is_exn_handler handler1)
           (Continuation_handler.is_exn_handler handler2))
         ~approximant:(fun () -> subst_cont_handler env handler1))
+  |> function
+    | Ok comp ->
+      comp
+    | Error _ ->
+      Comparison.Different { approximant = subst_cont_handler env handler1 }
 ;;
 
 let flambda_units u1 u2 =

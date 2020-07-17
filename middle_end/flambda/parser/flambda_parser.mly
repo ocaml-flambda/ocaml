@@ -463,7 +463,7 @@ kinded_variable_opt:
 
 kinded_var_within_closure:
   | var = var_within_closure { { var; kind = None } }
-  | LPAREN; var = var_within_closure; COLON; kind = kind; RPAREN
+  | var = var_within_closure; COLON; kind = kind
     { { var; kind = Some kind } }
 ;
 

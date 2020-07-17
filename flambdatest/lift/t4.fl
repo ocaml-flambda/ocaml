@@ -4,12 +4,9 @@
   let c = Opaque 1t in
   let c_u = untag_imm c in
   switch c_u | 0 -> r1 | 1 -> r2
-  where
-    r1 = cont ret (a, b, b)
-  where
-    r2 = cont ret (a, a, b)
-  where
-    ret (a, b, c) = cont k (a, b, c)
+  where r1 = cont ret (a, b, b)
+  where r2 = cont ret (a, a, b)
+  where ret (a, b, c) = cont k (a, b, c)
 ) where
   k (a, b, c) =
     let symbol X = Block 1 (a, b, c) in
