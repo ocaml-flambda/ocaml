@@ -66,6 +66,14 @@ let pattern_match t ~f =
   pattern_match t ~f:(fun params { handler; } ->
     f params ~handler)
 
+module Pattern_match_pair_error = struct
+  type t = Parameter_lists_have_different_lengths
+
+  let to_string = function
+    | Parameter_lists_have_different_lengths ->
+      "Parameter lists have different lengths"
+end
+
 let pattern_match_pair t1 t2 ~f =
   pattern_match t1 ~f:(fun params1 ~handler:_ ->
     pattern_match t2 ~f:(fun params2 ~handler:_ ->
@@ -74,4 +82,4 @@ let pattern_match_pair t1 t2 ~f =
           fun params { handler = handler1; } { handler = handler2; } ->
             Ok (f params ~handler1 ~handler2))
       else
-        Error "Parameter lists have different lengths"))
+        Error Pattern_match_pair_error.Parameter_lists_have_different_lengths))

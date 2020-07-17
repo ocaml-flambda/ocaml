@@ -30,6 +30,13 @@ let pattern_match t ~f =
   A.pattern_match t.name_abstraction
     ~f:(fun bindable_let_bound body -> f bindable_let_bound ~body)
 
+module Pattern_match_pair_error = struct
+  type t = Mismatched_let_bindings
+
+  let to_string = function
+    | Mismatched_let_bindings -> "Mismatched let bindings"
+end
+
 let pattern_match_pair t1 t2 ~f =
   A.pattern_match t1.name_abstraction
     ~f:(fun bindable_let_bound1 _ ->
@@ -59,7 +66,7 @@ let pattern_match_pair t1 t2 ~f =
             in
             Ok ans
           else
-            Error "Mismatched let bindings"))
+            Error Pattern_match_pair_error.Mismatched_let_bindings))
 
 (* For printing "let symbol": *)
 
