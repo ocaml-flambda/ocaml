@@ -37,35 +37,41 @@ module Pattern_match_pair_error = struct
     | Mismatched_let_bindings -> "Mismatched let bindings"
 end
 
-let pattern_match_pair t1 t2 ~f =
+let pattern_match_pair t1 t2 ~dynamic ~static =
   A.pattern_match t1.name_abstraction
-    ~f:(fun bindable_let_bound1 _ ->
+    ~f:(fun bindable_let_bound1 body1 ->
       A.pattern_match t2.name_abstraction
-        ~f:(fun bindable_let_bound2 _ ->
-          let safe =
+        ~f:(fun bindable_let_bound2 body2 ->
+          let case =
             match bindable_let_bound1, bindable_let_bound2 with
             | Bindable_let_bound.Singleton _,
               Bindable_let_bound.Singleton _ ->
-                true
+              `Dynamic
             | Set_of_closures { closure_vars = vars1; _ },
               Set_of_closures { closure_vars = vars2; _ } ->
-                List.compare_lengths vars1 vars2 = 0
-            | Symbols _,
-              Symbols _ ->
-                true
+              if List.compare_lengths vars1 vars2 = 0
+              then `Dynamic
+              else `Error
+            | Symbols bound_symbols1,
+              Symbols bound_symbols2 ->
+              `Static (bound_symbols1, bound_symbols2)
             | _, _ ->
-                false
+              `Error
           in
-          if safe then
+          match case with
+          | `Dynamic ->
             let ans =
               A.pattern_match_pair
                 t1.name_abstraction
                 t2.name_abstraction
                 ~f:(fun bindable_let_bound body1 body2 ->
-                  f bindable_let_bound ~body1 ~body2)
+                  dynamic bindable_let_bound ~body1 ~body2)
             in
             Ok ans
-          else
+          | `Static (bound_symbols1, bound_symbols2) ->
+            let ans = static ~bound_symbols1 ~bound_symbols2 ~body1 ~body2 in
+            Ok ans
+          | `Error ->
             Error Pattern_match_pair_error.Mismatched_let_bindings))
 
 (* For printing "let symbol": *)
