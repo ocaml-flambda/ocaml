@@ -179,7 +179,6 @@ let unsafe_string =
   else ref (not Config.default_safe_string)
                                    (* -safe-string / -unsafe-string *)
 
-let classic_inlining = ref false       (* -Oclassic *)
 let inlining_report = ref false    (* -inlining-report *)
 
 let afl_instrument = ref Config.afl_instrument (* -afl-instrument *)
@@ -445,6 +444,43 @@ module Flambda = struct
   module Debug = struct
     let concrete_types_only_on_canonicals = ref false
   end
+
+  let oclassic_flags () =
+    cse_depth := 2;
+    join_points := true;
+    unbox_along_intra_function_control_flow := true;
+    lift_toplevel_inconstants := false;
+    Expert.fallback_inlining_heuristic := true;
+    backend_cse_at_toplevel := false;
+    ()
+
+  let o1_flags () =
+    cse_depth := 2;
+    join_points := true;
+    unbox_along_intra_function_control_flow := true;
+    lift_toplevel_inconstants := false;
+    Expert.fallback_inlining_heuristic := false;
+    backend_cse_at_toplevel := false;
+    ()
+
+  let o2_flags () =
+    cse_depth := 2;
+    join_points := true;
+    unbox_along_intra_function_control_flow := true;
+    lift_toplevel_inconstants := true;
+    Expert.fallback_inlining_heuristic := false;
+    backend_cse_at_toplevel := false;
+    ()
+
+  let o3_flags () =
+    cse_depth := 2;
+    join_points := true;
+    unbox_along_intra_function_control_flow := true;
+    lift_toplevel_inconstants := true;
+    Expert.fallback_inlining_heuristic := false;
+    backend_cse_at_toplevel := false;
+    ()
+
 end
 
 (* This is used by the -stop-after option. *)

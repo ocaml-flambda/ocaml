@@ -179,6 +179,12 @@ let mk_dump_pass f =
     !Clflags.all_passes
 ;;
 
+let mk_oclassic f =
+  "-Oclassic", Arg.Unit f, " Make inlining decisions at function definition \
+     time rather than at the call site (replicates previous behaviour of the \
+     compiler)"
+;;
+
 let mk_o2 f =
   "-O2", Arg.Unit f, " Apply increased optimization for speed"
 ;;
@@ -200,12 +206,6 @@ let mk_inline_max_unroll f =
     Printf.sprintf "<n>|<round>=<n>[,...]  Unroll recursive functions at most \
       this many times (default %d)"
       Clflags.default_inline_max_unroll
-;;
-
-let mk_classic_inlining f =
-  "-Oclassic", Arg.Unit f, " Make inlining decisions at function definition \
-     time rather than at the call site (replicates previous behaviour of the \
-     compiler)"
 ;;
 
 let mk_inline_cost arg descr default f =
@@ -1181,7 +1181,6 @@ module type Optcommon_options = sig
   val _inline_max_depth : string -> unit
   val _rounds : int -> unit
   val _inline_max_unroll : string -> unit
-  val _classic_inlining : unit -> unit
   val _inline_call_cost : string -> unit
   val _inline_alloc_cost : string -> unit
   val _inline_prim_cost : string -> unit
@@ -1194,6 +1193,7 @@ module type Optcommon_options = sig
   val _remove_unused_arguments : unit -> unit
   val _no_unbox_free_vars_of_closures : unit -> unit
   val _no_unbox_specialised_args : unit -> unit
+  val _oclassic : unit -> unit
   val _o2 : unit -> unit
   val _o3 : unit -> unit
   val _insn_sched : unit -> unit
@@ -1486,7 +1486,6 @@ struct
     mk_cclib F._cclib;
     mk_ccopt F._ccopt;
     mk_clambda_checks F._clambda_checks;
-    mk_classic_inlining F._classic_inlining;
     mk_color F._color;
     mk_error_style F._error_style;
     mk_compact F._compact;
@@ -1536,6 +1535,7 @@ struct
     mk_no_unbox_free_vars_of_closures F._no_unbox_free_vars_of_closures;
     mk_no_unbox_specialised_args F._no_unbox_specialised_args;
     mk_o F._o;
+    mk_oclassic F._oclassic;
     mk_o2 F._o2;
     mk_o3 F._o3;
     mk_opaque F._opaque;
@@ -1687,7 +1687,6 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_inlining_report F._inlining_report;
     mk_rounds F._rounds;
     mk_inline_max_unroll F._inline_max_unroll;
-    mk_classic_inlining F._classic_inlining;
     mk_inline_call_cost F._inline_call_cost;
     mk_inline_alloc_cost F._inline_alloc_cost;
     mk_inline_prim_cost F._inline_prim_cost;
@@ -1712,6 +1711,7 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_nopervasives F._nopervasives;
     mk_no_unbox_free_vars_of_closures F._no_unbox_free_vars_of_closures;
     mk_no_unbox_specialised_args F._no_unbox_specialised_args;
+    mk_oclassic F._oclassic;
     mk_o2 F._o2;
     mk_o3 F._o3;
     mk_open F._open;
@@ -1974,7 +1974,6 @@ module Default = struct
   module Native = struct
     let _S = set keep_asm_file
     let _clambda_checks () = clambda_checks := true
-    let _classic_inlining () = classic_inlining := true
     let _compact = clear optimize_for_speed
     let _dalloc = set dump_regalloc
     let _davail () = dump_avail := true
@@ -2054,24 +2053,7 @@ module Default = struct
     let _no_float_const_prop = clear float_const_prop
     let _no_unbox_free_vars_of_closures = clear unbox_free_vars_of_closures
     let _no_unbox_specialised_args = clear unbox_specialised_args
-    (* CR-someday mshinwell: should stop e.g. -O2 -classic-inlining
-       lgesbert: could be done in main() below, like for -pack and -c, but that
-       would prevent overriding using OCAMLPARAM.
-       mshinwell: We're going to defer this for the moment and add a note in
-       the manual that the behaviour is unspecified in cases such as this.
-       We should refactor the code so that the user's requirements are
-       collected, then checked all at once for illegal combinations, and then
-       transformed into the settings of the individual parameters.
-    *)
-    let _o2 () =
-      default_simplify_rounds := 2;
-      use_inlining_arguments_set o2_arguments;
-      use_inlining_arguments_set ~round:0 o1_arguments
-    let _o3 () =
-      default_simplify_rounds := 3;
-      use_inlining_arguments_set o3_arguments;
-      use_inlining_arguments_set ~round:1 o2_arguments;
-      use_inlining_arguments_set ~round:0 o1_arguments
+
     let _remove_unused_arguments = set remove_unused_arguments
     let _rounds n = simplify_rounds := (Some n)
     let _unbox_closures = set unbox_closures
@@ -2122,6 +2104,43 @@ module Default = struct
       set Flambda.Debug.concrete_types_only_on_canonicals
     let _no_flambda_debug_concrete_types_only_on_canonicals =
       clear Flambda.Debug.concrete_types_only_on_canonicals
+
+    (* CR-someday mshinwell: should stop e.g. -O2 -classic-inlining
+       lgesbert: could be done in main() below, like for -pack and -c, but that
+       would prevent overriding using OCAMLPARAM.
+       mshinwell: We're going to defer this for the moment and add a note in
+       the manual that the behaviour is unspecified in cases such as this.
+       We should refactor the code so that the user's requirements are
+       collected, then checked all at once for illegal combinations, and then
+       transformed into the settings of the individual parameters.
+    *)
+    let _oclassic () =
+      Flambda.oclassic_flags ();
+      use_inlining_arguments_set classic_arguments;
+      ()
+    (*
+    let _o1 () =
+      set Flambda.o1_flags;
+      use_inlining_arguments_set o1_arguments;
+      ()
+    *)
+    let _o2 () =
+      Flambda.o2_flags ();
+      use_inlining_arguments_set o2_arguments;
+      (* CR Gbury: uncomment this when flambda2 can do more than one pass/round
+      default_simplify_rounds := 2; move this up after cse_depth
+      use_inlining_arguments_set ~round:0 o1_arguments;
+      *)
+      ()
+    let _o3 () =
+      Flambda.o3_flags ();
+      use_inlining_arguments_set o3_arguments;
+      (* CR Gbury: uncomment this when flambda2 can do more than one pass/round
+      default_simplify_rounds := 3; move this up after cse_depth
+      use_inlining_arguments_set ~round:1 o2_arguments;
+      use_inlining_arguments_set ~round:0 o1_arguments;
+      *)
+      ()
 
     let _dprepared_lambda = set dump_prepared_lambda
     let _dilambda = set dump_ilambda
