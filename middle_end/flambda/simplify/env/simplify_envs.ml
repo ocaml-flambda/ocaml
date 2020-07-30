@@ -41,7 +41,7 @@ end = struct
     can_inline : bool;
     inlining_depth_increment : int;
     float_const_prop : bool;
-    code : Function_params_and_body.t Code_id.Map.t;
+    code : Code.t Code_id.Map.t;
     at_unit_toplevel : bool;
     unit_toplevel_exn_continuation : Continuation.t;
     symbols_currently_being_defined : Symbol.Set.t;
@@ -74,7 +74,7 @@ end = struct
       at_unit_toplevel
       Continuation.print unit_toplevel_exn_continuation
       Symbol.Set.print symbols_currently_being_defined
-      (Code_id.Map.print Function_params_and_body.print) code
+      (Code_id.Map.print Code.print) code
 
   let invariant _t = ()
 
@@ -374,22 +374,27 @@ end = struct
         print t
     end
 
-  let define_code t ?newer_version_of ~code_id ~params_and_body:code =
+  let define_code t ~code_id ~code =
     if not (Code_id.in_compilation_unit code_id
       (Compilation_unit.get_current_exn ()))
     then begin
       Misc.fatal_errorf "Cannot define code ID %a as it is from another unit:\
           @ %a"
         Code_id.print code_id
-        Function_params_and_body.print code
+        Code.print code
     end;
     if Code_id.Map.mem code_id t.code then begin
       Misc.fatal_errorf "Code ID %a is already defined, cannot redefine to@ %a"
         Code_id.print code_id
-        Function_params_and_body.print code
+        Code.print code
+    end;
+    if not (Code_id.equal code_id (Code.code_id code)) then begin
+      Misc.fatal_errorf "Code ID %a does not match code ID in@ %a"
+        Code_id.print code_id
+        Code.print code
     end;
     let typing_env =
-      match newer_version_of with
+      match Code.newer_version_of code with
       | None -> t.typing_env
       | Some older ->
         TE.add_to_code_age_relation t.typing_env ~newer:code_id ~older
@@ -447,11 +452,10 @@ end = struct
           LC.defining_exprs lifted_constant
           |> Static_const.Group.pieces_of_code'
         in
-        List.fold_left (fun denv (code : Static_const.Code.t) ->
-            match code.params_and_body with
-            | Present params_and_body ->
-              define_code denv ?newer_version_of:code.newer_version_of
-                ~code_id:code.code_id ~params_and_body
+        List.fold_left (fun denv (code : Code.t) ->
+            match Code.params_and_body code with
+            | Present _ ->
+              define_code denv ~code_id:(Code.code_id code) ~code
             | Deleted -> denv)
           denv
           pieces_of_code)
@@ -703,9 +707,19 @@ end = struct
     let defining_expr t = t.defining_expr
 
     let code code_id defining_expr =
-      { descr = Code code_id;
-        defining_expr;
-      }
+      match defining_expr with
+      | Static_const.Code code ->
+        if Code_id.equal code_id (Code.code_id code) then
+          { descr = Code code_id;
+            defining_expr;
+          }
+        else
+          Misc.fatal_errorf "Mismatched code ids: %a vs.@ %a"
+            Code_id.print code_id
+            Code_id.print (Code.code_id code)
+      | _ ->
+        Misc.fatal_errorf "Not a code definition: %a"
+          Static_const.print defining_expr
 
     let set_of_closures denv ~closure_symbols_with_types defining_expr =
       { descr = Set_of_closures {

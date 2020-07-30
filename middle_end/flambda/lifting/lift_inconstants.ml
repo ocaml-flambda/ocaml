@@ -72,13 +72,7 @@ let lift_set_of_closures_discovered_via_reified_continuation_param_types dacc
     let function_decls =
       Closure_id.Lmap.map (fun inlinable ->
         Function_declaration.create ~code_id:(I.code_id inlinable)
-          ~params_arity:(I.param_arity inlinable)
-          ~result_arity:(I.result_arity inlinable)
-          ~stub:(I.stub inlinable)
           ~dbg:(I.dbg inlinable)
-          ~inline:(I.inline inlinable)
-          ~is_a_functor:(I.is_a_functor inlinable)
-          ~recursive:(I.recursive inlinable)
           ~is_tupled:(I.is_tupled inlinable))
         function_decls
       |> Function_declarations.create

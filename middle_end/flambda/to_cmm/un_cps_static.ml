@@ -220,13 +220,12 @@ and fill_static_slot s symbs decls elts env acc offset updates slot =
       let code_name = Linkage_name.to_string (Symbol.linkage_name code_symbol) in
       let acc = List.rev (C.define_symbol ~global:true external_name) @ acc in
       let arity =
-        if Function_declaration.is_tupled decl then begin
-          let info = Env.get_function_info env code_id in
-          let l = Exported_code.Calling_convention.params_arity info in
+        let info = Env.get_function_info env code_id in
+        let l = Exported_code.Calling_convention.params_arity info in
+        if Function_declaration.is_tupled decl then
           ~- (List.length l)
-        end else begin
-          List.length (Function_declaration.params_arity decl)
-        end
+        else
+          List.length l
       in
       let tagged_arity = arity * 2 + 1 in
       (* We build here the **reverse** list of fields for the closure *)
@@ -251,17 +250,17 @@ and fill_static_up_to j acc i =
   if i = j then acc
   else fill_static_up_to j (C.cint 1n :: acc) (i + 1)
 
-let update_env_for_code env (code : SC.Code.t) =
+let update_env_for_code env (code : Code.t) =
   (* Check scope of the code ID *)
-  let code_id = SC.Code.code_id code in
+  let code_id = Code.code_id code in
   let env =
-    match code.newer_version_of with
+    match Code.newer_version_of code with
     | None -> env
     | Some code_id ->
       Env.check_scope ~allow_deleted:true env
         (Code_id_or_symbol.Code_id code_id)
   in
-  match code.params_and_body with
+  match Code.params_and_body code with
   | Deleted ->
     Env.mark_code_id_as_deleted env code_id
   | Present _ ->
@@ -276,10 +275,10 @@ let add_function env r ~params_and_body code_id p =
   let fundecl, r = params_and_body env r fun_name p in
   R.add_function r fundecl
 
-let add_functions env ~params_and_body r (code : SC.Code.t) =
-  match code.params_and_body with
+let add_functions env ~params_and_body r (code : Code.t) =
+  match Code.params_and_body code with
   | Deleted -> r
-  | Present p -> add_function env r ~params_and_body (SC.Code.code_id code) p
+  | Present p -> add_function env r ~params_and_body (Code.code_id code) p
 
 let preallocate_set_of_closures (r, updates, env) ~closure_symbols
       set_of_closures =
@@ -314,7 +313,7 @@ let static_const0 env r ~updates ~params_and_body
       let updates = static_block_updates (C.symbol name) env updates 0 fields in
       env, R.set_data r block, updates
   | Code code_id, Code code ->
-      if not (Code_id.equal code_id (Static_const.Code.code_id code)) then begin
+      if not (Code_id.equal code_id (Code.code_id code)) then begin
         Misc.fatal_errorf "Code ID mismatch:@ %a@ =@ %a"
           Bound_symbols.Pattern.print bound_symbols
           Static_const.print static_const

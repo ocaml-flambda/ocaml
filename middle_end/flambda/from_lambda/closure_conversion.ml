@@ -38,7 +38,7 @@ type t = {
   (* All symbols in [imported_symbols] are to be of kind [Value]. *)
   mutable declared_symbols : (Symbol.t * Static_const.t) list;
   mutable shareable_constants : Symbol.t Static_const.Map.t;
-  mutable code : (Code_id.t * Function_params_and_body.t) list;
+  mutable code : (Code_id.t * Code.t) list;
 }
 
 (* To avoid excessive nesting of continuations, we lift [Let_cont] expressions
@@ -942,23 +942,30 @@ and close_one_function t ~external_env ~by_closure_id decl
       ~return_continuation:(Function_decl.return_continuation decl)
       exn_continuation params ~dbg ~body ~my_closure
   in
-  t.code <- (code_id, params_and_body) :: t.code;
-  let is_tupled, params_arity =
+  let params_arity = Kinded_parameter.List.arity params in
+  let is_tupled =
     match Function_decl.kind decl with
-    | Curried -> false, Kinded_parameter.List.arity params
-    | Tupled -> true, [K.value]
+    | Curried -> false
+    | Tupled -> true
   in
   let fun_decl =
     Function_declaration.create ~code_id
+      ~dbg
+      ~is_tupled
+  in
+  let code =
+    Code.create
+      code_id
+      ~params_and_body:(Present params_and_body)
       ~params_arity
       ~result_arity:[LC.value_kind return]
       ~stub
-      ~dbg
       ~inline
       ~is_a_functor:(Function_decl.is_a_functor decl)
       ~recursive
-      ~is_tupled
+      ~newer_version_of:None
   in
+  t.code <- (code_id, code) :: t.code;
   Closure_id.Map.add my_closure_id fun_decl by_closure_id
 
 let ilambda_to_flambda ~backend ~module_ident ~module_block_size_in_words
@@ -1071,16 +1078,11 @@ let ilambda_to_flambda ~backend ~module_ident ~module_block_size_in_words
   end;
   let exn_continuation = ilam.exn_continuation.exn_handler in
   let body =
-    List.fold_left (fun body (code_id, params_and_body) ->
+    List.fold_left (fun body (code_id, code) ->
         let bound_symbols =
           Bound_symbols.singleton (Bound_symbols.Pattern.code code_id)
         in
         let static_const : Static_const.t =
-          let code =
-            Static_const.Code.create code_id
-              ~params_and_body:(Present params_and_body)
-              ~newer_version_of:None
-          in
           Code code
         in
         Expr.create_let_symbol bound_symbols Syntactic

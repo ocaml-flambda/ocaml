@@ -188,12 +188,11 @@ let simplify_static_consts dacc (bound_symbols : Bound_symbols.t)
       ~init:([], [], dacc)
       ~code:(fun (bound_symbols, static_consts, dacc) code_id code ->
         let dacc =
-          match SC.Code.params_and_body code with
-          | None -> dacc
-          | Some params_and_body ->
-            let newer_version_of = code.newer_version_of in
+          match Code.params_and_body code with
+          | Deleted -> dacc
+          | Present _ ->
             DA.map_denv dacc ~f:(fun denv ->
-              DE.define_code denv ?newer_version_of ~code_id ~params_and_body)
+              DE.define_code denv ~code_id ~code)
         in
         (Bound_symbols.Pattern.code code_id) :: bound_symbols,
           (SC.Code code) :: static_consts,
