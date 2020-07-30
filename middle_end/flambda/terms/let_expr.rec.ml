@@ -71,7 +71,7 @@ let pattern_match_pair t1 t2 ~dynamic ~static =
 (* For printing "let symbol": *)
 
 type flattened_for_printing_descr =
-  | Code of Code_id.t * Static_const.Code.t
+  | Code of Code_id.t * Code.t
   | Set_of_closures of Symbol.t Closure_id.Lmap.t * Set_of_closures.t
   | Block_like of Symbol.t * Static_const.t
 
@@ -162,7 +162,7 @@ let print_flattened_descr_lhs ppf descr =
 (* CR mshinwell: Use [print_with_cache]? *)
 let print_flattened_descr_rhs ppf descr =
   match descr with
-  | Code (_, code) -> Static_const.Code.print ppf code
+  | Code (_, code) -> Code.print ppf code
   | Set_of_closures (_, set) -> Set_of_closures.print ppf set
   | Block_like (_, static_const) -> Static_const.print ppf static_const
 

@@ -48,6 +48,7 @@ module Set_of_closures = Set_of_closures
 module Import = struct
   module Apply = Apply
   module Apply_cont = Apply_cont
+  module Code = Code
   module Continuation_handler = Continuation_handler
   module Continuation_handlers = Continuation_handlers
   module Continuation_params_and_handler = Continuation_params_and_handler

@@ -128,7 +128,7 @@ module rec Expr : sig
     -> t
 
   (** Create an expression indicating type-incorrect or unreachable code. *)
-  val create_invalid : unit -> t
+  val create_invalid : ?semantics:Invalid_term_semantics.t -> unit -> t
 
   (** [bind [var1, expr1; ...; varN, exprN] body] binds using
       [Immutable] [Let] expressions the given [(var, expr)] pairs around the
@@ -561,39 +561,6 @@ end and Static_const : sig
     include Identifiable.S with type t := t
   end
 
-  (** A piece of code, comprising of the parameters and body of a function,
-      together with a field indicating whether the piece of code is a newer
-      version of one that existed previously (and may still exist), for
-      example after a round of simplification. *)
-  module Code : sig
-    type t = private {
-      code_id : Code_id.t;
-      params_and_body : Function_params_and_body.t or_deleted;
-      newer_version_of : Code_id.t option;
-    }
-    and 'a or_deleted =
-      | Present of 'a
-      | Deleted
-
-    val print : Format.formatter -> t -> unit
-
-    val free_names : t -> Name_occurrences.t
-
-    val create
-       : Code_id.t
-      -> params_and_body:Function_params_and_body.t or_deleted
-      -> newer_version_of:Code_id.t option
-      -> t
-
-    (** A piece of code that is [Deleted] with no [newer_version_of]. *)
-    val deleted : Code_id.t -> t
-
-    val code_id : t -> Code_id.t
-    val params_and_body : t -> Function_params_and_body.t option
-
-    val make_deleted : t -> t
-  end
-
   (* CR mshinwell: Somewhere there should be an invariant check that
     code has no free names. *)
 
@@ -676,6 +643,60 @@ end and Static_const : sig
 
     val is_fully_static : t -> bool
   end
+end and Code : sig
+
+  (** A piece of code, comprising of the parameters and body of a function,
+      together with a field indicating whether the piece of code is a newer
+      version of one that existed previously (and may still exist), for
+      example after a round of simplification. *)
+  type t
+
+  val code_id : t -> Code_id.t
+
+  val params_and_body : t -> Function_params_and_body.t Or_deleted.t
+
+  val newer_version_of : t -> Code_id.t option
+
+  val params_arity : t -> Flambda_arity.t
+
+  val result_arity : t -> Flambda_arity.t
+
+  val stub : t -> bool
+
+  val inline : t -> Inline_attribute.t
+
+  val is_a_functor : t -> bool
+
+  val recursive : t -> Recursive.t
+
+  val create
+     : Code_id.t
+    -> params_and_body:Function_params_and_body.t Or_deleted.t
+    -> newer_version_of:Code_id.t option
+    -> params_arity:Flambda_arity.t
+    -> result_arity:Flambda_arity.t
+    -> stub:bool
+    -> inline:Inline_attribute.t
+    -> is_a_functor:bool
+    -> recursive:Recursive.t
+    -> t
+
+  val with_code_id : Code_id.t -> t -> t
+
+  val with_params_and_body : Function_params_and_body.t Or_deleted.t -> t -> t
+
+  val with_newer_version_of : Code_id.t option -> t -> t
+
+  val print : Format.formatter -> t -> unit
+
+  val free_names : t -> Name_occurrences.t
+
+  val all_ids_for_export : t -> Ids_for_export.t
+
+  val import : Ids_for_export.Import_map.t -> t -> t
+
+  val make_deleted : t -> t
+
 end
 
 module Function_declaration = Function_declaration
@@ -689,6 +710,7 @@ module Set_of_closures = Set_of_closures
 module Import : sig
   module Apply = Apply
   module Apply_cont = Apply_cont
+  module Code = Code
   module Continuation_handler = Continuation_handler
   module Continuation_handlers = Continuation_handlers
   module Continuation_params_and_handler = Continuation_params_and_handler

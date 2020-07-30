@@ -32,43 +32,6 @@ module Field_of_block : sig
   include Identifiable.S with type t := t
 end
 
-(** A piece of code, comprising of the parameters and body of a function,
-    together with a field indicating whether the piece of code is a newer
-    version of one that existed previously (and may still exist), for
-    example after a round of simplification. *)
-module Code : sig
-  type t = private {
-    code_id : Code_id.t;
-    params_and_body : Function_params_and_body.t or_deleted;
-    newer_version_of : Code_id.t option;
-  }
-  and 'a or_deleted =
-    | Present of 'a
-    | Deleted
-
-  val print : Format.formatter -> t -> unit
-
-  val free_names : t -> Name_occurrences.t
-
-  val create
-     : Code_id.t  (** needed for [compare], although useful otherwise too *)
-    -> params_and_body:Function_params_and_body.t or_deleted
-    -> newer_version_of:Code_id.t option
-    -> t
-
-  (** A piece of code that is [Deleted] with no [newer_version_of]. *)
-  (* CR mshinwell: rename to [create_deleted] *)
-  val deleted : Code_id.t -> t
-
-  val code_id : t -> Code_id.t
-  val params_and_body : t -> Function_params_and_body.t option
-
-  val make_deleted : t -> t
-end
-
-(* CR mshinwell: Somewhere there should be an invariant check that
-   code has no free names. *)
-
 (** The static structure of a symbol, possibly with holes, ready to be filled
     with values computed at runtime. *)
 type t =

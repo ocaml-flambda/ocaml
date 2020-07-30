@@ -111,7 +111,7 @@ val create_if_then_else
   -> t
 
 (** Create an expression indicating type-incorrect or unreachable code. *)
-val create_invalid : unit -> t
+val create_invalid : ?semantics:Invalid_term_semantics.t -> unit -> t
 
 (** [bind [var1, expr1; ...; varN, exprN] body] binds using
     [Immutable] [Let] expressions the given [(var, expr)] pairs around the

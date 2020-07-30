@@ -159,22 +159,13 @@ val kind_for_const : Reg_width_const.t -> Flambda_kind.t
 
 val create_inlinable_function_declaration
    : code_id:Code_id.t
-  -> param_arity:Flambda_arity.t
-  -> result_arity:Flambda_arity.t
-  -> stub:bool
   -> dbg:Debuginfo.t
-  -> inline:Inline_attribute.t
-  -> is_a_functor:bool
-  -> recursive:Recursive.t
   -> rec_info:Rec_info.t
   -> is_tupled:bool
   -> Function_declaration_type.t
 
 val create_non_inlinable_function_declaration
    : code_id:Code_id.t
-  -> param_arity:Flambda_arity.t
-  -> result_arity:Flambda_arity.t
-  -> recursive:Recursive.t
   -> is_tupled:bool
   -> Function_declaration_type.t
 

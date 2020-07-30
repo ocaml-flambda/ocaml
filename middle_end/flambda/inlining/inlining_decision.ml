@@ -49,17 +49,24 @@ let make_decision_for_function_declaration denv ?params_and_body function_decl
       : Function_declaration_decision.t =
   (* At present, we follow Closure, taking inlining decisions without
      first examining call sites. *)
-  match Function_declaration.inline function_decl with
+  let code_id = Function_declaration.code_id function_decl in
+  let code = DE.find_code denv (Function_declaration.code_id function_decl) in
+  match Code.inline code with
   | Never_inline -> Never_inline_attribute
   | Always_inline -> Inline
   | Default_inline | Unroll _ ->
-    if Function_declaration.stub function_decl then Stub
+    if Code.stub code then Stub
     else
-      let code_id = Function_declaration.code_id function_decl in
       let params_and_body =
         match params_and_body with
         | None ->
-          DE.find_code denv code_id
+          begin
+            match Code.params_and_body code with
+            | Present params_and_body ->
+              params_and_body
+            | Deleted ->
+              Misc.fatal_errorf "Code id %a is deleted" Code_id.print code_id
+          end
         | Some params_and_body -> params_and_body
       in
       Function_params_and_body.pattern_match params_and_body
