@@ -49,7 +49,7 @@ parseflambda_DIRS=\
   middle_end/flambda/terms \
   middle_end/flambda/parser \
   middle_end/flambda/simplify
-parseflambda_OCAMLFLAGS = $(addprefix -I $(TOPDIR)/, $(parseflambda_DIRS))
+parseflambda_OCAMLFLAGS = -g $(addprefix -I $(TOPDIR)/, $(parseflambda_DIRS))
 
 parseflambda_LIBS = $(addprefix $(COMPILERLIBSDIR)/,\
   ocamlcommon ocamloptcomp)

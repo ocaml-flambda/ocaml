@@ -278,7 +278,8 @@ MIDDLE_END_FLAMBDA_BASIC=\
   middle_end/flambda/basic/closure_origin.cmo \
   middle_end/flambda/basic/apply_cont_rewrite_id.cmo \
   middle_end/flambda/basic/continuation_extra_params_and_args.cmo \
-  middle_end/flambda/basic/symbol_scoping_rule.cmo
+  middle_end/flambda/basic/symbol_scoping_rule.cmo \
+  middle_end/flambda/basic/or_deleted.cmo
 
 MIDDLE_END_FLAMBDA_NAMING=\
   middle_end/flambda/naming/contains_names.cmo \
@@ -392,6 +393,7 @@ MIDDLE_END_FLAMBDA_PARSER=\
   middle_end/flambda/parser/flambda_parser.cmo \
   middle_end/flambda/parser/flambda_parser_messages.cmo \
   middle_end/flambda/parser/flambda_lex.cmo \
+  middle_end/flambda/parser/flambda_to_fexpr.cmo \
   middle_end/flambda/parser/parse_flambda.cmo
 
 MIDDLE_END_FLAMBDA_COMPARE=\

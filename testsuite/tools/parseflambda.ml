@@ -22,7 +22,10 @@ let parse_flambda ~backend file =
       let { Simplify.unit = fl2'; _ } = Simplify.run ~backend ~round:1 fl2 in
       Format.printf "simplify:@.%a@."
         Flambda_unit.print fl2';
-      fl2'
+      let fl3 = Flambda_to_fexpr.conv fl2' in
+      Format.printf "back to fexpr:@.%a@."
+        Print_fexpr.flambda_unit fl3;
+      fl3
     | Error e ->
       begin match e with
       | Parsing_error (msg, loc) ->

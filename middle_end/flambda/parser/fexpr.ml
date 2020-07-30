@@ -63,18 +63,13 @@ type static_structure = {
   defining_expr : static_part;
 }
 
-type invalid_term_semantics =
+type invalid_term_semantics = Invalid_term_semantics.t =
   | Treat_as_unreachable
   | Halt_and_catch_fire
 
 type trap_action
 type kinded_parameter = {
   param : variable;
-  kind : kind option;
-}
-
-type kinded_var_within_closure = {
-  var : var_within_closure;
   kind : kind option;
 }
 
@@ -90,7 +85,10 @@ type simple =
 type unop =
   | Opaque_identity
   | Untag_imm
-  | Project_var of var_within_closure
+  | Project_var of {
+      project_from : closure_id;
+      var : var_within_closure;
+    }
   | Select_closure of {
       move_from : closure_id;
       move_to : closure_id;
@@ -109,19 +107,22 @@ type block_access_kind =
 
 type equality_comparison = Flambda_primitive.equality_comparison = Eq | Neq
 
-type binop =
-  | Block_load of block_access_kind * Mutability.t
-  | Phys_equal of kind option * equality_comparison
-
 type infix_binop =
   | Plus | Plusdot
   | Minus | Minusdot
 
+type binop =
+  | Block_load of block_access_kind * Mutability.t
+  | Phys_equal of kind option * equality_comparison
+  | Infix of infix_binop
+
+type varop =
+  | Make_block of tag_scannable * Mutability.t
+
 type prim =
-  | Unop of unop * simple
-  | Infix_binop of infix_binop * simple * simple
-  | Binop of binop * simple * simple
-  | Block of tag_scannable * Mutability.t * simple list
+  | Unary of unop * simple
+  | Binary of binop * simple * simple
+  | Variadic of varop * simple list
 
 type is_fabricated =
   | Value | Fabricated
@@ -131,6 +132,7 @@ type flambda_arity = kind list
 type function_call =
   | Direct of {
       code_id : code_id;
+      closure_id : closure_id option;
     }
   | Indirect (* Will translate to indirect_known_arity or
                 indirect_unknown_arity depending on whether the apply record's
@@ -206,7 +208,13 @@ and let_binding = {
 and named =
   | Simple of simple
   | Prim of prim
-  | Closure of { code_id : code_id }
+  | Closure of fun_decl
+
+and fun_decl = {
+  code_id : code_id;
+  closure_id : closure_id option; (* defaults to same name as code id *)
+  is_tupled : bool;
+}
 
 and let_cont = {
   recursive : is_recursive;
@@ -225,45 +233,47 @@ and continuation_handler = {
 }
 
 and let_symbol = {
-  bindings : symbol_bindings;
+  bindings : symbol_binding list;
+  (* Only used if there's no [Set_of_closures] in the list *)
+  closure_elements : closure_elements option;
   body : expr;
 }
 
-and symbol_bindings =
-  | Simple of static_structure
-  | Segments of segment list
+and symbol_binding =
+  | Block_like of static_structure
+  | Code of code
+  | Closure of static_closure_binding
+  | Set_of_closures of static_set_of_closures
 
-and segment = {
-  code_bindings : code_binding list;
-  closure_bindings : static_closure_binding list;
-  closure_elements : closure_elements option;
+and static_set_of_closures = {
+  bindings : static_closure_binding list;
+  elements : closure_elements option;
 }
 
-and code_binding = {
+and code = {
   id : code_id;
-  closure_id : closure_id option;
   newer_version_of : code_id option;
-  code : code or_deleted
+  param_arity : flambda_arity option;
+  ret_arity : flambda_arity option;
+  recursive : is_recursive;
+  params_and_body : params_and_body or_deleted;
+}
+
+and params_and_body = {
+  params : kinded_parameter list;
+  closure_var : variable option;
+  ret_cont : continuation_id;
+  exn_cont : continuation_id option;
+  body : expr;
 }
 
 and 'a or_deleted =
   | Present of 'a
   | Deleted
 
-and code = {
-  params : kinded_parameter list;
-  closure_var : variable option;
-  vars_within_closures : kinded_var_within_closure list;
-  ret_cont : continuation_id;
-  exn_cont : continuation_id option;
-  ret_arity : flambda_arity option;
-  recursive : is_recursive;
-  expr : expr;
-}
-
 and static_closure_binding = {
   symbol : symbol;
-  code_id : code_id;
+  fun_decl : fun_decl;
 }
 
 type flambda_unit = {

@@ -28,33 +28,21 @@ module D = struct
 end
 module DM = Map.Make(D)
 
-(* Closure ids *)
+(* Closure ids (globally scoped, so updates are in-place) *)
 module U = struct
   type t = string
-  let compare = String.compare
+  let equal = String.equal
+  let hash = Hashtbl.hash
 end
-module UM = Map.Make(U)
+module UT = Hashtbl.Make(U)
 
-(* Variables within closures *)
+(* Variables within closures (globally scoped, so updates are in-place) *)
 module W = struct
   type t = string
-  let compare = String.compare
+  let equal = String.equal
+  let hash = Hashtbl.hash
 end
-module WM = Map.Make(W)
-
-type fun_decl_info = {
-  decl : Flambda.Function_declaration.t option;
-  (* The closure id to use with this function declaration.  This isn't formally
-   * part of the Flambda syntax, but each code is associated with exactly one
-   * closure id that should ever be used for it, so it's convenient to remember
-   * it here so that, for instance, a set of closures can be constructed from
-   * code ids alone. *)
-  closure_id : Closure_id.t;
-}
-
-type var_within_closure_info = {
-  closure_id : Closure_id.t;
-}
+module WT = Hashtbl.Make(W)
 
 type env = {
   done_continuation : Continuation.t;
@@ -64,10 +52,8 @@ type env = {
   variables : Variable.t VM.t;
   symbols : Symbol.t SM.t;
   code_ids : Code_id.t DM.t;
-  code : fun_decl_info Code_id.Map.t;
-  closure_ids : Closure_id.t UM.t;
-  vars_within_closures : Var_within_closure.t WM.t;
-  var_within_closure_info : var_within_closure_info Var_within_closure.Map.t;
+  closure_ids : Closure_id.t UT.t;
+  vars_within_closures : Var_within_closure.t WT.t;
 }
 
 let init_env done_continuation error_continuation = {
@@ -78,10 +64,8 @@ let init_env done_continuation error_continuation = {
   variables = VM.empty;
   symbols = SM.empty;
   code_ids = DM.empty;
-  code = Code_id.Map.empty;
-  closure_ids = UM.empty;
-  vars_within_closures = WM.empty;
-  var_within_closure_info = Var_within_closure.Map.empty;
+  closure_ids = UT.create 10;
+  vars_within_closures = WT.create 10;
 }
 
 let enter_code env = {
@@ -92,10 +76,8 @@ let enter_code env = {
   error_continuation = env.error_continuation;
   symbols = env.symbols;
   code_ids = env.code_ids;
-  code = env.code;
   closure_ids = env.closure_ids;
   vars_within_closures = env.vars_within_closures;
-  var_within_closure_info = env.var_within_closure_info;
 }
 
 let fresh_cont env ?sort { Fexpr.txt = c; loc = _ } arity =
@@ -136,21 +118,24 @@ let fresh_code_id env { Fexpr.txt = name; loc = _ } =
 let fresh_closure_id env { Fexpr.txt = name; loc = _ } =
   let v = Variable.create name in
   let c = Closure_id.wrap (Compilation_unit.get_current_exn ()) v in
-  c,
-  { env with
-    closure_ids = UM.add name c env.closure_ids }
+  UT.add env.closure_ids name c;
+  c
 
 let fresh_or_existing_closure_id env ({ Fexpr.txt = name; loc = _ } as id) =
-  match UM.find_opt name env.closure_ids with
+  match UT.find_opt env.closure_ids name with
   | None -> fresh_closure_id env id
-  | Some closure_id -> closure_id, env
+  | Some closure_id -> closure_id
 
 let fresh_var_within_closure env { Fexpr.txt = name; loc = _ } =
   let v = Variable.create name in
   let c = Var_within_closure.wrap (Compilation_unit.get_current_exn ()) v in
-  c,
-  { env with
-    vars_within_closures = WM.add name c env.vars_within_closures }
+  WT.add env.vars_within_closures name c;
+  c
+
+let fresh_or_existing_var_within_closure env ({ Fexpr.txt = name; _ } as id) =
+  match WT.find_opt env.vars_within_closures name with
+  | None -> fresh_var_within_closure env id
+  | Some var_within_closure -> var_within_closure
 
 let declare_symbol (*~backend:_*) (env:env) { Fexpr.txt = name; loc } =
   if SM.mem name env.symbols then
@@ -203,32 +188,6 @@ let find_var env v =
 
 let find_code_id env code_id =
   find_with ~descr:"code id" ~find:DM.find_opt env.code_ids code_id
-
-let find_fun_decl env (code_id : Code_id.t) =
-  match Code_id.Map.find_opt code_id env.code with
-  | None ->
-    Misc.fatal_errorf "Unbound Flambda code id %a"
-      Code_id.print code_id
-  | Some d ->
-    d
-
-let find_closure_id env closure_id =
-  find_with ~descr:"closure id" ~find:UM.find_opt env.closure_ids closure_id
-
-let _ = find_closure_id (* not currently used since the user never explicitly
-                         * refers to a closure id after declaring it *)
-
-let find_var_within_closure env vwc =
-  find_with ~descr:"var within closure" ~find:WM.find_opt
-    env.vars_within_closures vwc
-
-let find_var_within_closure_info env (vwc : Var_within_closure.t) =
-  match Var_within_closure.Map.find_opt vwc env.var_within_closure_info with
-  | None ->
-    Misc.fatal_errorf "Unbound Flambda var within closure %a"
-      Var_within_closure.print vwc
-  | Some i ->
-    i
 
 let targetint (i:Fexpr.targetint) : Targetint.t = Targetint.of_int64 i
 
@@ -315,13 +274,13 @@ let unop env (unop:Fexpr.unop) : Flambda_primitive.unary_primitive =
   match unop with
   | Opaque_identity -> Opaque_identity
   | Untag_imm -> Unbox_number Untagged_immediate
-  | Project_var var ->
-    let var = find_var_within_closure env var in
-    let { closure_id; _ } = find_var_within_closure_info env var in
-    Project_var { project_from = closure_id; var }
+  | Project_var { project_from; var } ->
+    let var = fresh_or_existing_var_within_closure env var in
+    let project_from = fresh_or_existing_closure_id env project_from in
+    Project_var { project_from; var }
   | Select_closure { move_from; move_to } ->
-    let move_from = find_closure_id env move_from in
-    let move_to = find_closure_id env move_to in
+    let move_from = fresh_or_existing_closure_id env move_from in
+    let move_to = fresh_or_existing_closure_id env move_to in
     Select_closure { move_from; move_to }
 
 let infix_binop (binop:Fexpr.infix_binop) : Flambda_primitive.binary_primitive =
@@ -346,154 +305,77 @@ let binop (binop:Fexpr.binop) : Flambda_primitive.binary_primitive =
       value_kind (kind |> Option.value ~default:(Value : Fexpr.kind))
     in
     Phys_equal (kind, op)
-
-
-let convert_recursive_flag (flag : Fexpr.is_recursive) : Recursive.t =
-  match flag with
-  | Recursive -> Recursive
-  | Nonrecursive -> Non_recursive
+  | Infix op ->
+    infix_binop op
 
 let convert_block_shape ~num_fields =
   List.init num_fields (
     fun _field : Flambda_primitive.Block_of_values_field.t -> Any_value
   )
 
+let varop (varop:Fexpr.varop) n : Flambda_primitive.variadic_primitive =
+  match varop with
+  | Make_block (tag, mutability) ->
+    let shape = convert_block_shape ~num_fields:n in
+    let kind : Flambda_primitive.Block_kind.t =
+      Values (Tag.Scannable.create_exn tag, shape)
+    in
+    Make_block (kind, mutability)
+
+let prim env (p:Fexpr.prim) : Flambda_primitive.t =
+  match p with
+  | Unary (op, arg) ->
+    Unary (unop env op, simple env arg)
+  | Binary (op, a1, a2) ->
+    Binary (binop op, simple env a1, simple env a2)
+  | Variadic (op, args) ->
+    Variadic (varop op (List.length args), List.map (simple env) args)
+
+let convert_recursive_flag (flag : Fexpr.is_recursive) : Recursive.t =
+  match flag with
+  | Recursive -> Recursive
+  | Nonrecursive -> Non_recursive
+
 let defining_expr env (named:Fexpr.named) : Flambda.Named.t =
   match named with
   | Simple s ->
     Flambda.Named.create_simple (simple env s)
-  | Prim (Unop (u, arg)) ->
-    let prim : Flambda_primitive.t =
-      Unary (unop env u, simple env arg)
-    in
-    Flambda.Named.create_prim prim Debuginfo.none
-  | Prim (Infix_binop (b, a1, a2)) ->
-    let prim : Flambda_primitive.t =
-      Binary (infix_binop b, simple env a1, simple env a2)
-    in
-    Flambda.Named.create_prim prim Debuginfo.none
-  | Prim (Binop (b, a1, a2)) ->
-    let prim : Flambda_primitive.t =
-      Binary (binop b, simple env a1, simple env a2)
-    in
-    Flambda.Named.create_prim prim Debuginfo.none
-  | Prim (Block (tag, mutability, args)) ->
-    let shape = convert_block_shape ~num_fields:(List.length args) in
-    let kind : Flambda_primitive.Block_kind.t =
-      Values (Tag.Scannable.create_exn tag, shape)
-    in
-    let prim : Flambda_primitive.t =
-      Flambda_primitive.Variadic (
-        Make_block (kind, mutability),
-        List.map (simple env) args
-      )
-    in
-    Flambda.Named.create_prim prim Debuginfo.none
+  | Prim p ->
+    let p = prim env p in
+    Flambda.Named.create_prim p Debuginfo.none
   | _ -> assert false
 
-let set_of_closures env code_ids closure_elements =
+let set_of_closures env fun_decls closure_elements =
   let fun_decls : Function_declarations.t =
-    let code_id_to_binding (code_id : Fexpr.code_id)
-          : (Closure_id.t * Function_declaration.t) option =
-      let code_id = find_code_id env code_id in
-      let { decl; closure_id } = find_fun_decl env code_id in
-      decl |> Option.map (fun decl -> closure_id, decl)
+    let translate_fun_decl (fun_decl : Fexpr.fun_decl)
+          : (Closure_id.t * Function_declaration.t) =
+      let code_id = find_code_id env fun_decl.code_id in
+      let closure_id =
+        (* By default, pun the code id as the closure id *)
+        fun_decl.closure_id |> Option.value ~default:fun_decl.code_id
+      in
+      let closure_id = fresh_or_existing_closure_id env closure_id in
+      let decl =
+        Function_declaration.create
+          ~code_id
+          ~dbg:Debuginfo.none
+          ~is_tupled:fun_decl.is_tupled
+      in
+      closure_id, decl
     in
-    List.filter_map code_id_to_binding code_ids
+    List.map translate_fun_decl fun_decls
     |> Closure_id.Lmap.of_list
     |> Function_declarations.create
   in
   let closure_elements = Option.value closure_elements ~default:[] in
   let closure_elements : Simple.t Var_within_closure.Map.t =
     let convert ({ var; value } : Fexpr.closure_element) =
-      (find_var_within_closure env var, simple env value)
+      (fresh_or_existing_var_within_closure env var, simple env value)
     in
     List.map convert closure_elements
     |> Var_within_closure.Map.of_list
   in
   Set_of_closures.create fun_decls ~closure_elements
-
-(* Updates the environment with the assigned code id and closure id and
- * the derived Function_declaration.t *)
-let add_fun_decl_info env (code_binding : Fexpr.code_binding) : env =
-  let code_id, env = fresh_code_id env code_binding.id in
-  (* By default, use the code id as the name for the closure as well *)
-  let closure_id, env =
-    let closure_id =
-      match code_binding.closure_id with
-      | Some closure_id ->
-        `Named closure_id
-      | None ->
-        match code_binding.newer_version_of with
-        | Some old_code_id ->
-          let old_code_id = find_code_id env old_code_id in
-          let old_info = find_fun_decl env old_code_id in
-          `Exactly old_info.closure_id
-        | None ->
-          `Named code_binding.id
-    in
-    match closure_id with
-      | `Named closure_id ->
-        (* Two code bindings can use the same closure id (say, if one is a newer
-         * version of the other), so use a preexisting closure id if one is in
-         * scope with the same name *)
-        fresh_or_existing_closure_id env closure_id
-      | `Exactly closure_id ->
-        closure_id, env
-  in
-  let decl, env =
-    match code_binding.code with
-    | Deleted ->
-      None, env
-    | Present code ->
-      let params_arity =
-        let param_kinds =
-          List.map (fun ({ kind; _ } : Fexpr.kinded_parameter) ->
-            Option.value kind ~default:(Value : Fexpr.kind)
-          ) code.params
-        in
-        arity param_kinds
-      in
-      let result_arity = match code.ret_arity with
-        | Some a -> arity a
-        | None -> [ Flambda_kind.value ]
-      in
-      let recursive = convert_recursive_flag code.recursive in
-      let decl =
-        Function_declaration.create
-          ~code_id
-          ~params_arity
-          ~result_arity
-          ~recursive
-          ~dbg:Debuginfo.none
-          ~inline:Default_inline
-          ~is_a_functor:false
-          ~stub:false
-      in
-      let env =
-        let add_var_within_closure env
-              ({ var; kind = _} : Fexpr.kinded_var_within_closure) =
-          let v, env = fresh_var_within_closure env var in
-          let vwc_info =
-            Var_within_closure.Map.add v { closure_id }
-              env.var_within_closure_info
-          in
-          { env with var_within_closure_info = vwc_info }
-        in
-        List.fold_left add_var_within_closure env code.vars_within_closures
-      in
-      Some decl, env
-  in
-  let fun_decl_info = { decl; closure_id } in
-  { env with code = Code_id.Map.add code_id fun_decl_info env.code }
-
-(* Map over a list to produce a new list, while simultaneously updating an
- * additional argument (such as an environment) being passed along. *)
-let map_accum_left (f : 'env -> 'a -> 'b * 'env) (env : 'env) (l : 'a list)
-    : 'b list * 'env =
-  let next (acc, env) x = let (y, env) = f env x in (y :: acc, env) in
-  let (acc, env) = List.fold_left next ([], env) l in
-  (List.rev acc, env)
 
 let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
   match e with
@@ -501,28 +383,31 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
     assert false (* should not be possible *)
   | Let { bindings = ({ defining_expr = Closure _; _ } :: _) as bindings;
           closure_elements; body } ->
-      let binding_to_var_and_code_id : Fexpr.let_binding -> _ = function
-        | { var = Some var; defining_expr = Closure { code_id; }; _ } ->
-          (var, code_id)
+      let binding_to_var_and_closure_binding : Fexpr.let_binding -> _ = function
+        | { var = Some var; defining_expr = Closure binding; _ } ->
+          (var, binding)
         | { var = None; _ } ->
           Misc.fatal_errorf "Variable name required when defining closure"
         | { var = Some { txt = _; loc }; _ } ->
           Misc.fatal_errorf "Cannot use 'and' with non-closure: %a"
             Lambda.print_scoped_location loc
       in
-      let vars_and_code_ids = List.map binding_to_var_and_code_id bindings in
+      let vars_and_closure_bindings =
+        List.map binding_to_var_and_closure_binding bindings
+      in
       let closure_vars, env =
-        let convert_binding env (var, _code_id) : Var_in_binding_pos.t * env =
+        let convert_binding env (var, _) : Var_in_binding_pos.t * env =
           let var, env = fresh_var env var in
           let var = Var_in_binding_pos.create var Name_mode.normal in
           var, env
         in
-        map_accum_left convert_binding env vars_and_code_ids
+        Misc.Stdlib.List.map_accum_left convert_binding env
+          vars_and_closure_bindings
       in
       let bound = Bindable_let_bound.set_of_closures ~closure_vars in
       let named =
-        let code_ids = List.map snd vars_and_code_ids in
-        set_of_closures env code_ids closure_elements
+        let closure_bindings = List.map snd vars_and_closure_bindings in
+        set_of_closures env closure_bindings closure_elements
         |> Flambda.Named.create_set_of_closures
       in
       let body = expr env body in
@@ -616,14 +501,12 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
       ~scrutinee:(simple env scrutinee)
       ~arms
 
+  (*
   | Let_symbol { bindings = Simple { symbol; kind = _; defining_expr = def }; 
                  body } -> begin
       match def with
       | Block { tag; mutability; elements = args } ->
         let symbol, env = declare_symbol (* ~backend *) env symbol in
-        let bound_symbols =
-          Flambda.Let_symbol_expr.Bound_symbols.Singleton symbol
-        in
         let static_const =
           let tag = Tag.Scannable.create_exn tag in
           Flambda.Static_const.Block
@@ -631,75 +514,136 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
              List.map (of_kind_value env) args)
         in
         let body = expr env body in
-        Flambda.Let_symbol_expr.create Syntactic bound_symbols static_const body
-        |> Flambda.Expr.create_let_symbol
+        Flambda.Expr.create_let_symbol
+          (Singleton symbol) Syntactic static_const body
     end
-
-  | Let_symbol { bindings = Segments segments; body } ->
-    (* First, sweep through the code definitions in all segments, reserving
-     * code ids, closure ids, and vars within closures, but not translating
-     * bodies yet (since they may be mutually recursive) *)
-    let env =
-      let add_fun_decls_in_segment env (seg : Fexpr.segment) : env =
-        List.fold_left add_fun_decl_info env seg.code_bindings
-      in
-      List.fold_left add_fun_decls_in_segment env segments
+*)
+  | Let_symbol { bindings; closure_elements; body } ->
+    (* Desugar the abbreviated form for a single set of closures *)
+    let found_explicit_set = ref false in
+    let closures_in_implicit_set =
+      List.filter_map (fun (binding : Fexpr.symbol_binding) ->
+        match binding with
+        | Closure clo -> Some clo
+        | Set_of_closures _ -> found_explicit_set := true; None
+        | _ -> None
+      ) bindings
     in
-    (* Now assemble the set of closures in each segment, along with the
-     * map from each closure id to the symbol defined for it *)
-    let (sets_of_closures
-           : ( Symbol.t Closure_id.Lmap.t * Set_of_closures.t ) list),
-        env =
-      let process_segment env (seg : Fexpr.segment)
-            : ( Symbol.t Closure_id.Lmap.t * Set_of_closures.t ) * env =
-        let code_ids =
-          List.map (fun ({ code_id; _ } : Fexpr.static_closure_binding) ->
-            code_id
-          ) seg.closure_bindings
+    let bindings =
+      match closures_in_implicit_set, closure_elements with
+      | _ :: _, _ when !found_explicit_set ->
+        Misc.fatal_error "Cannot mix implicit and explicit sets of closures"
+      | [], Some _ ->
+        Misc.fatal_error "Found closure elements but no closures"
+      | [], None ->
+        bindings
+      | _, _ ->
+        let not_a_closure (b : Fexpr.symbol_binding) =
+          match b with
+          | Closure _ -> false
+          | _ -> true
         in
-        let set = set_of_closures env code_ids seg.closure_elements in
-        let pairs, env =
-          let make_pair env ({ symbol; code_id } : Fexpr.static_closure_binding)
-                : ( Closure_id.t * Symbol.t ) * env =
-            let code_id = find_code_id env code_id in
-            let { closure_id; _ } : fun_decl_info = find_fun_decl env code_id in
+        let extra_bindings : Fexpr.symbol_binding list =
+          [ Set_of_closures { bindings = closures_in_implicit_set;
+                              elements = closure_elements; } ]
+        in
+        List.filter not_a_closure bindings @ extra_bindings
+    in
+    let bound_symbols, env =
+      let process_binding env (b : Fexpr.symbol_binding)
+            : Bound_symbols.Pattern.t * env =
+        match b with
+        | Code { id; _ } ->
+          let code_id, env = fresh_code_id env id in
+          Bound_symbols.Pattern.code code_id, env
+        | Block_like { symbol; _ } ->
+          let symbol, env = declare_symbol env symbol in
+          Bound_symbols.Pattern.block_like symbol, env
+        | Set_of_closures soc ->
+          let closure_binding env ({ symbol;
+                                     fun_decl = { closure_id; code_id; _ } }
+                                     : Fexpr.static_closure_binding) =
             let symbol, env = declare_symbol env symbol in
+            let closure_id = closure_id |> Option.value ~default:code_id in
+            let closure_id = fresh_or_existing_closure_id env closure_id in
             (closure_id, symbol), env
           in
-          map_accum_left make_pair env seg.closure_bindings
-        in
-        (pairs |> Closure_id.Lmap.of_list, set), env
-      in
-      map_accum_left process_segment env segments
-    in
-
-    (* Finally, process the code definitions *)
-    let codes : Flambda.Static_const.Code.t Code_id.Lmap.t list =
-      let process_segment (seg : Fexpr.segment) =
-        let process_code ({ id; newer_version_of; code; closure_id = _ }
-              : Fexpr.code_binding)
-              : Code_id.t * Flambda.Static_const.Code.t =
-          let code_id = find_code_id env id in
-          let newer_version_of =
-            Option.map (find_code_id env) newer_version_of
+          let closure_symbols, env =
+            Misc.Stdlib.List.map_accum_left closure_binding env soc.bindings
           in
-          let code = 
-          match code with
-          | Deleted -> Flambda.Static_const.Code.Deleted
-          | Present ({
-              params; closure_var; ret_cont; exn_cont;
-              ret_arity; expr = code_expr; recursive = _;
-              vars_within_closures = _
-            } : Fexpr.code) ->
-            let env = enter_code env in
-            let my_closure, env = fresh_var_opt env closure_var in
-            let arity =
-              match ret_arity with
-              | None -> 1
-              | Some l -> List.length l
+          Bound_symbols.Pattern.set_of_closures
+            (closure_symbols |> Closure_id.Lmap.of_list),
+          env
+        | Closure _ -> assert false (* should have been filtered out above *)
+      in
+      Misc.Stdlib.List.map_accum_left process_binding env bindings
+    in
+    let bound_symbols = bound_symbols |> Bound_symbols.create in
+    let static_const env (b : Fexpr.symbol_binding) : Flambda.Static_const.t =
+      match b with
+      | Block_like { symbol = _; kind = _; defining_expr = def } ->
+        begin
+          match def with
+          | Block { tag; mutability; elements = args } ->
+            let tag = Tag.Scannable.create_exn tag in
+            Flambda.Static_const.Block
+              (tag, mutability,
+               List.map (of_kind_value env) args)
+        end
+      | Set_of_closures { bindings; elements } ->
+        let fun_decls =
+          List.map (fun (b : Fexpr.static_closure_binding) ->
+            b.fun_decl
+          ) bindings
+        in
+        let set = set_of_closures env fun_decls elements in
+        Set_of_closures set
+      | Closure _ -> assert false (* should have been filtered out above *)
+      | Code { id; newer_version_of; param_arity; ret_arity; recursive;
+               params_and_body } ->
+        let code_id = find_code_id env id in
+        let newer_version_of =
+          Option.map (find_code_id env) newer_version_of
+        in
+        let env = enter_code env in
+        let params_arity =
+          match param_arity with
+          | Some ar -> arity ar
+          | None ->
+            match params_and_body with
+            | Deleted ->
+              Misc.fatal_errorf
+                "Param arity required for deleted code %a"
+                  Code_id.print code_id
+            | Present { params; _ } ->
+              List.map (fun ({ kind; _ } : Fexpr.kinded_parameter) ->
+                match kind with
+                | Some kind -> value_kind kind
+                | None -> Flambda_kind.value
+              ) params
+        in
+        let result_arity =
+          match ret_arity with
+          | None -> [ Flambda_kind.value ]
+          | Some ar -> arity ar
+        in
+        let params_and_body : _ Or_deleted.t =
+          match params_and_body with
+          | Deleted -> Deleted
+          | Present { params; closure_var; ret_cont; exn_cont; body } ->
+            let params, env =
+              Misc.Stdlib.List.map_accum_left
+                (fun env ({ param; kind }:Fexpr.kinded_parameter) ->
+                  let var, env = fresh_var env param in
+                  let param =
+                    Kinded_parameter.create var (value_kind_opt kind)
+                  in
+                  param, env)
+                env params
             in
+            let my_closure, env = fresh_var_opt env closure_var in
             let return_continuation, env =
-              fresh_cont env ret_cont arity
+              fresh_cont env ret_cont (List.length result_arity)
             in
             let exn_continuation, env =
               match exn_cont with
@@ -710,60 +654,36 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
               | Some exn_cont ->
                 fresh_exn_cont env exn_cont
             in
-            let params, env =
-              map_accum_left
-                (fun env ({ param; kind }:Fexpr.kinded_parameter) ->
-                  let var, env = fresh_var env param in
-                  let param =
-                    Kinded_parameter.create var (value_kind_opt kind)
-                  in
-                  param, env)
-                env params
-            in
-            let body = expr env code_expr in
+            let body = expr env body in
             let dbg = Debuginfo.none in
             let params_and_body =
               Flambda.Function_params_and_body.create
                 ~return_continuation
                 exn_continuation params ~body ~my_closure ~dbg
             in
-            Flambda.Static_const.Code.Present params_and_body
-          in
-          let code : Flambda.Static_const.Code.t = {
-                params_and_body = code;
-                newer_version_of;
-              }
-          in 
-          code_id, code
+            Present params_and_body
         in
-        List.map process_code seg.code_bindings
-        |> Code_id.Lmap.of_list
-      in
-      List.map process_segment segments
+        let recursive = convert_recursive_flag recursive in
+        let code =
+          Flambda.Code.create
+            code_id
+            ~params_and_body
+            ~newer_version_of
+            ~params_arity
+            ~result_arity
+            ~stub:false
+            ~inline:Default_inline
+            ~is_a_functor:false
+            ~recursive
+        in
+        Code code
     in
-    let bound_symbols : Flambda.Let_symbol_expr.Bound_symbols.t =
-      let codes_and_sets_of_closures =
-        List.map2 (fun code_bindings (closure_symbols, _) ->
-          let code_ids = Code_id.Lmap.keys code_bindings |> Code_id.Set.of_list
-          in
-          ({ code_ids; closure_symbols }
-             : Flambda.Let_symbol_expr.Bound_symbols.Code_and_set_of_closures.t)
-        ) codes sets_of_closures
-      in
-      Sets_of_closures codes_and_sets_of_closures
-    in
-    let static_const : Flambda.Static_const.t =
-      let codes_and_sets_of_closures =
-        List.map2 (fun code (_, set_of_closures) ->
-          ({ code; set_of_closures }
-             : Flambda.Static_const.Code_and_set_of_closures.t)
-        ) codes sets_of_closures
-      in
-      Sets_of_closures codes_and_sets_of_closures
+    let static_consts =
+      List.map (static_const env) bindings
+      |> Flambda.Static_const.Group.create
     in
     let body = expr env body in
-    Flambda.Let_symbol_expr.create Syntactic bound_symbols static_const body
-    |> Flambda.Expr.create_let_symbol
+    Flambda.Expr.create_let_symbol bound_symbols Syntactic static_consts body
 
   | Apply {
     func;
@@ -775,24 +695,15 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
     let continuation, _integer_arity = find_cont env continuation in
     let call_kind =
       match call_kind with
-      | Function (Direct { code_id }) ->
+      | Function (Direct { code_id; closure_id }) ->
+        let closure_id = closure_id |> Option.value ~default:code_id in
         let code_id = find_code_id env code_id in
-        let fun_decl = find_fun_decl env code_id in
-        let closure_id = fun_decl.closure_id in
+        let closure_id = fresh_or_existing_closure_id env closure_id in
         let return_arity =
           match arities with
           | None ->
-            begin
-              match fun_decl.decl with
-              | Some decl ->
-                Function_declaration.result_arity decl
-              | None ->
-                Misc.fatal_errorf "Call to deleted function %a"
-                  Code_id.print code_id
-            end
+            [ Flambda_kind.value ]
           | Some { ret_arity; _ } ->
-            (* This should be the same as the arity from the decl, of course,
-             * but let's use the explicitly-given one where possible *)
             arity ret_arity
         in
         Call_kind.direct_function_call code_id closure_id ~return_arity
@@ -831,6 +742,9 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
         ~inlining_depth:0
     in
     Flambda.Expr.create_apply apply
+
+  | Invalid invalid ->
+    Flambda.Expr.create_invalid ~semantics:invalid ()
 
   | _ ->
     failwith "TODO expr"

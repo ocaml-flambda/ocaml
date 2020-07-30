@@ -98,10 +98,6 @@ let kinded_variable ppf (v, (k:kind option)) =
   | Some k ->
     Format.fprintf ppf "@[<2>%a :@ %a@]" variable v kind k
 
-let kinded_var_within_closure ppf
-      ({ var; kind=k } : kinded_var_within_closure) =
-  kinded_variable ppf (var, k)
-
 let of_kind_value ppf : of_kind_value -> unit = function
   | Symbol s -> symbol ppf s
   | Dynamically_computed v -> variable ppf v
@@ -175,6 +171,11 @@ let binop ppf binop a b =
     Format.fprintf ppf "@[<2>%s%a@]"
       name
       (pp_option ~prefix:"@ {" ~suffix:"}" kind) k
+  | Infix op ->
+    Format.fprintf ppf "%a %a %a"
+      simple a
+      infix_binop op
+      simple b
 
 let unop ppf u =
   match u with
@@ -182,51 +183,36 @@ let unop ppf u =
     Format.pp_print_string ppf "Opaque"
   | Untag_imm ->
     Format.pp_print_string ppf "untag_imm"
-  | Project_var var ->
-    Format.fprintf ppf "@[<2>project_var@ %a@]" var_within_closure var 
+  | Project_var { project_from; var } ->
+    Format.fprintf ppf "@[<2>project_var@ %a.%a@]"
+      closure_id project_from
+      var_within_closure var 
   | Select_closure { move_from; move_to } ->
     Format.fprintf ppf "@[<2>select_closure@ (%a@ -> %a)@]"
       closure_id move_from
       closure_id move_to
 
 let prim ppf = function
-  | Unop (u, a) ->
+  | Unary (u, a) ->
     Format.fprintf ppf "%a %a"
       unop u
       simple a
-  | Infix_binop (b, a1, a2) ->
-    Format.fprintf ppf "%a %a %a"
-      simple a1
-      infix_binop b
-      simple a2
-  | Binop (b, a1, a2) ->
+  | Binary (b, a1, a2) ->
     binop ppf b a1 a2
     (* Format.fprintf ppf "%a %a %a"
      *   binop b a b
      *   simple a1
      *   simple a2 *)
-  | Block (tag, Immutable, elts) ->
+  | Variadic (Make_block (tag, Immutable), elts) ->
     Format.fprintf ppf "Block %i (%a)"
       tag
       (pp_comma_list simple) elts
-  | Block (tag, Immutable_unique, elts) ->
+  | Variadic (Make_block (tag, Immutable_unique), elts) ->
     Format.fprintf ppf "Block_unique %i (%a)"
       tag
       (pp_comma_list simple) elts
-  | Block (_, Mutable, _) ->
+  | Variadic (Make_block (_, Mutable), _) ->
       failwith "TODO mutable block"
-
-let closure ppf c =
-  Format.fprintf ppf "@[<hv 2>closure %a@]"
-    code_id c
-
-let named ppf = function
-  | (Simple s : named) ->
-    simple ppf s
-  | Prim p ->
-    prim ppf p
-  | (Closure { code_id = c } : named) ->
-    closure ppf c
 
 let parameter ppf { param; kind = k } =
   kinded_variable ppf (param, k)
@@ -259,10 +245,24 @@ let closure_elements ppf = function
     ) ppf ces;
     Format.fprintf ppf "@;<1 -2>}@]"
 
+let fun_decl ppf (decl : fun_decl) =
+  Format.fprintf ppf "@[<2>closure@ %t%a%a@]"
+    (fun ppf -> if decl.is_tupled then Format.fprintf ppf "tupled@ ")
+    code_id decl.code_id
+    (pp_option ~prefix:"@ @@" closure_id) decl.closure_id
+
+let named ppf = function
+  | (Simple s : named) ->
+    simple ppf s
+  | Prim p ->
+    prim ppf p
+  | (Closure decl : named) ->
+    fun_decl ppf decl
+
 let static_closure_binding ppf (scb : static_closure_binding) =
-  Format.fprintf ppf "symbol %a =@ closure %a"
+  Format.fprintf ppf "symbol %a =@ %a"
     symbol scb.symbol
-    code_id scb.code_id
+    fun_decl scb.fun_decl
 
 let call_kind ppf ck =
   match ck with
@@ -379,26 +379,10 @@ and let_expr scope ppf : let_ -> unit = function
 
 
 and let_symbol_expr scope ppf = function
-  | { bindings = Simple ss; body } ->
-    Format.fprintf ppf "@[<v>@[<hv>@[<hv2>let symbol %a@]@ in@]@ %a@]"
-      static_structure ss
-      (expr scope) body
-
-  | { bindings = Segments [ seg ]; body } ->
+  | { bindings; closure_elements; body } ->
     Format.fprintf ppf "@[<v>@[<hv>@[<hv2>let %a@]@ in@]@ %a@]"
-      segment_body seg
+      symbol_bindings (bindings, closure_elements)
       (expr scope) body
-
-  | { bindings = Segments (first :: rest); body } ->
-    Format.fprintf ppf "@[<v>@[<hv>@[<hv2>let %a@]" segment first;
-    List.iter (fun (seg : segment) ->
-      Format.fprintf ppf "@ @[<hv2>and %a@]" segment seg
-    ) rest;
-    Format.fprintf ppf "@ in@]@ %a@]" (expr scope) body
-
-  | _ ->
-    Format.fprintf ppf "<malformed Let_symbol>"
-
 
 
 and andk ppf l =
@@ -413,49 +397,53 @@ and andk ppf l =
   in
   List.iter cont l
 
-and segment ppf seg =
-  Format.fprintf ppf "segment@ %a@;<1 -2>end" segment_body seg
-
-and segment_body ppf (seg : segment) =
+and symbol_bindings ppf (bindings, elements) =
   let first = ref true in
-  let pp_and ppf () = if not !first then Format.fprintf ppf "@ and " in
-  List.iter (fun c ->
-    Format.fprintf ppf "%a%a" pp_and () code_binding c;
+  let pp_and ppf () = if not !first then Format.fprintf ppf "@;<1 -2>and " in
+  List.iter (fun b ->
+    Format.fprintf ppf "%a%a" pp_and () symbol_binding b;
     first := false
-  ) seg.code_bindings;
-  List.iter (fun c ->
-    Format.fprintf ppf "%a%a" pp_and () static_closure_binding c;
-    first := false
-  ) seg.closure_bindings;
-  closure_elements ppf seg.closure_elements
+  ) bindings;
+  closure_elements ppf elements
 
-and code_binding ppf (cb : code_binding) =
-  let pp_vars_within_closures ppf = function
-    | [] -> ()
-    | vars ->
-        Format.fprintf ppf "@ <%a>" (pp_comma_list kinded_var_within_closure)
-          vars
-  in
-  let rec_ = match cb.code with
-    | Present { recursive; _ } -> recursive
-    | Deleted -> Nonrecursive
-  in
-  Format.fprintf ppf "code@[<h>%a@] @[<hov2>%a%a%a"
-    recursive rec_
+and symbol_binding ppf (sb : symbol_binding) =
+  match sb with
+  | Block_like ss -> Format.fprintf ppf "symbol %a" static_structure ss
+  | Code code -> code_binding ppf code
+  | Closure clo -> static_closure_binding ppf clo
+  | Set_of_closures soc ->
+    Format.fprintf ppf "@[<hv>@[<hv2>set_of_closures@ ";
+    (* Somewhat clumsily reuse the logic in [symbol_bindings] *)
+    let closure_bindings_as_symbol_bindings =
+      List.map (fun binding : Fexpr.symbol_binding -> Closure binding)
+        soc.bindings
+    in
+    symbol_bindings ppf (closure_bindings_as_symbol_bindings, soc.elements);
+    Format.fprintf ppf "@]@ end@]"
+
+and code_binding ppf (cb : code) =
+  Format.fprintf ppf "code@[<h>%a@] @[<hov2>%a%a"
+    recursive cb.recursive
     code_id cb.id
-    (pp_option ~prefix:"@ %@" closure_id) cb.closure_id
     (pp_option ~prefix:"@ newer_version_of " code_id) cb.newer_version_of;
-  match cb.code with
-    | Deleted -> Format.fprintf ppf "@ deleted@]"
-    | Present code ->
-      Format.fprintf ppf "%a@ %a%a@ -> %a%a%a@] =@ %a"
-        kinded_parameters code.params
-        variable_opt code.closure_var
-        pp_vars_within_closures code.vars_within_closures
-        continuation_id code.ret_cont
-        (pp_option ~prefix:"@ * " continuation_id) code.exn_cont
-        (pp_option ~prefix:"@ : " arity) code.ret_arity
-        (expr Outer) code.expr
+  match cb.params_and_body with
+    | Deleted ->
+      let pp_arity ppf =
+        match cb.param_arity with
+        | None -> Format.print_string "???" (* invalid *)
+        | Some ar -> arity ppf ar
+      in
+      Format.fprintf ppf "@ deleted :@ %t -> %a@]"
+        pp_arity
+        arity (cb.ret_arity |> Option.value ~default:[(Value : kind)])
+    | Present { params; closure_var; ret_cont; exn_cont; body } ->
+      Format.fprintf ppf "%a@ %a@ -> %a%a%a@] =@ %a"
+        kinded_parameters params
+        variable_opt closure_var
+        continuation_id ret_cont
+        (pp_option ~prefix:"@ * " continuation_id) exn_cont
+        (pp_option ~prefix:"@ : " arity) cb.ret_arity
+        (expr Outer) body
 
 let flambda_unit ppf ({ body } : flambda_unit) =
   Format.fprintf ppf "@[%a@]"

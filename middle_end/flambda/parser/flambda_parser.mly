@@ -35,27 +35,6 @@ let make_const_float (i, m) =
   | None -> Naked_float (float_of_string i)
   | Some c -> failwith (Printf.sprintf "Unknown float modifier %c" c)
 
-let partition_map (f : 'a -> [ `Left of 'b | `Right of 'c ]) (l : 'a list)
-    : 'b list * 'c list =
-  let next (acc_l, acc_r) x =
-    match f x with
-    | `Left b -> b :: acc_l, acc_r
-    | `Right c -> acc_l, c :: acc_r
-  in
-  let rev_l, rev_r = List.fold_left next ([], []) l in
-  List.rev rev_l, List.rev rev_r
-
-let make_segment
-      (bindings : [ `Code of code_binding
-                  | `Closure of static_closure_binding ] list)
-      (closure_elements : closure_element list option) =
-  let code_bindings, closure_bindings =
-    partition_map (function
-    | `Code code_binding -> `Left code_binding
-    | `Closure closure_binding -> `Right closure_binding
-    ) bindings
-  in
-  { code_bindings; closure_bindings; closure_elements }
 %}
 
 /* Tokens */
@@ -88,7 +67,6 @@ let make_segment
 %token INT32 [@symbol "int32"]
 %token INT64 [@symbol "int64"]
 %token <string * char option> INT
-%token LANGLE [@symbol "<"]
 %token LBRACE [@symbol "{"]
 %token LET    [@symbol "let"]
 %token <string> LIDENT
@@ -106,17 +84,17 @@ let make_segment
 %token PLUS     [@symbol "+"]
 %token PLUSDOT  [@symbol "+."]
 %token PROJECT_VAR [@symbol "project_var"]
-%token RANGLE [@symbol ">"]
 %token RBRACE [@symbol "}"]
 %token REC    [@symbol "rec"]
 %token RPAREN [@symbol ")"]
 %token SELECT_CLOSURE [@symbol "select_closure"]
 %token SEMICOLON [@symbol ";"]
-%token SEGMENT [@symbol "segment"]
+%token SET_OF_CLOSURES [@symbol "set_of_closures"]
 %token STUB   [@symbol "stub"]
 %token STAR   [@symbol "*"]
 %token SWITCH [@symbol "switch"]
 %token SYMBOL [@symbol "symbol"]
+%token TUPLED [@symbol "tupled"]
 %token <string> UIDENT
 %token UNDERSCORE [@symbol "_"]
 %token UNIT   [@symbol "unit"]
@@ -155,61 +133,59 @@ exn_continuation_id:
 ;
 
 let_symbol(body):
-  | LET; bindings = symbol_bindings; IN; body = body; { { bindings; body } }
-;
-
-symbol_bindings:
-  | SYMBOL s = static_structure { Simple s }
-  | segs = segments { Segments segs }
-;
-
-segments:
-  | seg = segment_body { [ seg ] }
-  | segs = separated_nonempty_list(AND, segment) { segs }
-;
-
-segment:
-  | SEGMENT; seg = segment_body; END { seg }
-;
-
-segment_body:
-  | bindings = separated_nonempty_list(AND, code_or_closure_binding);
+  | LET; bindings = separated_nonempty_list(AND, symbol_binding);
     closure_elements = with_closure_elements_opt;
-    { make_segment bindings closure_elements }
+    IN; body = body; { { bindings; closure_elements; body } }
 ;
 
-code_or_closure_binding:
-  | code_binding = code_binding { `Code code_binding }
-  | closure_binding = static_closure_binding { `Closure closure_binding }
+symbol_binding:
+  | s = static_structure { Block_like s }
+  | code = code { Code code }
+  | s = static_closure_binding { Closure s }
+  | s = static_set_of_closures { Set_of_closures s }
 ;
 
-code_binding:
-  | CODE;
-    recursive = recursive;
-    id = code_id;
-    closure_id = option(AT; cid = closure_id { cid });
-    newer_version_of = option(NEWER_VERSION_OF; id = code_id { id });
-    code_or_deleted = code_or_deleted;
-    { { id; closure_id; newer_version_of; code = code_or_deleted recursive } }
-;
-
-code_or_deleted:
-  | DELETED { fun _ -> Deleted }
-  | params = kinded_args;
+code:
+  | header = code_header;
+    params = kinded_args; 
     closure_var = variable_opt;
-    vars_within_closures = kinded_vars_within_closures;
     MINUSGREATER; ret_cont = continuation_id;
     exn_cont = option(exn_continuation_id);
     ret_arity = return_arity;
-    EQUAL; expr = expr;
-    { fun recursive : code or_deleted ->
-        Present { params; closure_var; vars_within_closures; ret_cont;
-                ret_arity; exn_cont; recursive; expr; } }
+    EQUAL; body = expr;
+    { let recursive, id, newer_version_of = header in
+      { id; newer_version_of; param_arity = None; ret_arity; recursive;
+        params_and_body = Present { params; closure_var; ret_cont; exn_cont;
+                                    body } } }
+  | header = code_header;
+    DELETED;
+    COLON;
+    param_arity = kinds;
+    ret_arity = return_arity;
+    { let recursive, id, newer_version_of = header in
+      { id; newer_version_of; param_arity = Some param_arity; ret_arity;
+        recursive; params_and_body = Deleted } }
+;
+
+code_header:
+  | CODE;
+    recursive = recursive;
+    id = code_id;
+    newer_version_of = option(NEWER_VERSION_OF; id = code_id { id });
+    { recursive, id, newer_version_of }
 ;
 
 static_closure_binding:
-  | SYMBOL; symbol = symbol; EQUAL; code_id = closure; { { symbol; code_id } }
+  | SYMBOL; symbol = symbol; EQUAL; fun_decl = fun_decl;
+    { { symbol; fun_decl } }
 ;
+
+static_set_of_closures:
+  | SET_OF_CLOSURES;
+    bindings = separated_nonempty_list(AND, static_closure_binding);
+    elements = with_closure_elements_opt;
+    END
+    { { bindings; elements } }
 
 recursive:
   | { Nonrecursive }
@@ -219,7 +195,8 @@ recursive:
 unop:
   | OPAQUE { Opaque_identity }
   | UNTAG_IMM { Untag_imm }
-  | PROJECT_VAR; var = var_within_closure { Project_var var }
+  | PROJECT_VAR; project_from = closure_id; DOT; var = var_within_closure
+    { Project_var { project_from; var } }
   | SELECT_CLOSURE; LPAREN; move_from = closure_id; MINUSGREATER;
       move_to = closure_id; RPAREN
     { Select_closure { move_from; move_to } }
@@ -235,27 +212,28 @@ prefix_binop:
   | PHYS_EQ; k = kind_arg_opt { Phys_equal(k, Eq) }
   | PHYS_NE; k = kind_arg_opt { Phys_equal(k, Neq) }
 
-binop:
+binop_app:
   | a = simple DOT LPAREN f = simple RPAREN
-    { Binop (Block_load (Block Value, Immutable), a, f) }
+    { Binary (Block_load (Block Value, Immutable), a, f) }
   | op = prefix_binop; LPAREN; arg1 = simple; COMMA; arg2 = simple; RPAREN
-    { Binop (op, arg1, arg2) }
+    { Binary (op, arg1, arg2) }
+  | arg1 = simple; op = infix_binop; arg2 = simple
+    { Binary (Infix op, arg1, arg2) }
 ;
 
 block:
   | BLOCK; t = tag; LPAREN;
     elts = separated_list(COMMA, simple);
     RPAREN
-    { Block (t, Immutable, elts) }
+    { Variadic (Make_block (t, Immutable), elts) }
 ;
 
 named:
   | s = simple { Simple s }
-  | u = unop a = simple { Prim (Unop (u, a)) }
-  | a1 = simple b = infix_binop a2 = simple { Prim (Infix_binop (b, a1, a2)) }
-  | b = binop { Prim b }
+  | u = unop a = simple { Prim (Unary (u, a)) }
+  | b = binop_app { Prim b }
   | b = block { Prim b }
-  | c = closure { Closure { code_id = c } }
+  | c = fun_decl { Closure c }
 ;
 
 switch_case:
@@ -360,7 +338,7 @@ let_(body):
  *)
     closure_elements = with_closure_elements_opt;
     IN body = body;
-    { { bindings; closure_elements; body } }
+    { ({ bindings; closure_elements; body } : let_) }
 ;
 
 let_binding:
@@ -380,8 +358,10 @@ closure_element:
   | var = var_within_closure; EQUAL; value = simple; { { var; value; } }
 ;
 
-closure:
-  | CLOSURE; code_id = code_id; { code_id }
+fun_decl:
+  | CLOSURE; is_tupled = boption(TUPLED); code_id = code_id;
+    closure_id = closure_id_opt;
+    { { code_id; closure_id; is_tupled } }
 ;
 
 apply_expr:
@@ -400,8 +380,8 @@ apply_expr:
 
 call_kind:
   | { Function Indirect }
-  | DIRECT; LPAREN; AT; code_id = code_id; RPAREN
-    { Function (Direct { code_id }) }
+  | DIRECT; LPAREN; code_id = code_id; closure_id = closure_id_opt; RPAREN
+    { Function (Direct { code_id; closure_id }) }
   | CCALL; noalloc = boption(NOALLOC)
     { C_call { alloc = not noalloc } }
 ;
@@ -425,13 +405,8 @@ kinded_args:
   | LPAREN v = separated_nonempty_list(COMMA, kinded_variable) RPAREN { v }
   | { [] }
 
-kinded_vars_within_closures:
-    | LANGLE; v = separated_nonempty_list(COMMA, kinded_var_within_closure);
-      RANGLE { v }
-  | { [] }
-
 static_structure:
-  | s = symbol EQUAL sp = static_part
+  | SYMBOL; s = symbol EQUAL sp = static_part
     { { symbol = s; kind = None; defining_expr = sp } }
 ;
 
@@ -459,12 +434,6 @@ kinded_variable:
 kinded_variable_opt:
   | v = variable_opt { v, None }
   | v = variable_opt; COLON; kind = kind; { v, Some kind }
-;
-
-kinded_var_within_closure:
-  | var = var_within_closure { { var; kind = None } }
-  | var = var_within_closure; COLON; kind = kind
-    { { var; kind = Some kind } }
 ;
 
 simple_args:
@@ -500,6 +469,11 @@ code_id:
  
 closure_id:
   | v = variable { v }
+;
+
+closure_id_opt :
+  | { None }
+  | AT; cid = closure_id { Some cid }
 ;
 
 symbol:

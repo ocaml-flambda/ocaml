@@ -66,11 +66,12 @@ let keyword_table =
     "phys_ne", PHYS_NE;
     "project_var", PROJECT_VAR;
     "rec", REC;
-    "segment", SEGMENT;
     "select_closure", SELECT_CLOSURE;
+    "set_of_closures", SET_OF_CLOSURES;
     "stub", STUB;
     "switch", SWITCH;
     "symbol", SYMBOL;
+    "tupled", TUPLED;
     "unit", UNIT;
     "untag_imm", UNTAG_IMM;
     "val", VAL;
@@ -150,10 +151,6 @@ rule token = parse
       { LPAREN }
   | ")"
       { RPAREN }
-  | "<"
-      { LANGLE }
-  | ">"
-      { RANGLE }
   | "+"  { PLUS }
   | "+." { PLUSDOT }
   | "*"  { STAR }

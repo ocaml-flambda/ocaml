@@ -10,17 +10,17 @@ type token =
   | UNIT
   | UNDERSCORE
   | UIDENT of (string)
+  | TUPLED
   | SYMBOL
   | SWITCH
   | STUB
   | STAR
+  | SET_OF_CLOSURES
   | SEMICOLON
   | SELECT_CLOSURE
-  | SEGMENT
   | RPAREN
   | REC
   | RBRACE
-  | RANGLE
   | PROJECT_VAR
   | PLUSDOT
   | PLUS
@@ -38,7 +38,6 @@ type token =
   | LIDENT of (string)
   | LET
   | LBRACE
-  | LANGLE
   | INT64
   | INT32
   | INT of (string * char option)

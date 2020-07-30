@@ -162,6 +162,9 @@ module Stdlib : sig
     val map_sharing : ('a -> 'a) -> 'a t -> 'a t
     (** Returns the original list if the function always returns a value
         physically equal to its argument *)
+    
+    val map_accum_left : ('e -> 'a -> 'b * 'e) -> 'e -> 'a list -> 'b list * 'e
+
   end
 
   module Option : sig
