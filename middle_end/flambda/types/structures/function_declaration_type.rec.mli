@@ -21,25 +21,13 @@ module Inlinable : sig
 
   val create
      : code_id:Code_id.t
-    -> param_arity:Flambda_arity.t
-    -> result_arity:Flambda_arity.t
-    -> stub:bool
     -> dbg:Debuginfo.t
-    -> inline:Inline_attribute.t
-    -> is_a_functor:bool
-    -> recursive:Recursive.t
     -> rec_info:Rec_info.t
     -> is_tupled:bool
     -> t
 
   val code_id : t -> Code_id.t
-  val param_arity : t -> Flambda_arity.t
-  val result_arity : t -> Flambda_arity.t
-  val stub : t -> bool
   val dbg : t -> Debuginfo.t
-  val inline : t -> Inline_attribute.t
-  val is_a_functor : t -> bool
-  val recursive : t -> Recursive.t
   val rec_info : t -> Rec_info.t
   val is_tupled : t -> bool
 end
@@ -49,16 +37,10 @@ module Non_inlinable : sig
 
   val create
      : code_id:Code_id.t
-    -> param_arity:Flambda_arity.t
-    -> result_arity:Flambda_arity.t
-    -> recursive:Recursive.t
     -> is_tupled:bool
     -> t
 
   val code_id : t -> Code_id.t
-  val param_arity : t -> Flambda_arity.t
-  val result_arity : t -> Flambda_arity.t
-  val recursive : t -> Recursive.t
   val is_tupled : t -> bool
 end
 

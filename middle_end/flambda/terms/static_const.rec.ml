@@ -108,144 +108,6 @@ module Field_of_block = struct
 *)
 end
 
-module Code = struct
-  type t = {
-    code_id : Code_id.t;
-    params_and_body : Function_params_and_body.t or_deleted;
-    newer_version_of : Code_id.t option;
-  }
-  and 'a or_deleted =
-    | Present of 'a
-    | Deleted
-
-  let print_params_and_body_with_cache ~cache ppf params_and_body =
-    match params_and_body with
-    | Deleted -> Format.fprintf ppf "Deleted"
-    | Present params_and_body ->
-      Function_params_and_body.print_with_cache ~cache ppf
-        params_and_body
-
-  let print_with_cache ~cache ppf
-        { code_id = _; params_and_body; newer_version_of; } =
-    Format.fprintf ppf "@[<hov 1>(\
-        @[<hov 1>@<0>%s(newer_version_of@ %a)@<0>%s@]@ \
-        %a\
-        )@]"
-      (if Option.is_none newer_version_of then Flambda_colours.elide ()
-       else Flambda_colours.normal ())
-      (Misc.Stdlib.Option.print_compact Code_id.print) newer_version_of
-      (Flambda_colours.normal ())
-      (print_params_and_body_with_cache ~cache) params_and_body
-
-  let print ppf code =
-    print_with_cache ~cache:(Printing_cache.create ()) ppf code
-
-  let create code_id ~params_and_body ~newer_version_of =
-    { code_id;
-      params_and_body;
-      newer_version_of;
-    }
-
-  let compare { code_id = code_id1; _ } { code_id = code_id2; _ } =
-    Code_id.compare code_id1 code_id2
-
-  let free_names { code_id = _; params_and_body; newer_version_of; } =
-    (* [code_id] is only in [t] for the use of [compare]; it doesn't
-       count as a free name. *)
-    let from_newer_version_of =
-      match newer_version_of with
-      | None -> Name_occurrences.empty
-      | Some older ->
-        Name_occurrences.add_newer_version_of_code_id
-          Name_occurrences.empty older Name_mode.normal
-    in
-    let from_params_and_body =
-      match params_and_body with
-      | Deleted -> Name_occurrences.empty
-      | Present params_and_body ->
-        Function_params_and_body.free_names params_and_body
-    in
-    Name_occurrences.union from_newer_version_of from_params_and_body
-
-  let apply_name_permutation
-        ({ code_id; params_and_body; newer_version_of; } as t) perm =
-    let params_and_body' =
-      match params_and_body with
-      | Deleted -> Deleted
-      | Present params_and_body_inner ->
-        let params_and_body_inner' =
-          Function_params_and_body.apply_name_permutation
-            params_and_body_inner perm
-        in
-        if params_and_body_inner == params_and_body_inner' then
-          params_and_body
-        else
-          Present params_and_body_inner'
-    in
-    if params_and_body == params_and_body' then t
-    else
-      { code_id;
-        params_and_body = params_and_body';
-        newer_version_of;
-      }
-
-  let all_ids_for_export { code_id; params_and_body; newer_version_of; } =
-    let newer_version_of_ids =
-      match newer_version_of with
-      | None -> Ids_for_export.empty
-      | Some older ->
-        Ids_for_export.add_code_id Ids_for_export.empty older
-    in
-    let params_and_body_ids =
-      match params_and_body with
-      | Deleted -> Ids_for_export.empty
-      | Present params_and_body ->
-        Function_params_and_body.all_ids_for_export params_and_body
-    in
-    Ids_for_export.add_code_id
-      (Ids_for_export.union newer_version_of_ids params_and_body_ids)
-      code_id
-
-  let import import_map { code_id; params_and_body; newer_version_of; } =
-    let code_id = Ids_for_export.Import_map.code_id import_map code_id in
-    let params_and_body =
-      match params_and_body with
-      | Deleted -> Deleted
-      | Present params_and_body ->
-        let params_and_body =
-          Function_params_and_body.import import_map params_and_body
-        in
-        Present params_and_body
-    in
-    let newer_version_of =
-      match newer_version_of with
-      | None -> None
-      | Some older ->
-        let older = Ids_for_export.Import_map.code_id import_map older in
-        Some older
-    in
-    { code_id; params_and_body; newer_version_of; }
-
-  let deleted code_id =
-    { code_id;
-      params_and_body = Deleted;
-      newer_version_of = None;
-    }
-
-  let code_id t = t.code_id
-
-  let params_and_body t =
-    match t.params_and_body with
-    | Present params_and_body -> Some params_and_body
-    | Deleted -> None
-
-  let make_deleted { code_id; params_and_body = _; newer_version_of; } =
-    { code_id;
-      params_and_body = Deleted;
-      newer_version_of;
-    }
-end
-
 type t =
   | Code of Code.t
   | Set_of_closures of Set_of_closures.t
@@ -637,7 +499,7 @@ let match_against_bound_symbols_pattern t (pat : Bound_symbols.Pattern.t)
       ~block_like:block_like_callback =
   match t, pat with
   | Code code, Code code_id ->
-    if not (Code_id.equal code.code_id code_id) then begin
+    if not (Code_id.equal (Code.code_id code) code_id) then begin
       Misc.fatal_errorf "Mismatch on declared code IDs:@ %a@ =@ %a"
         Bound_symbols.Pattern.print pat
         print t
@@ -728,7 +590,7 @@ module Group = struct
     List.filter_map to_code t
     |> List.filter_map (fun code ->
       Option.map (fun params_and_body -> Code.code_id code, params_and_body)
-        (Code.params_and_body code))
+        (Code.params_and_body_opt code))
     |> Code_id.Map.of_list
 
   let pieces_of_code' t = List.filter_map to_code t
