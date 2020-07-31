@@ -377,6 +377,21 @@ let set_of_closures env fun_decls closure_elements =
   in
   Set_of_closures.create fun_decls ~closure_elements
 
+let apply_cont env ({ cont; args; trap_action } : Fexpr.apply_cont) =
+  if Option.is_some trap_action then failwith "TODO trap actions";
+  let c, arity = find_cont env cont in
+  if List.length args <> arity then
+    begin
+      let cont_str = match cont with
+      | Special Done -> "done"
+      | Special Error -> "error"
+      | Named { txt = cont_id; _ } -> cont_id
+      in
+      Misc.fatal_errorf "wrong continuation arity %s" cont_str
+    end;
+  let args = List.map (simple env) args in
+  Flambda.Apply_cont.create c ~args ~dbg:Debuginfo.none
+
 let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
   match e with
   | Let { bindings = []; _ } ->
@@ -472,52 +487,21 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
   | Let_cont _ ->
       failwith "TODO andwhere"
 
-  | Apply_cont (cont, None, args) ->
-    let c, arity = find_cont env cont in
-    if List.length args <> arity then
-      begin
-        let cont_str = match cont with
-        | Special Done -> "done"
-        | Special Error -> "error"
-        | Named { txt = cont_id; _ } -> cont_id
-        in
-        Misc.fatal_errorf "wrong continuation arity %s" cont_str
-      end;
-    let args = List.map (simple env) args in
-    let apply_cont = Flambda.Apply_cont.create c ~args ~dbg:Debuginfo.none in
-    Flambda.Expr.create_apply_cont apply_cont
+  | Apply_cont ac ->
+    Flambda.Expr.create_apply_cont (apply_cont env ac)
 
   | Switch { scrutinee; cases } ->
     let arms =
-      Target_imm.Map.of_list
-        (List.map (fun (case, cont) ->
-           let c, arity = find_cont env cont in
-           assert(arity = 0);
-           Target_imm.int (Targetint.OCaml.of_int case),
-             Apply_cont_expr.create c ~args:[] ~dbg:Debuginfo.none)
-           cases)
+      List.map (fun (case, apply) ->
+        Target_imm.int (Targetint.OCaml.of_int case),
+        apply_cont env apply
+      ) cases
+      |> Target_imm.Map.of_list
     in
     Flambda.Expr.create_switch
       ~scrutinee:(simple env scrutinee)
       ~arms
 
-  (*
-  | Let_symbol { bindings = Simple { symbol; kind = _; defining_expr = def }; 
-                 body } -> begin
-      match def with
-      | Block { tag; mutability; elements = args } ->
-        let symbol, env = declare_symbol (* ~backend *) env symbol in
-        let static_const =
-          let tag = Tag.Scannable.create_exn tag in
-          Flambda.Static_const.Block
-            (tag, mutability,
-             List.map (of_kind_value env) args)
-        in
-        let body = expr env body in
-        Flambda.Expr.create_let_symbol
-          (Singleton symbol) Syntactic static_const body
-    end
-*)
   | Let_symbol { bindings; closure_elements; body } ->
     (* Desugar the abbreviated form for a single set of closures *)
     let found_explicit_set = ref false in
@@ -745,9 +729,6 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
 
   | Invalid invalid ->
     Flambda.Expr.create_invalid ~semantics:invalid ()
-
-  | _ ->
-    failwith "TODO expr"
 
 let conv ~backend ~module_ident (fexpr : Fexpr.flambda_unit) : Flambda_unit.t =
   let module Backend = (val backend : Flambda_backend_intf.S) in

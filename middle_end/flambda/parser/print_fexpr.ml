@@ -223,10 +223,21 @@ let kinded_parameters ppf = function
     Format.fprintf ppf "@ (@[<hv>%a@])"
       (pp_comma_list parameter) args
 
+let apply_cont ppf (ac : Fexpr.apply_cont) =
+  match ac with
+  | { cont; trap_action = None; args = [] } ->
+    Format.fprintf ppf "cont %a" continuation cont
+  | { cont; trap_action = None; args } ->
+    Format.fprintf ppf "cont %a (@[<hv>%a@])"
+      continuation cont
+      (pp_comma_list simple) args
+  | _ ->
+      failwith "TODO Apply_cont"
+
 let switch_case ppf (v, c) =
   Format.fprintf ppf "@;| %i -> %a"
     v
-    continuation c
+    apply_cont c
 
 let simple_args ppf = function
   | [] -> ()
@@ -270,13 +281,13 @@ let call_kind ppf ck =
   | Function (Direct { code_id = c }) ->
     (* CR-someday lmaurer: Find a way to write this without leaking
      * implementation details from the caller---in particular, without knowing
-     * that the calling function wants a space *after* the call kind if anything
-     * is printed. If need be, extend Format by adding a way to collapse
-     * multiple consecutive spaces into one. *)
-    Format.fprintf ppf "direct(%a)@ " code_id c
+     * that the calling function wants a space *before* the call kind if
+     * anything is printed. If need be, extend Format by adding a way to
+     * collapse multiple consecutive spaces into one. *)
+    Format.fprintf ppf "@ direct(%a)" code_id c
   | C_call { alloc } ->
-    Format.fprintf ppf "ccall@ ";
-    if not alloc then Format.fprintf ppf "noalloc@ "
+    Format.fprintf ppf "@ ccall";
+    if not alloc then Format.fprintf ppf "@ noalloc"
 
 
 let func_name_with_optional_arities ppf (n, arities) =
@@ -304,14 +315,8 @@ let parens ~if_scope_is scope ppf f =
 let rec expr scope ppf = function
   | Invalid inv ->
     invalid ppf inv
-  | Apply_cont (cont, None, []) ->
-    Format.fprintf ppf "cont %a" continuation cont
-  | Apply_cont (cont, None, args) ->
-    Format.fprintf ppf "cont %a (@[<hv>%a@])"
-      continuation cont
-      (pp_comma_list simple) args
-  | Apply_cont _ ->
-      failwith "TODO Apply_cont"
+  | Apply_cont ac ->
+    apply_cont ppf ac
   | Let let_ ->
     parens ~if_scope_is:Where_body scope ppf (fun scope ppf ->
       let_expr scope ppf let_

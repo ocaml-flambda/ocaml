@@ -5,9 +5,9 @@ let symbol B = Block 0 (b) in
 let c : val = B in
 let _ : int32 = 15l in
 let d : int64 = 16L in
-let code twice0 deleted in
-let code twice_lam (x) clo <f> -> k * e =
-  let f = project_var f clo in
+let code twice0 deleted : val -> val in
+let code twice_lam (x) clo -> k * e =
+  let f = project_var twice_lam.f clo in
   let _ : int64 = d in
   apply f (x) -> k1 * e
   where

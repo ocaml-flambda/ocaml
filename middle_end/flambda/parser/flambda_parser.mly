@@ -161,10 +161,11 @@ code:
     DELETED;
     COLON;
     param_arity = kinds;
-    ret_arity = return_arity;
+    MINUSGREATER;
+    ret_arity = kinds;
     { let recursive, id, newer_version_of = header in
-      { id; newer_version_of; param_arity = Some param_arity; ret_arity;
-        recursive; params_and_body = Deleted } }
+      { id; newer_version_of; param_arity = Some param_arity;
+        ret_arity = Some ret_arity; recursive; params_and_body = Deleted } }
 ;
 
 code_header:
@@ -237,7 +238,7 @@ named:
 ;
 
 switch_case:
-  | i = tag MINUSGREATER c = continuation { i,c }
+  | i = tag; MINUSGREATER; ac = apply_cont_expr { i,ac }
 ;
 
 switch:
@@ -308,7 +309,7 @@ continuation_body:
 atomic_expr:
   | HCF { Invalid Halt_and_catch_fire }
   | UNREACHABLE { Invalid Treat_as_unreachable }
-  | CONT c = continuation s = simple_args { Apply_cont (c, None, s) }
+  | CONT; ac = apply_cont_expr { Apply_cont ac }
   | SWITCH; scrutinee = simple; cases = switch { Switch {scrutinee; cases} }
   | APPLY e = apply_expr { Apply e }
   | LPAREN; e = expr; RPAREN { e }
@@ -384,6 +385,11 @@ call_kind:
     { Function (Direct { code_id; closure_id }) }
   | CCALL; noalloc = boption(NOALLOC)
     { C_call { alloc = not noalloc } }
+;
+
+apply_cont_expr:
+  | cont = continuation; args = simple_args
+    { { cont; args; trap_action = None } }
 ;
 
 exn_and_stub:

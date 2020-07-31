@@ -174,15 +174,21 @@ type apply = {
 
 type size = int
 
+type apply_cont = {
+  cont : continuation;
+  trap_action : trap_action option;
+  args : simple list;
+}
+
 type expr =
   | Let of let_
   | Let_cont of let_cont
   | Let_symbol of let_symbol
   | Apply of apply
-  | Apply_cont of continuation * trap_action option * simple list
+  | Apply_cont of apply_cont
   | Switch of {
       scrutinee : simple;
-      cases : (int * continuation) list;
+      cases : (int * apply_cont) list;
     }
   | Invalid of invalid_term_semantics
 

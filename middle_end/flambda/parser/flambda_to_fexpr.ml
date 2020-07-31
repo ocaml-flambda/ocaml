@@ -729,7 +729,9 @@ and apply_expr env (app : Apply_expr.t) : Fexpr.expr =
   in
   Apply { func; continuation; exn_continuation; args; call_kind; arities }
 and apply_cont_expr env app_cont : Fexpr.expr =
-  let continuation =
+  Apply_cont (apply_cont env app_cont)
+and apply_cont env app_cont : Fexpr.apply_cont =
+  let cont =
     Env.find_continuation_exn env (Apply_cont_expr.continuation app_cont)
   in
   let trap_action =
@@ -738,16 +740,14 @@ and apply_cont_expr env app_cont : Fexpr.expr =
     | None -> None
   in
   let args = List.map (simple env) (Apply_cont_expr.args app_cont) in
-  Apply_cont (continuation, trap_action, args)
+  { cont; trap_action; args }
 and switch_expr env switch : Fexpr.expr =
   let scrutinee = simple env (Switch_expr.scrutinee switch) in
   let cases =
-    List.map (fun (imm, apply_cont) ->
+    List.map (fun (imm, app_cont) ->
       let tag = imm |> Target_imm.to_targetint' |> Targetint.to_int in
-      let cont =
-        Env.find_continuation_exn env (Apply_cont_expr.continuation apply_cont)
-      in
-      tag, cont
+      let app_cont = apply_cont env app_cont in
+      tag, app_cont
     ) (Switch_expr.arms switch |> Target_imm.Map.bindings)
   in
   Switch { scrutinee; cases }
