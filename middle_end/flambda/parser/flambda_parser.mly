@@ -43,6 +43,7 @@ let make_const_float (i, m) =
 %token ANDWHERE [@symbol "andwhere"]
 %token AT    [@symbol "@"]
 %token APPLY [@symbol "apply"]
+%token BIGARROW [@symbol "===>"]
 %token BLOCK [@symbol "Block"]
 %token CCALL  [@symbol "ccall"]
 %token CLOSURE  [@symbol "closure"]
@@ -105,23 +106,32 @@ let make_const_float (i, m) =
 %token WITH   [@symbol "with"]
 %token EOF
 
-%start flambda_unit
+%start flambda_unit expect_test_spec
 %type <Fexpr.flambda_unit> flambda_unit
+%type <Fexpr.expect_test_spec> expect_test_spec
 %type <Fexpr.static_structure> static_structure
-%type <Fexpr.expr> expr
-(* %type <Fexpr.name> name *)
 %type <Fexpr.kind> kind
 %type <Fexpr.named> named
 %type <Fexpr.of_kind_value> of_kind_value
 %%
 
+flambda_unit:
+  | body = module_
+    EOF
+    { body }
+;
+
+expect_test_spec:
+  | before = module_; BIGARROW; after = module_; EOF
+    { { before; after } }
+;
+
 (* XCR lwhite: Probably easier to just use some default names for these
    continuations
    
    lmaurer: Makes sense. I went with "done" and "error" for the names. *)
-flambda_unit:
+module_:
   | body = expr
-    EOF
     { { body } }
 ;
 

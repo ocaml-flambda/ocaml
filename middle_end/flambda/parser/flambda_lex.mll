@@ -159,6 +159,7 @@ rule token = parse
   | "->" { MINUSGREATER }
   | "@" { AT }
   | "|"  { PIPE }
+  | "===>" { BIGARROW }
   | lowercase identchar *
       { let s = Lexing.lexeme lexbuf in
         try Hashtbl.find keyword_table s

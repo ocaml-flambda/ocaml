@@ -7,10 +7,12 @@ let check_invariants program =
       Flambda_unit.print program;
     raise exn
 
-let parse_flambda ~backend file =
-    match Parse_flambda.parse_fexpr file with
+let parse_flambda ~backend filename =
+    match Parse_flambda.parse_fexpr filename with
     | Ok unit ->
-      let comp_unit = Parse_flambda.make_compilation_unit file in
+      let comp_unit =
+        Parse_flambda.make_compilation_unit ~extension:"fl" ~filename
+      in
       Compilation_unit.set_current comp_unit;
       Format.printf "%a@.@."
         Print_fexpr.flambda_unit unit;

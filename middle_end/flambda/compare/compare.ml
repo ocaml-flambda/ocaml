@@ -108,28 +108,41 @@ module Comparison = struct
   ;;
 end
 
+let debugging = false
+
 let log f e1 e2 thunk =
-  Format.eprintf "@[<v>@[<hv>COMPARING@;<1 2>%a@;<1 0>TO@;<1 2>%a@]@,---@;<0 2>"
-    f e1 f e2;
-  let ans = thunk () in
-  Format.eprintf "%a@]@," (Comparison.print f) ans;
-  ans
+  if debugging 
+    then begin
+      Format.eprintf
+        "@[<v>@[<hv>COMPARING@;<1 2>%a@;<1 0>TO@;<1 2>%a@]@,---@;<0 2>"
+        f e1 f e2;
+      let ans = thunk () in
+      Format.eprintf "%a@]@," (Comparison.print f) ans;
+      ans
+    end
+    else
+      thunk ()
+;;
 
 let log_rel f e1 rel e2 =
-  Format.eprintf "@[<hv>%a@;<1 2>%s@;<1 0>%a@]@," f e1 rel f e2
+  if debugging then
+    Format.eprintf "@[<hv>%a@;<1 2>%s@;<1 0>%a@]@," f e1 rel f e2
+;;
 
 let log_eq p f e1 e2 =
-  let rel = if p e1 e2 then "=" else "/=" in
-  log_rel f e1 rel e2
+  if debugging then
+    let rel = if p e1 e2 then "=" else "/=" in
+    log_rel f e1 rel e2
 ;;
 
 let log_comp c f e1 e2 =
-  let rel = match c e1 e2 with
-    | n when n < 0 -> "<"
-    | 0 -> "="
-    | _ -> ">"
-  in
-  log_rel f e1 rel e2
+  if debugging then
+    let rel = match c e1 e2 with
+      | n when n < 0 -> "<"
+      | 0 -> "="
+      | _ -> ">"
+    in
+    log_rel f e1 rel e2
 ;;
 
 module Env = struct

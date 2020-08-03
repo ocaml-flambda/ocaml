@@ -285,3 +285,8 @@ and static_closure_binding = {
 type flambda_unit = {
   body : expr;
 }
+
+type expect_test_spec = {
+  before : flambda_unit;
+  after : flambda_unit;
+}

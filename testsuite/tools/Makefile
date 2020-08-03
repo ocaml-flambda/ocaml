@@ -70,6 +70,22 @@ fldiff_OCAMLFLAGS = $(addprefix -I $(TOPDIR)/, $(fldiff_DIRS))
 fldiff_LIBS = $(addprefix $(COMPILERLIBSDIR)/,\
   ocamlcommon ocamloptcomp)
 
+flexpect_MAIN=flexpect
+flexpect_PROG=$(flexpect_MAIN)$(EXE)
+flexpect_DIRS=\
+  asmcomp \
+	parsing \
+	utils \
+  middle_end/flambda/compilenv_deps \
+  middle_end/flambda/parser \
+  middle_end/flambda/compare \
+  middle_end/flambda/simplify \
+  middle_end/flambda/terms
+flexpect_OCAMLFLAGS = $(addprefix -I $(TOPDIR)/, $(flexpect_DIRS))
+
+flexpect_LIBS = $(addprefix $(COMPILERLIBSDIR)/,\
+  ocamlcommon ocamloptcomp)
+
 tools := $(expect_PROG)
 
 ifeq "$(NATIVE_COMPILER)" "true"
@@ -94,6 +110,8 @@ $(parseflambda_PROG): COMPFLAGS = $(parseflambda_OCAMLFLAGS)
 
 $(fldiff_PROG): COMPFLAGS = $(fldiff_OCAMLFLAGS)
 
+$(flexpect_PROG): COMPFLAGS = $(flexpect_OCAMLFLAGS)
+
 codegen_main.cmo: parsecmm.cmo
 
 $(codegen_PROG): $(codegen_OBJECTS)
@@ -104,6 +122,9 @@ $(parseflambda_PROG): $(parseflambda_MAIN).cmo
 
 $(fldiff_PROG): $(fldiff_MAIN).cmo
 	$(OCAMLC) -o $@ $(fldiff_LIBS:=.cma) $^
+
+$(flexpect_PROG): $(flexpect_MAIN).cmo
+	$(OCAMLC) -o $@ $(flexpect_LIBS:=.cma) $^
 
 parsecmm.mli parsecmm.ml: parsecmm.mly
 	$(OCAMLYACC) -q parsecmm.mly
