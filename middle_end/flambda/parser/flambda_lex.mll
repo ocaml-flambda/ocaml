@@ -40,31 +40,49 @@ let create_hashtable init =
 let keyword_table =
   create_hashtable [
     "and", AND;
+    "andwhere", ANDWHERE;
     "apply", APPLY;
     "ccall", CCALL;
     "closure", CLOSURE;
     "code", CODE;
     "cont", CONT;
-    "def", DEF;
-    "effect", EFFECT;
+    "deleted", DELETED;
+    "direct", DIRECT;
+    "done", DONE;
+    "end", END;
+    "error", ERROR;
     "exn", EXN;
+    "fabricated", FABRICATED;
+    "float", FLOAT_KIND;
+    "imm", IMM;
     "in", IN;
-    "is_int", IS_INT;
+    "int32", INT32;
+    "int64", INT64;
     "let", LET;
-    "letk", LETK;
-    "mut", MUT;
+    "nativeint", NATIVEINT;
+    "newer_version_of", NEWER_VERSION_OF;
+    "noalloc", NOALLOC;
+    "phys_eq", PHYS_EQ;
+    "phys_ne", PHYS_NE;
+    "project_var", PROJECT_VAR;
     "rec", REC;
-    "root", ROOT;
+    "select_closure", SELECT_CLOSURE;
+    "set_of_closures", SET_OF_CLOSURES;
     "stub", STUB;
     "switch", SWITCH;
-    "tag", TAG;
+    "symbol", SYMBOL;
+    "tupled", TUPLED;
+    "unit", UNIT;
+    "untag_imm", UNTAG_IMM;
+    "val", VAL;
+    "where", WHERE;
+    "with", WITH;
 ]
 
 let ukeyword_table =
   create_hashtable [
     "Opaque", OPAQUE;
     "Block", BLOCK;
-    "Get_field", GET_FIELD;
     "HCF", HCF;
     "Unreachable", UNREACHABLE;
 ]
@@ -115,16 +133,10 @@ rule token = parse
   | "let"
       { LET }
   | "_" { UNDERSCORE }
-  | "!"
-      { BANG }
-  | "@"
-      { AROBASE }
-  | ","
-      { COMMA }
   | ":"
       { COLON }
-  | ":="
-      { COLONEQUAL }
+  | ","
+      { COMMA }
   | "."
       { DOT }
   | ";"
@@ -135,10 +147,6 @@ rule token = parse
       { LBRACE }
   | "}"
       { RBRACE }
-  | "["
-      { LBRACKET }
-  | "]"
-      { RBRACKET }
   | "("
       { LPAREN }
   | ")"
@@ -149,6 +157,8 @@ rule token = parse
   | "-"  { MINUS }
   | "-." { MINUSDOT }
   | "->" { MINUSGREATER }
+  | "@" { AT }
+  | "|"  { PIPE }
   | lowercase identchar *
       { let s = Lexing.lexeme lexbuf in
         try Hashtbl.find keyword_table s

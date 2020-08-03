@@ -689,6 +689,8 @@ let compare_unary_primitive p1 p2 =
     Stdlib.compare (unary_primitive_numbering p1)
       (unary_primitive_numbering p2)
 
+let equal_unary_primitive p1 p2 = compare_unary_primitive p1 p2 = 0
+
 let print_unary_primitive ppf p =
   let fprintf = Format.fprintf in
   match p with
@@ -999,6 +1001,8 @@ let compare_binary_primitive p1 p2 =
     Stdlib.compare (binary_primitive_numbering p1)
       (binary_primitive_numbering p2)
 
+let equal_binary_primitive p1 p2 = compare_binary_primitive p1 p2 = 0
+
 let print_binary_primitive ppf p =
   let fprintf = Format.fprintf in
   match p with
@@ -1157,6 +1161,8 @@ let compare_ternary_primitive p1 p2 =
     Stdlib.compare (ternary_primitive_numbering p1)
       (ternary_primitive_numbering p2)
 
+let equal_ternary_primitive p1 p2 = compare_ternary_primitive p1 p2 = 0
+
 let print_ternary_primitive ppf p =
   let fprintf = Format.fprintf in
   match p with
@@ -1251,6 +1257,8 @@ let compare_variadic_primitive p1 p2 =
     else Stdlib.compare mut1 mut2
   | Make_block _, Make_array _ -> -1
   | Make_array _, Make_block _ -> 1
+
+let equal_variadic_primitive p1 p2 = compare_variadic_primitive p1 p2 = 0
 
 let print_variadic_primitive ppf p =
   let fprintf = Format.fprintf in

@@ -1,10 +1,7 @@
-def letk ret (a) {
-    X = Block 1 (a)
-    Y = Block 2 (a a)
-  }
-  let a = Opaque 5555555t in
-  cont ret (a)
-
-def Root = Block 33 (X Y)
-
-root Root
+(let a = Opaque 5555555t in cont k1 (a))
+  where
+    k1 (a) =
+      let symbol X = Block 1 (a) in
+      let symbol Y = Block 2 (a, a) in
+      let symbol Root = Block 33 (X, Y) in
+      cont done (Root)
