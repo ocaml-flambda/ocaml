@@ -53,6 +53,9 @@ let run_parser ~start_symbol filename =
 
 let parse_fexpr = run_parser ~start_symbol:Parser.Incremental.flambda_unit
 
+let parse_expect_test_spec =
+  run_parser ~start_symbol:Parser.Incremental.expect_test_spec
+
 let make_compilation_unit ~extension ~filename =
   let basename =
     Filename.chop_suffix filename ("." ^ extension)

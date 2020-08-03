@@ -1,0 +1,9 @@
+let code f _ -> k = cont k (42) in
+let f = closure f in
+let symbol B = Block 0 (f) in
+cont done (B)
+===>
+let code f _ -> k = cont k (42) in
+let symbol F = closure f in
+let symbol B = Block 0 (F) in
+cont done (B)
