@@ -1,20 +1,13 @@
-def letk ret (a b c) {
-    X = Block 1 (a b c)
-  }
+(
   let a = Opaque 5555555t in
   let b = Opaque 2222222t in
   let c = Opaque 1t in
-  letk r1 {
-    cont ret (a b b)
-  }
-  letk r2 {
-    cont ret (a a b)
-  }
-  switch c {
-    0 -> r1;
-    1 -> r2;
-  }
-
-def Root = Block 33 (X)
-
-root Root
+  let c_u = untag_imm c in
+  switch c_u | 0 -> r1 | 1 -> r2
+  where r1 = cont ret (a, b, b)
+  where r2 = cont ret (a, a, b)
+)
+  where ret (a, b, c) =
+    let symbol X = Block 1 (a, b, c) in
+    let symbol Root = Block 33 (X) in
+    cont done (Root)
