@@ -65,7 +65,7 @@ let print0 ppf t0 =
   | Present { code; calling_convention; } ->
     Format.fprintf ppf
       "@[<hov 1>(Present@ (\
-         @[<hov 1>(codey@ %a)@]\
+         @[<hov 1>(code@ %a)@]\
          @[<hov 1>(calling_convention@ %a)@]\
        ))@]"
       C.print code
