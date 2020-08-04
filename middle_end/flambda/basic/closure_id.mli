@@ -38,4 +38,6 @@ val get_compilation_unit : t -> Compilation_unit.t
 
 val to_string : t -> string
 
+val name : t -> string
+
 val rename : t -> t
