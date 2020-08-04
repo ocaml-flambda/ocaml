@@ -50,7 +50,7 @@ and code rec odd (i) cloooooooooooooooooooooooooooooooooooooooooooooooooooo
         )
     )
 in
-let code alternate (f, g, i) _ -> k * e =
+let code alternate (f, g, i) clo -> k * e =
   let eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeven =
     closure eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeven
   and odd = closure odd

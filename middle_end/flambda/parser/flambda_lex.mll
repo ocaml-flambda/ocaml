@@ -119,7 +119,7 @@ let hex_float_literal =
   ['0'-'9' 'A'-'F' 'a'-'f'] ['0'-'9' 'A'-'F' 'a'-'f' '_']*
   ('.' ['0'-'9' 'A'-'F' 'a'-'f' '_']* )?
   (['p' 'P'] ['+' '-']? ['0'-'9'] ['0'-'9' '_']* )?
-let literal_modifier = ['G'-'Z' 'g'-'z']
+let int_modifier = ['G'-'Z' 'g'-'z']
 
 rule token = parse
   | newline
@@ -132,7 +132,6 @@ rule token = parse
         token lexbuf }
   | "let"
       { LET }
-  | "_" { UNDERSCORE }
   | ":"
       { COLON }
   | ","
@@ -168,12 +167,10 @@ rule token = parse
         try Hashtbl.find ukeyword_table s
         with Not_found -> UIDENT s }
   | int_literal { INT (Lexing.lexeme lexbuf, None) }
-  | (int_literal as lit) (literal_modifier as modif)
-      { INT (lit, Some modif) }
+  | (int_literal as lit) (int_modifier as modif)?
+      { INT (lit, modif) }
   | float_literal | hex_float_literal
-      { FLOAT (Lexing.lexeme lexbuf, None) }
-  | ((float_literal | hex_float_literal) as lit) (literal_modifier as modif)
-      { FLOAT (lit, Some modif) }
+      { FLOAT (Lexing.lexeme lexbuf |> Float.of_string) }
   | (float_literal | hex_float_literal | int_literal) identchar+
       { raise (Error(Invalid_literal (Lexing.lexeme lexbuf),
                      current_location lexbuf)) }

@@ -17,23 +17,18 @@ let make_tag ~loc:_ = function
     failwith "No modifier allowed for tags"
 
 let make_tagged_immediate ~loc:_ = function
-  | s, Some 't' -> s
+  | s, None -> s
   | _, _ ->
-    failwith "Tagged immediates must have modifier 't'"
+    failwith "Must be a tagged immediate"
 
-let make_const_int (i, m) : Fexpr.const =
+let make_const_int (i, m) : const =
   match m with
-  | None -> Naked_nativeint (Int64.of_string i)
+  | None -> Tagged_immediate i
   | Some 'u' -> Naked_immediate i
-  | Some 't' -> Tagged_immediate i
+  | Some 'n' -> Naked_nativeint (Int64.of_string i)
   | Some 'l' -> Naked_int32 (Int32.of_string i)
   | Some 'L' -> Naked_int64 (Int64.of_string i)
   | Some c -> failwith (Printf.sprintf "Unknown int modifier %c" c)
-
-let make_const_float (i, m) =
-  match m with
-  | None -> Naked_float (float_of_string i)
-  | Some c -> failwith (Printf.sprintf "Unknown float modifier %c" c)
 
 %}
 
@@ -59,7 +54,7 @@ let make_const_float (i, m) =
 %token ERROR [@symbol "error"]
 %token EXN   [@symbol "exn"]
 %token FABRICATED [@symbol "fabricated"]
-%token <string * char option> FLOAT
+%token <float> FLOAT
 %token FLOAT_KIND [@symbol "float"]
 %token HCF   [@symbol "HCF"]
 %token IMM   [@symbol "imm" ]
@@ -96,7 +91,6 @@ let make_const_float (i, m) =
 %token SYMBOL [@symbol "symbol"]
 %token TUPLED [@symbol "tupled"]
 %token <string> UIDENT
-%token UNDERSCORE [@symbol "_"]
 %token UNIT   [@symbol "unit"]
 %token UNREACHABLE [@symbol "Unreachable"]
 %token UNTAG_IMM [@symbol "untag_imm"]
@@ -151,9 +145,9 @@ symbol_binding:
 code:
   | header = code_header;
     params = kinded_args; 
-    closure_var = variable_opt;
+    closure_var = variable;
     MINUSGREATER; ret_cont = continuation_id;
-    exn_cont = option(exn_continuation_id);
+    exn_cont = exn_continuation_id;
     ret_arity = return_arity;
     EQUAL; body = expr;
     { let recursive, id, newer_version_of = header in
@@ -346,8 +340,8 @@ let_(body):
 ;
 
 let_binding:
-  | v = kinded_variable_opt EQUAL defining_expr = named
-      { let (var, kind) = v in { var; kind; defining_expr } }
+  | v = kinded_variable EQUAL defining_expr = named
+      { let { param = var; kind } = v in { var; kind; defining_expr } }
 ;
 
 with_closure_elements_opt:
@@ -440,11 +434,6 @@ kinded_variable:
   | param = variable; COLON; kind = kind { { param; kind = Some kind } }
 ;
 
-kinded_variable_opt:
-  | v = variable_opt { v, None }
-  | v = variable_opt; COLON; kind = kind; { v, Some kind }
-;
-
 simple_args:
   | { [] }
   | LPAREN s = separated_nonempty_list(COMMA, simple) RPAREN { s }
@@ -452,7 +441,7 @@ simple_args:
 
 const:
   | c = INT { make_const_int c }
-  | c = FLOAT { make_const_float c }
+  | c = FLOAT { Naked_float c }
 ;
 
 name:
@@ -491,11 +480,6 @@ symbol:
 
 variable:
   | e = LIDENT { make_located e ($startpos, $endpos) }
-;
-
-variable_opt:
-  | UNDERSCORE { None }
-  | e = LIDENT { Some (make_located e ($startpos, $endpos)) }
 ;
 
 continuation_id :

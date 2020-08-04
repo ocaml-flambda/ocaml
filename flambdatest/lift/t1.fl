@@ -1,4 +1,4 @@
-(let a = Opaque 5555555t in cont k1 (a))
+(let a = Opaque 5555555 in cont k1 (a))
   where
     k1 (a) =
       let symbol X = Block 1 (a) in

@@ -93,21 +93,11 @@ let fresh_exn_cont env { Fexpr.txt = c; loc = _ } =
   { env with
     exn_continuations = CM.add c e env.exn_continuations }
 
-let fresh_var_named env name =
+let fresh_var env { Fexpr.txt = name; loc = _ } =
   let v = Variable.create name ~user_visible:() in
   v,
   { env with
     variables = VM.add name v env.variables }
-
-let fresh_var env { Fexpr.txt = name; loc = _ } =
-  fresh_var_named env name
-
-let fresh_var_opt env var_opt =
-  let name = match var_opt with
-    | Some { Fexpr.txt = name; _ } -> name
-    | None -> "wild"
-  in
-  fresh_var_named env name
 
 let fresh_code_id env { Fexpr.txt = name; loc = _ } =
   let c = Code_id.create ~name (Compilation_unit.get_current_exn ()) in
@@ -137,13 +127,11 @@ let fresh_or_existing_var_within_closure env ({ Fexpr.txt = name; _ } as id) =
   | None -> fresh_var_within_closure env id
   | Some var_within_closure -> var_within_closure
 
-let declare_symbol (*~backend:_*) (env:env) { Fexpr.txt = name; loc } =
+let declare_symbol (env:env) { Fexpr.txt = name; loc } =
   if SM.mem name env.symbols then
     Misc.fatal_errorf "Redefinition of symbol %s: %a"
       name Lambda.print_scoped_location loc
   else
-    (* let module Backend = (val backend : Flambda_backend_intf.S) in
-     * let symbol = Backend.symbol_for_global' (Ident.create_persistent name) in *)
     let symbol =
       Symbol.create
         (Compilation_unit.get_current_exn ())
@@ -399,11 +387,9 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
   | Let { bindings = ({ defining_expr = Closure _; _ } :: _) as bindings;
           closure_elements; body } ->
       let binding_to_var_and_closure_binding : Fexpr.let_binding -> _ = function
-        | { var = Some var; defining_expr = Closure binding; _ } ->
+        | { var; defining_expr = Closure binding; _ } ->
           (var, binding)
-        | { var = None; _ } ->
-          Misc.fatal_errorf "Variable name required when defining closure"
-        | { var = Some { txt = _; loc }; _ } ->
+        | { var = { txt = _; loc }; _ } ->
           Misc.fatal_errorf "Cannot use 'and' with non-closure: %a"
             Lambda.print_scoped_location loc
       in
@@ -437,7 +423,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
           body;
           closure_elements = None } ->
     let named = defining_expr env d in
-    let id, env = fresh_var_opt env var in
+    let id, env = fresh_var env var in
     let body = expr env body in
     let var =
       Var_in_binding_pos.create id Name_mode.normal
@@ -625,18 +611,12 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
                   param, env)
                 env params
             in
-            let my_closure, env = fresh_var_opt env closure_var in
+            let my_closure, env = fresh_var env closure_var in
             let return_continuation, env =
               fresh_cont env ret_cont (List.length result_arity)
             in
             let exn_continuation, env =
-              match exn_cont with
-              | None ->
-                (* Not bound *)
-                let exn_handler = Continuation.create ~sort:Exn () in
-                Exn_continuation.create ~exn_handler ~extra_args:[], env
-              | Some exn_cont ->
-                fresh_exn_cont env exn_cont
+              fresh_exn_cont env exn_cont
             in
             let body = expr env body in
             let dbg = Debuginfo.none in

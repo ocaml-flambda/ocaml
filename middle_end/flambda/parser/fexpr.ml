@@ -206,7 +206,7 @@ and let_ = {
 }
 
 and let_binding = {
-    var : variable option;
+    var : variable;
     kind : kind option;
     defining_expr : named;
   }
@@ -267,9 +267,9 @@ and code = {
 
 and params_and_body = {
   params : kinded_parameter list;
-  closure_var : variable option;
+  closure_var : variable;
   ret_cont : continuation_id;
-  exn_cont : continuation_id option;
+  exn_cont : continuation_id;
   body : expr;
 }
 

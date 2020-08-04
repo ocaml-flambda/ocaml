@@ -1,19 +1,19 @@
-let _ = 4 in
-let a = Opaque 8t in
+let w = 4 in
+let a = Opaque 8 in
 let b : val = a in
 let symbol B = Block 0 (b) in
 let c : val = B in
-let _ : int32 = 15l in
+let w : int32 = 15l in
 let d : int64 = 16L in
 let code twice0 deleted : val -> val in
 let code twice_lam (x) clo -> k * e =
   let f = project_var twice_lam.f clo in
-  let _ : int64 = d in
+  let w : int64 = d in
   apply f (x) -> k1 * e
   where
     k1 (y) = apply f (y) -> k * e
 in
-let code twice newer_version_of twice0 (f : val) _ -> k : val =
+let code twice newer_version_of twice0 (f : val) clo -> k * e : val =
   let twice_lam_clo = closure twice_lam with { f = f } in
   cont k (twice_lam_clo)
 and symbol Twice = closure twice

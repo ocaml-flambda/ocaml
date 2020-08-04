@@ -1,4 +1,4 @@
-let code f (x) myclosure -> k1 : val = cont k1 (x)
+let code f (x) myclosure -> k1 * e : val = cont k1 (x)
 and symbol F = closure f
 in
 let symbol B = Block 0 (F) in

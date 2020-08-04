@@ -4,7 +4,7 @@ let code rec even (i) clo -> k * e =
     | 0 -> k1
     | 1 -> k2
   where
-    k1 = cont k (0t)
+    k1 = cont k (0)
   where
     k2 = (
       let f = project_var even.f clo in
@@ -12,7 +12,7 @@ let code rec even (i) clo -> k * e =
       where
         k3 (x) = (
           let odd = select_closure (even -> odd) clo in
-          let i' = i - 1t in
+          let i' = i - 1 in
           apply odd (i') -> k4 * e
           where
             k4 (xs) =
@@ -26,7 +26,7 @@ and code rec odd (i) clo -> k * e =
     | 0 -> k1
     | 1 -> k2
   where
-    k1 = cont k (0t)
+    k1 = cont k (0)
   where
     k2 = (
       let g = project_var odd.g clo in
@@ -34,7 +34,7 @@ and code rec odd (i) clo -> k * e =
       where
         k3 (x) = (
           let even = select_closure (odd -> even) clo in
-          let i' = i - 1t in
+          let i' = i - 1 in
           apply even (i') -> k4 * e
           where
             k4 (xs) =
@@ -43,7 +43,7 @@ and code rec odd (i) clo -> k * e =
         )
     )
 in
-let code alternate (f, g, i) _ -> k * e =
+let code alternate (f, g, i) clo -> k * e =
   let even = closure even
   and odd = closure odd
   with { f = f; g = g }

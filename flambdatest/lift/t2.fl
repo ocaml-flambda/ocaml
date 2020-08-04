@@ -1,6 +1,6 @@
 (
-  let a = Opaque 5555555t in
-  let b = Opaque 2222222t in
+  let a = Opaque 5555555 in
+  let b = Opaque 2222222 in
   cont k (a, b, b, a)
 ) where
   k (a, b, c, d) =

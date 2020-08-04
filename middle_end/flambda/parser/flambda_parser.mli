@@ -8,7 +8,6 @@ type token =
   | UNTAG_IMM
   | UNREACHABLE
   | UNIT
-  | UNDERSCORE
   | UIDENT of (string)
   | TUPLED
   | SYMBOL
@@ -45,7 +44,7 @@ type token =
   | IMM
   | HCF
   | FLOAT_KIND
-  | FLOAT of (string * char option)
+  | FLOAT of (float)
   | FABRICATED
   | EXN
   | ERROR

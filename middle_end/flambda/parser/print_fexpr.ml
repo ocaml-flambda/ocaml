@@ -39,11 +39,6 @@ let symbol ppf { txt = s; loc = _ } =
 let variable ppf { txt = s; loc = _ } =
   Format.fprintf ppf "%s" s
 
-let variable_opt ppf (s : variable option) =
-  match s with
-  | None -> Format.fprintf ppf "_"
-  | Some { txt; loc = _ } -> Format.fprintf ppf "%s" txt
-
 let var_within_closure ppf { txt = s; loc = _ } =
   Format.fprintf ppf "%s" s
 
@@ -105,11 +100,11 @@ let of_kind_value ppf : of_kind_value -> unit = function
 
 let const ppf (c:Fexpr.const) = match c with
   | Naked_immediate i -> Format.fprintf ppf "%su" i
-  | Tagged_immediate i -> Format.fprintf ppf "%st" i
+  | Tagged_immediate i -> Format.fprintf ppf "%s" i
   | Naked_float f -> Format.fprintf ppf "%h" f
   | Naked_int32 i -> Format.fprintf ppf "%lil" i
   | Naked_int64 i -> Format.fprintf ppf "%LiL" i
-  | Naked_nativeint i -> Format.fprintf ppf "%Li" i
+  | Naked_nativeint i -> Format.fprintf ppf "%Lin" i
 
 let simple ppf : simple -> unit = function
   | Symbol s -> symbol ppf s
@@ -369,11 +364,11 @@ let rec expr scope ppf = function
 and let_expr scope ppf : let_ -> unit = function
   | { bindings = first :: rest; body; closure_elements = ces; } ->
     Format.fprintf ppf "@[<v>@[<hv>@[<hv2>let %a =@ %a@]"
-      variable_opt first.var
+      kinded_variable (first.var, first.kind)
       named first.defining_expr;
-    List.iter (fun ({ var; defining_expr } : let_binding) ->
+    List.iter (fun ({ var; kind; defining_expr } : let_binding) ->
       Format.fprintf ppf "@ @[<hv2>and %a =@ %a@]"
-        variable_opt var
+        kinded_variable (var, kind)
         named defining_expr;
     ) rest;
     Format.fprintf ppf "%a@ in@]@ %a@]"
@@ -442,11 +437,11 @@ and code_binding ppf (cb : code) =
         pp_arity
         arity (cb.ret_arity |> Option.value ~default:[(Value : kind)])
     | Present { params; closure_var; ret_cont; exn_cont; body } ->
-      Format.fprintf ppf "%a@ %a@ -> %a%a%a@] =@ %a"
+      Format.fprintf ppf "%a@ %a@ -> %a@ * %a%a@] =@ %a"
         kinded_parameters params
-        variable_opt closure_var
+        variable closure_var
         continuation_id ret_cont
-        (pp_option ~prefix:"@ * " continuation_id) exn_cont
+        continuation_id exn_cont
         (pp_option ~prefix:"@ : " arity) cb.ret_arity
         (expr Outer) body
 
