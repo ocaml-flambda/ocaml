@@ -21,6 +21,7 @@ type t = {
   simples : Simple.Set.t;
   consts : Const.Set.t;
   code_ids : Code_id.Set.t;
+  continuations : Continuation.Set.t;
 }
 
 let empty = {
@@ -29,6 +30,7 @@ let empty = {
   simples = Simple.Set.empty;
   consts = Const.Set.empty;
   code_ids = Code_id.Set.empty;
+  continuations = Continuation.Set.empty;
 }
 
 let create
@@ -37,12 +39,14 @@ let create
     ?(simples = Simple.Set.empty)
     ?(consts = Const.Set.empty)
     ?(code_ids = Code_id.Set.empty)
+    ?(continuations = Continuation.Set.empty)
     () =
   { symbols;
     variables;
     simples;
     consts;
     code_ids;
+    continuations;
   }
 
 let singleton_code_id code_id =
@@ -79,6 +83,9 @@ let add_simple t simple =
 let add_code_id t code_id =
   { t with code_ids = Code_id.Set.add code_id t.code_ids }
 
+let add_continuation t continuation =
+  { t with continuations = Continuation.Set.add continuation t.continuations }
+
 let from_simple simple =
   let simples =
     match Simple.rec_info simple with
@@ -109,6 +116,7 @@ let union t1 t2 =
     simples = Simple.Set.union t1.simples t2.simples;
     consts = Const.Set.union t1.consts t2.consts;
     code_ids = Code_id.Set.union t1.code_ids t2.code_ids;
+    continuations = Continuation.Set.union t1.continuations t2.continuations;
   }
 
 let rec union_list ts =
@@ -123,6 +131,7 @@ module Import_map = struct
     simples : Simple.t Simple.Map.t;
     consts : Const.t Const.Map.t;
     code_ids : Code_id.t Code_id.Map.t;
+    continuations : Continuation.t Continuation.Map.t;
     used_closure_vars : Var_within_closure.Set.t;
     (* CR vlaviron: [used_closure_vars] is here because we need to rewrite the
        types to remove occurrences of unused closure variables, as otherwise
@@ -136,12 +145,20 @@ module Import_map = struct
        are really missing at this point). *)
   }
 
-  let create ~symbols ~variables ~simples ~consts ~code_ids ~used_closure_vars =
+  let create
+      ~symbols
+      ~variables
+      ~simples
+      ~consts
+      ~code_ids
+      ~continuations
+      ~used_closure_vars =
     { symbols;
       variables;
       simples;
       consts;
       code_ids;
+      continuations;
       used_closure_vars;
     }
 
@@ -163,6 +180,11 @@ module Import_map = struct
   let code_id t orig =
     match Code_id.Map.find orig t.code_ids with
     | code_id -> code_id
+    | exception Not_found -> orig
+
+  let continuation t orig =
+    match Continuation.Map.find orig t.continuations with
+    | continuation -> continuation
     | exception Not_found -> orig
 
   let name t name =

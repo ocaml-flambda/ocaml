@@ -22,11 +22,11 @@ let free_names t = Name_occurrences.singleton_continuation t
 
 let apply_name_permutation t perm = Name_permutation.apply_continuation perm t
 
-let all_ids_for_export _t = Ids_for_export.empty
+let all_ids_for_export t =
+  Ids_for_export.add_continuation Ids_for_export.empty t
 
-let import _import_map t = t
-
-let rename t = create ~sort:(sort t) ()
+let import import_map t =
+  Ids_for_export.Import_map.continuation import_map t
 
 let add_to_name_permutation t ~guaranteed_fresh perm =
   Name_permutation.add_fresh_continuation perm t ~guaranteed_fresh

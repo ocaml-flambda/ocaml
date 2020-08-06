@@ -47,6 +47,14 @@ module Option : sig
   type nonrec t = t option
 
   val print : Format.formatter -> t -> unit
+
+  val all_ids_for_export : t -> Ids_for_export.t
+
+  val import : Ids_for_export.Import_map.t -> t -> t
 end
 
 val compare : t -> t -> int
+
+val all_ids_for_export : t -> Ids_for_export.t
+
+val import : Ids_for_export.Import_map.t -> t -> t

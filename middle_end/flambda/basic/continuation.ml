@@ -16,6 +16,10 @@
 
 [@@@ocaml.warning "+a-30-40-41-42"]
 
+module Id = Table_by_int_id.Id
+
+let continuation_flags = 0
+
 let raise_count = ref 0
 
 let next_raise_count () =
@@ -37,50 +41,84 @@ module Sort = struct
     | Toplevel_return
     | Exn
 
-  let to_int t =
+  let to_string t =
     match t with
-    | Normal -> 0
-    | Return -> 1
-    | Define_root_symbol -> 2
-    | Toplevel_return -> 3
-    | Exn -> 4
+    | Normal -> "Normal"
+    | Return -> "Return"
+    | Define_root_symbol -> "Define_root_symbol"
+    | Toplevel_return -> "Toplevel_return"
+    | Exn -> "Exn"
 
-  let of_int t =
-    match t with
-    | 0 -> Normal
-    | 1 -> Return
-    | 2 -> Define_root_symbol
-    | 3 -> Toplevel_return
-    | 4 -> Exn
-    | _ -> assert false
-
-  let num_bits_needed = 3
+  let print ppf t = Format.pp_print_string ppf (to_string t)
 end
 
-let max_num_continuations = (-1) lsr Sort.num_bits_needed
-let () = assert (max_num_continuations > 0)
+module Data = struct
+  type t = {
+    compilation_unit : Compilation_unit.t;
+    name : string;
+    name_stamp : int;
+    sort : Sort.t;
+  }
 
-let sort_shift = Sys.int_size - Sort.num_bits_needed
+  let flags = continuation_flags
+
+  let print ppf { compilation_unit; name; name_stamp; sort; } =
+    Format.fprintf ppf "@[<hov 1>(\
+        @[<hov 1>(compilation_unit@ %a)@]@ \
+        @[<hov 1>(name@ %s)@]@ \
+        @[<hov 1>(name_stamp@ %d)@]@ \
+        @[<hov 1>(sort@ %a)@]\
+        )@]"
+      Compilation_unit.print compilation_unit
+      name
+      name_stamp
+      Sort.print sort
+
+  let hash { compilation_unit; name = _; name_stamp; sort = _; } =
+    Hashtbl.hash (Compilation_unit.hash compilation_unit, name_stamp)
+
+  let equal t1 t2 =
+    if t1 == t2 then true
+    else
+      let { compilation_unit = compilation_unit1; name_stamp = name_stamp1; _
+          } = t1
+      in
+      let { compilation_unit = compilation_unit2; name_stamp = name_stamp2; _
+          } = t2
+      in
+      Int.equal name_stamp1 name_stamp2
+        && Compilation_unit.equal compilation_unit1 compilation_unit2
+end
 
 (* There is no need to store the compilation unit, since in a .cmx file,
    no values of type [t] occur that are not under [Name_abstraction] binders. *)
-type t = int
+type t = Id.t
+type exported = Data.t
 
-let create ?sort () : t =
+module Table = Table_by_int_id.Make(Data)
+let grand_table_of_continuations = ref (Table.create ())
+
+let initialise () = grand_table_of_continuations := Table.create ()
+
+let create ?sort ?name () : t =
   let sort = Option.value sort ~default:Sort.Normal in
-  let id = next_raise_count () in
-  if id < max_num_continuations then
-    ((Sort.to_int sort) lsl sort_shift) lor id
-  else
-    Misc.fatal_error "Use a machine with a wider word size to compile"
+  let name = Option.value name ~default:"k" in
+  let compilation_unit = Compilation_unit.get_current_exn () in
+  let name_stamp = next_raise_count () in
+  let data : Data.t = { compilation_unit; name; name_stamp; sort } in
+  Table.add !grand_table_of_continuations data
 
-(* CR mshinwell: Document why this uses [next_raise_count].  Does it need
-   to?  It would be better if it didn't. *)
+let find_data t = Table.find !grand_table_of_continuations t
 
-let dummy = create ~sort:Normal ()
+let rename t =
+  let { Data.name; sort; name_stamp = _; compilation_unit = _ } = find_data t in
+  create ~sort ~name ()
 
-let to_int t = t land max_num_continuations
-let sort t = Sort.of_int (t lsr sort_shift)
+let name t = (find_data t).name
+
+let name_stamp t = (find_data t).name_stamp
+
+let sort t = (find_data t).sort
 
 include Identifiable.Make (struct
   type nonrec t = t
@@ -88,7 +126,7 @@ include Identifiable.Make (struct
   let compare t1 t2 =
     (* The [id] uniquely determines the [sort], so there's no need to look
        at the latter. *)
-    Int.compare t1 t2
+    Id.compare t1 t2
 
   let equal t1 t2 =
     t1 == t2
@@ -98,7 +136,7 @@ include Identifiable.Make (struct
 
   let print ppf t =
     Format.fprintf ppf "@<0>%s" (Flambda_colours.continuation ());
-    Format.fprintf ppf "k%d" (to_int t);
+    Format.fprintf ppf "%s%d" (name t) (name_stamp t);
     Format.fprintf ppf "@<0>%s" (Flambda_colours.normal ())
 
   let output chan t =
@@ -111,6 +149,13 @@ module Map = Patricia_tree.Make_map (struct let print = print end) (Set)
 module Tbl = Identifiable.Make_tbl (Numbers.Int) (Map)
 
 let print_with_cache ~cache:_ ppf t = print ppf t
+
+let export t = find_data t
+
+let import data = Table.add !grand_table_of_continuations data
+
+let map_compilation_unit f (data : Data.t) =
+  { data with compilation_unit = f data.compilation_unit }
 
 module With_args = struct
   type nonrec t = t * Variable.t list

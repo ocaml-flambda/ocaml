@@ -97,6 +97,22 @@ let apply_name_permutation t perm =
     if exn_handler == exn_handler' then t
     else Pop { exn_handler = exn_handler'; raise_kind; }
 
+let exn_handler t =
+  match t with
+  | Push { exn_handler; }
+  | Pop { exn_handler; _ } -> exn_handler
+
+let all_ids_for_export t =
+  Ids_for_export.add_continuation Ids_for_export.empty (exn_handler t)
+
+let import import_map t =
+  let exn_handler =
+    Ids_for_export.Import_map.continuation import_map (exn_handler t)
+  in
+  match t with
+  | Push { exn_handler = _; } -> Push { exn_handler }
+  | Pop { exn_handler = _; raise_kind; } -> Pop { exn_handler; raise_kind; }
+
 module Option = struct
   type nonrec t = t option
 
@@ -104,6 +120,13 @@ module Option = struct
     | None -> ()
     | Some t -> print ppf t
 
+  let all_ids_for_export = function
+    | None -> Ids_for_export.empty
+    | Some trap_action -> all_ids_for_export trap_action
+
+  let import import_map = function
+    | None -> None
+    | Some trap_action -> Some (import import_map trap_action)
 (*
   let free_names = function
     | None -> Name_occurrences.empty
