@@ -136,7 +136,9 @@ include Identifiable.Make (struct
 
   let print ppf t =
     Format.fprintf ppf "@<0>%s" (Flambda_colours.continuation ());
-    Format.fprintf ppf "%s%d" (name t) (name_stamp t);
+    if String.equal (name t) "k"
+    then Format.fprintf ppf "k%d" (name_stamp t)
+    else Format.fprintf ppf "%s/%d" (name t) (name_stamp t);
     Format.fprintf ppf "@<0>%s" (Flambda_colours.normal ())
 
   let output chan t =
