@@ -96,7 +96,7 @@ let kinded_variable ppf (v, (k:kind option)) =
 let of_kind_value ppf : of_kind_value -> unit = function
   | Symbol s -> symbol ppf s
   | Dynamically_computed v -> variable ppf v
-  | Tagged_immediate i -> Format.fprintf ppf "%st" i
+  | Tagged_immediate i -> Format.fprintf ppf "%s" i
 
 let const ppf (c:Fexpr.const) = match c with
   | Naked_immediate i -> Format.fprintf ppf "%su" i
