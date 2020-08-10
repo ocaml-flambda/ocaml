@@ -1,6 +1,5 @@
 
 {
-open Lexing
 open Flambda_parser
 
 type location = Lexing.position * Lexing.position
@@ -19,18 +18,6 @@ exception Error of error * location;;
 let current_location lexbuf =
   (Lexing.lexeme_start_p lexbuf,
    Lexing.lexeme_end_p lexbuf)
-
-let update_loc lexbuf file ~line ~absolute ~chars =
-  let pos = lexbuf.lex_curr_p in
-  let new_file = match file with
-                 | None -> pos.pos_fname
-                 | Some s -> s
-  in
-  lexbuf.lex_curr_p <- { pos with
-    pos_fname = new_file;
-    pos_lnum = if absolute then line else pos.pos_lnum + line;
-    pos_bol = pos.pos_cnum - chars;
-  }
 
 let create_hashtable init =
   let tbl = Hashtbl.create (List.length init) in
@@ -123,8 +110,7 @@ let int_modifier = ['G'-'Z' 'g'-'z']
 
 rule token = parse
   | newline
-      { update_loc lexbuf None ~line:1 ~absolute:false ~chars:0;
-        token lexbuf }
+      { Lexing.new_line lexbuf; token lexbuf }
   | blank +
       { token lexbuf }
   | "(*"
@@ -182,8 +168,7 @@ rule token = parse
 
 and comment n = parse
   | newline
-         { update_loc lexbuf None ~line:1 ~absolute:false ~chars:0;
-           comment n lexbuf }
+         { Lexing.new_line lexbuf; comment n lexbuf }
   | "*)"
          { if n = 1 then ()
            else comment (n-1) lexbuf }

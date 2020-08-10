@@ -415,7 +415,7 @@ static_structure:
 
 static_part:
   | BLOCK; tag = tag; LPAREN;
-    elements = separated_nonempty_list(COMMA, of_kind_value); RPAREN
+    elements = separated_list(COMMA, of_kind_value); RPAREN
     { (Block { tag; mutability = Immutable; elements } : static_part) }
 ;
 
