@@ -77,6 +77,9 @@ let get_compilation_unit t = t.compilation_unit
 let to_string t =
   t.name ^ "_" ^ (string_of_int t.name_stamp)
 
+let name t =
+  t.name
+
 let rename t =
   { t with
     name_stamp = get_next_stamp ();

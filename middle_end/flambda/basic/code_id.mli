@@ -27,6 +27,8 @@ val create : name:string -> Compilation_unit.t -> t
 val get_compilation_unit : t -> Compilation_unit.t
 val in_compilation_unit : t -> Compilation_unit.t -> bool
 
+val name : t -> string
+
 (* The [rename] function, in addition to changing the stamp of the code ID,
    changes the compilation unit to the current one. *)
 val rename : t -> t
