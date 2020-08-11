@@ -90,8 +90,6 @@ module Data = struct
         && Compilation_unit.equal compilation_unit1 compilation_unit2
 end
 
-(* There is no need to store the compilation unit, since in a .cmx file,
-   no values of type [t] occur that are not under [Name_abstraction] binders. *)
 type t = Id.t
 type exported = Data.t
 
