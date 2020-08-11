@@ -63,8 +63,17 @@ let pattern_match_pair t1 t2 ~dynamic ~static =
             else Error Pattern_match_pair_error.Mismatched_let_bindings
           | Symbols bound_symbols1,
             Symbols bound_symbols2 ->
-            let ans = static ~bound_symbols1 ~bound_symbols2 ~body1 ~body2 in
-            Ok ans
+            let patterns1 =
+              bound_symbols1.bound_symbols |> Bound_symbols.to_list
+            in
+            let patterns2 =
+              bound_symbols2.bound_symbols |> Bound_symbols.to_list
+            in
+            if List.compare_lengths patterns1 patterns2 = 0
+            then
+              let ans = static ~bound_symbols1 ~bound_symbols2 ~body1 ~body2 in
+              Ok ans
+            else Error Pattern_match_pair_error.Mismatched_let_bindings
           | _, _ ->
             Error Pattern_match_pair_error.Mismatched_let_bindings))
 

@@ -77,6 +77,8 @@ end
 let pattern_match_pair t1 t2 ~f =
   pattern_match t1 ~f:(fun params1 ~handler:_ ->
     pattern_match t2 ~f:(fun params2 ~handler:_ ->
+      (* CR lmaurer: Should this check be done by
+         [Name_abstraction.Make_list]? *)
       if List.compare_lengths params1 params2 = 0 then
         pattern_match_pair t1 t2 ~f:(
           fun params { handler = handler1; } { handler = handler2; } ->
