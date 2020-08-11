@@ -100,6 +100,8 @@ let grand_table_of_continuations = ref (Table.create ())
 
 let initialise () = grand_table_of_continuations := Table.create ()
 
+(* CR mshinwell: Document why this uses [next_raise_count].  Does it need
+   to?  It would be better if it didn't. *)
 let create ?sort ?name () : t =
   let sort = Option.value sort ~default:Sort.Normal in
   let name = Option.value name ~default:"k" in
