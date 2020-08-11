@@ -80,10 +80,12 @@ module Data = struct
   let equal t1 t2 =
     if t1 == t2 then true
     else
-      let { compilation_unit = compilation_unit1; name_stamp = name_stamp1; _
+      let { compilation_unit = compilation_unit1; name_stamp = name_stamp1;
+            name = _; sort = _
           } = t1
       in
-      let { compilation_unit = compilation_unit2; name_stamp = name_stamp2; _
+      let { compilation_unit = compilation_unit2; name_stamp = name_stamp2;
+            name = _; sort = _
           } = t2
       in
       Int.equal name_stamp1 name_stamp2
@@ -122,8 +124,6 @@ include Identifiable.Make (struct
   type nonrec t = t
 
   let compare t1 t2 =
-    (* The [id] uniquely determines the [sort], so there's no need to look
-       at the latter. *)
     Id.compare t1 t2
 
   let equal t1 t2 =

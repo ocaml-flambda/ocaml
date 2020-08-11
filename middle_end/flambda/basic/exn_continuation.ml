@@ -119,20 +119,20 @@ let with_exn_handler t exn_handler =
 let without_extra_args t =
   { t with extra_args = []; }
 
-let all_ids_for_export t =
+let all_ids_for_export { exn_handler; extra_args; } =
   List.fold_left (fun ids (arg, _kind) ->
       Ids_for_export.add_simple ids arg)
-    (Ids_for_export.add_continuation Ids_for_export.empty t.exn_handler)
-    t.extra_args
+    (Ids_for_export.add_continuation Ids_for_export.empty exn_handler)
+    extra_args
 
-let import import_map t =
+let import import_map { exn_handler; extra_args; } =
   let exn_handler =
-    Ids_for_export.Import_map.continuation import_map t.exn_handler
+    Ids_for_export.Import_map.continuation import_map exn_handler
   in
   let extra_args =
     List.map (fun (arg, kind) ->
         let arg = Ids_for_export.Import_map.simple import_map arg in
         (arg, kind))
-      t.extra_args
+      extra_args
   in
   { exn_handler; extra_args; }

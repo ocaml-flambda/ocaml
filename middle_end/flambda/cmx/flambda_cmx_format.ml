@@ -80,8 +80,9 @@ let create ~final_typing_env ~all_code ~exported_offsets ~used_closure_vars =
       Code_id.Map.empty
   in
   let continuations =
-    Continuation.Set.fold (fun symbol symbols ->
-        Continuation.Map.add symbol (Continuation.export symbol) symbols)
+    Continuation.Set.fold (fun continuation continuations ->
+        Continuation.Map.add continuation (Continuation.export continuation)
+          continuations)
       exported_ids.continuations
       Continuation.Map.empty
   in
