@@ -55,11 +55,11 @@ let all_ids_for_export t =
     Ids_for_export.empty
 
 let import import_map t =
-  Continuation.Map.of_list
-    (List.map (fun (k, handler) ->
+  Continuation.Map.of_seq
+    (Seq.map (fun (k, handler) ->
         Ids_for_export.Import_map.continuation import_map k,
         Continuation_handler.import import_map handler)
-      (Continuation.Map.bindings t))
+      (Continuation.Map.to_seq t))
 
 let domain t = Continuation.Map.keys t
 
