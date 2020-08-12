@@ -18,7 +18,8 @@
 
 (** The names of continuations. *)
 
-type t = private int
+type t = private Table_by_int_id.Id.t
+type exported
 
 include Identifiable.S with type t := t
 
@@ -31,19 +32,30 @@ module Sort : sig
     | Exn
 end
 
-val dummy : t
+val create : ?sort:Sort.t -> ?name:string -> unit -> t
 
-val create : ?sort:Sort.t -> unit -> t
+val rename : t -> t
+
+val name : t -> string
+
+val name_stamp : t -> int
 
 val print_with_cache : cache:Printing_cache.t -> Format.formatter -> t -> unit
-
-val to_int : t -> int
 
 val sort : t -> Sort.t
 
 val is_exn : t -> bool
 
+val export : t -> exported
+
+val import : exported -> t
+
+val map_compilation_unit :
+      (Compilation_unit.t -> Compilation_unit.t) -> exported -> exported
+
 module With_args : sig
   type nonrec t = t * Variable.t list
   include Identifiable.S with type t := t
 end
+
+val initialise : unit -> unit

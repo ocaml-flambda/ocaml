@@ -27,6 +27,7 @@ type table_data = {
   simples : Simple.exported Simple.Map.t;
   consts : Const.exported Const.Map.t;
   code_ids : Code_id.exported Code_id.Map.t;
+  continuations : Continuation.exported Continuation.Map.t;
 }
 
 type t0 = {
@@ -78,12 +79,20 @@ let create ~final_typing_env ~all_code ~exported_offsets ~used_closure_vars =
       exported_ids.code_ids
       Code_id.Map.empty
   in
+  let continuations =
+    Continuation.Set.fold (fun continuation continuations ->
+        Continuation.Map.add continuation (Continuation.export continuation)
+          continuations)
+      exported_ids.continuations
+      Continuation.Map.empty
+  in
   let table_data =
     { symbols;
       variables;
       simples;
       consts;
       code_ids;
+      continuations;
     }
   in
   [{ original_compilation_unit = Compilation_unit.get_current_exn ();
@@ -101,6 +110,9 @@ let import_typing_env_and_code0 t =
   let variables = Variable.Map.map Variable.import t.table_data.variables in
   let consts = Const.Map.map Const.import t.table_data.consts in
   let code_ids = Code_id.Map.map Code_id.import t.table_data.code_ids in
+  let continuations =
+    Continuation.Map.map Continuation.import t.table_data.continuations
+  in
   let used_closure_vars = t.used_closure_vars in
   (* Build a simple to simple converter from this *)
   let import_map =
@@ -110,6 +122,7 @@ let import_typing_env_and_code0 t =
       ~simples:Simple.Map.empty
       ~consts
       ~code_ids
+      ~continuations
       ~used_closure_vars
   in
   let map_simple = Ids_for_export.Import_map.simple import_map in
@@ -124,6 +137,7 @@ let import_typing_env_and_code0 t =
       ~simples
       ~consts
       ~code_ids
+      ~continuations
       ~used_closure_vars
   in
   let typing_env =
@@ -191,12 +205,17 @@ let update_for_pack0 ~pack_units ~pack t =
     Code_id.Map.map (Code_id.map_compilation_unit update_cu)
       t.table_data.code_ids
   in
+  let continuations =
+    Continuation.Map.map (Continuation.map_compilation_unit update_cu)
+      t.table_data.continuations
+  in
   let table_data =
     { symbols;
       variables;
       simples;
       consts;
       code_ids;
+      continuations;
     }
   in
   { t with table_data; }
