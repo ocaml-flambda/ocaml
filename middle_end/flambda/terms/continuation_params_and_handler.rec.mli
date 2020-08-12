@@ -43,6 +43,12 @@ val pattern_match
     -> 'a)
   -> 'a
 
+module Pattern_match_pair_error : sig
+  type t = Parameter_lists_have_different_lengths
+
+  val to_string : t -> string
+end
+
 (** Choose members of two bindings' alpha-equivalence classes using the same
     parameters. *)
 val pattern_match_pair
@@ -52,5 +58,5 @@ val pattern_match_pair
     -> handler1:Expr.t
     -> handler2:Expr.t
     -> 'a)
-  -> 'a
+  -> ('a, Pattern_match_pair_error.t) Result.t
 

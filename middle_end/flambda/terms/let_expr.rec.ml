@@ -30,10 +30,52 @@ let pattern_match t ~f =
   A.pattern_match t.name_abstraction
     ~f:(fun bindable_let_bound body -> f bindable_let_bound ~body)
 
-let pattern_match_pair t1 t2 ~f =
-  A.pattern_match_pair t1.name_abstraction t2.name_abstraction
-    ~f:(fun bindable_let_bound body1 body2 ->
-      f bindable_let_bound ~body1 ~body2)
+module Pattern_match_pair_error = struct
+  type t = Mismatched_let_bindings
+
+  let to_string = function
+    | Mismatched_let_bindings -> "Mismatched let bindings"
+end
+
+let pattern_match_pair t1 t2 ~dynamic ~static =
+  A.pattern_match t1.name_abstraction
+    ~f:(fun bindable_let_bound1 body1 ->
+      A.pattern_match t2.name_abstraction
+        ~f:(fun bindable_let_bound2 body2 ->
+          let dynamic_case () =
+            let ans =
+              A.pattern_match_pair
+                t1.name_abstraction
+                t2.name_abstraction
+                ~f:(fun bindable_let_bound body1 body2 ->
+                  dynamic bindable_let_bound ~body1 ~body2)
+            in
+            Ok ans
+          in
+          match bindable_let_bound1, bindable_let_bound2 with
+          | Bindable_let_bound.Singleton _,
+            Bindable_let_bound.Singleton _ ->
+            dynamic_case ()
+          | Set_of_closures { closure_vars = vars1; _ },
+            Set_of_closures { closure_vars = vars2; _ } ->
+            if List.compare_lengths vars1 vars2 = 0
+            then dynamic_case ()
+            else Error Pattern_match_pair_error.Mismatched_let_bindings
+          | Symbols bound_symbols1,
+            Symbols bound_symbols2 ->
+            let patterns1 =
+              bound_symbols1.bound_symbols |> Bound_symbols.to_list
+            in
+            let patterns2 =
+              bound_symbols2.bound_symbols |> Bound_symbols.to_list
+            in
+            if List.compare_lengths patterns1 patterns2 = 0
+            then
+              let ans = static ~bound_symbols1 ~bound_symbols2 ~body1 ~body2 in
+              Ok ans
+            else Error Pattern_match_pair_error.Mismatched_let_bindings
+          | _, _ ->
+            Error Pattern_match_pair_error.Mismatched_let_bindings))
 
 (* For printing "let symbol": *)
 
