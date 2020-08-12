@@ -29,6 +29,7 @@ let keyword_table =
     "and", AND;
     "andwhere", ANDWHERE;
     "apply", APPLY;
+    "block_load", BLOCK_LOAD;
     "ccall", CCALL;
     "closure", CLOSURE;
     "code", CODE;
@@ -41,11 +42,15 @@ let keyword_table =
     "exn", EXN;
     "fabricated", FABRICATED;
     "float", FLOAT_KIND;
+    "get_tag", GET_TAG;
     "imm", IMM;
+    "immutable_unique", IMMUTABLE_UNIQUE;
     "in", IN;
     "int32", INT32;
     "int64", INT64;
+    "is_int", IS_INT;
     "let", LET;
+    "mutable", MUTABLE;
     "nativeint", NATIVEINT;
     "newer_version_of", NEWER_VERSION_OF;
     "noalloc", NOALLOC;
@@ -55,9 +60,11 @@ let keyword_table =
     "rec", REC;
     "select_closure", SELECT_CLOSURE;
     "set_of_closures", SET_OF_CLOSURES;
+    "size", SIZE;
     "stub", STUB;
     "switch", SWITCH;
     "symbol", SYMBOL;
+    "tag_imm", TAG_IMM;
     "tupled", TUPLED;
     "unit", UNIT;
     "untag_imm", UNTAG_IMM;

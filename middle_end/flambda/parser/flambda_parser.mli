@@ -10,10 +10,12 @@ type token =
   | UNIT
   | UIDENT of (string)
   | TUPLED
+  | TAG_IMM
   | SYMBOL
   | SWITCH
   | STUB
   | STAR
+  | SIZE
   | SET_OF_CLOSURES
   | SEMICOLON
   | SELECT_CLOSURE
@@ -30,6 +32,7 @@ type token =
   | NOALLOC
   | NEWER_VERSION_OF
   | NATIVEINT
+  | MUTABLE
   | MINUSGREATER
   | MINUSDOT
   | MINUS
@@ -37,12 +40,15 @@ type token =
   | LIDENT of (string)
   | LET
   | LBRACE
+  | IS_INT
   | INT64
   | INT32
   | INT of (string * char option)
   | IN
+  | IMMUTABLE_UNIQUE
   | IMM
   | HCF
+  | GET_TAG
   | FLOAT_KIND
   | FLOAT of (float)
   | FABRICATED
@@ -61,6 +67,7 @@ type token =
   | CODE
   | CLOSURE
   | CCALL
+  | BLOCK_LOAD
   | BLOCK
   | AT
   | APPLY

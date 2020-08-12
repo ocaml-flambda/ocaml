@@ -260,7 +260,10 @@ let of_kind_value env (v:Fexpr.of_kind_value)
 
 let unop env (unop:Fexpr.unop) : Flambda_primitive.unary_primitive =
   match unop with
+  | Get_tag -> Get_tag
+  | Is_int -> Is_int
   | Opaque_identity -> Opaque_identity
+  | Tag_imm -> Box_number Untagged_immediate
   | Untag_imm -> Unbox_number Untagged_immediate
   | Project_var { project_from; var } ->
     let var = fresh_or_existing_var_within_closure env var in
@@ -280,14 +283,15 @@ let infix_binop (binop:Fexpr.infix_binop) : Flambda_primitive.binary_primitive =
 
 let binop (binop:Fexpr.binop) : Flambda_primitive.binary_primitive =
   match binop with
-  | Block_load (Block Value, Immutable) ->
-          (* CR maurerl Add real tag and size to fexpr syntax and use them here
-           *)
-          Block_load (Values { field_kind = Any_value;
-                               tag = Tag.Scannable.zero;
-                               size = Unknown }, Immutable)
-  | Block_load (_, _) ->
-    failwith "TODO binop"
+  | Block_load (Values { tag; size; field_kind }, mutability) ->
+    let size : Targetint.OCaml.t Or_unknown.t =
+      match size with
+      | None -> Unknown
+      | Some size -> Known (size |> Targetint.OCaml.of_int64)
+    in
+    Block_load (Values { field_kind;
+                         tag = tag |> Tag.Scannable.create_exn;
+                         size; }, mutability)
   | Phys_equal (kind, op) ->
     let kind =
       value_kind (kind |> Option.value ~default:(Value : Fexpr.kind))

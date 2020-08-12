@@ -115,12 +115,21 @@ let name ppf : name -> unit = function
   | Symbol s -> symbol ppf s
   | Var v -> variable ppf v
 
+let mutability ?prefix ?suffix () ppf mut =
+  let str =
+    match mut with
+    | Mutable -> Some "mutable"
+    | Immutable -> None
+    | Immutable_unique -> Some "immutable_unique"
+  in
+  pp_option ?prefix ?suffix Format.pp_print_string ppf str
+
 let static_part ppf : static_part -> _ = function
-  | Block { tag; mutability = _; elements = elts } ->
-    Format.fprintf ppf "Block %i (%a)"
+  | Block { tag; mutability = mut; elements = elts } ->
+    Format.fprintf ppf "Block %a%i (%a)"
+      (mutability ~suffix:"@ " ()) mut
       tag
       (pp_comma_list of_kind_value) elts
-
 
 let static_structure ppf { symbol = s; kind = k; defining_expr = sp } =
   match k with
@@ -152,11 +161,23 @@ let infix_binop ppf b =
 
 let binop ppf binop a b =
   match binop with
-  | Block_load (Block Value, Immutable) ->
-    Format.fprintf ppf "%a.(%a)"
+  | Block_load (Values { field_kind; tag; size; }, mut) ->
+    let pp_size ppf (size : Int64.t option) =
+      match size with
+      | None -> ()
+      | Some size -> Format.fprintf ppf "@ size %Li" size
+    in
+    let pp_field_kind ppf (field_kind : block_access_field_kind) =
+      match field_kind with
+      | Any_value -> ()
+      | Immediate -> Format.fprintf ppf "@ imm"
+    in
+    Format.fprintf ppf "@[<2>block_load %a%i%a%a@ (%a,@ %a)@]"
+      (mutability ~suffix:"@ " ()) mut
+      tag
+      pp_size size
+      pp_field_kind field_kind
       simple a simple b
-  | Block_load _ ->
-    failwith "TODO Block_load"
   | Phys_equal (k, comp) ->
     let name =
       match comp with
@@ -173,11 +194,18 @@ let binop ppf binop a b =
       simple b
 
 let unop ppf u =
+  let str s = Format.pp_print_string ppf s in
   match u with
+  | Get_tag ->
+    str "get_tag"
+  | Is_int ->
+    str "is_int"
   | Opaque_identity ->
-    Format.pp_print_string ppf "Opaque"
+    str "Opaque"
+  | Tag_imm ->
+    str "tag_imm"
   | Untag_imm ->
-    Format.pp_print_string ppf "untag_imm"
+    str "untag_imm"
   | Project_var { project_from; var } ->
     Format.fprintf ppf "@[<2>project_var@ %a.%a@]"
       closure_id project_from
@@ -221,9 +249,9 @@ let kinded_parameters ppf = function
 let apply_cont ppf (ac : Fexpr.apply_cont) =
   match ac with
   | { cont; trap_action = None; args = [] } ->
-    Format.fprintf ppf "cont %a" continuation cont
+    Format.fprintf ppf "%a" continuation cont
   | { cont; trap_action = None; args } ->
-    Format.fprintf ppf "cont %a (@[<hv>%a@])"
+    Format.fprintf ppf "%a (@[<hv>%a@])"
       continuation cont
       (pp_comma_list simple) args
   | _ ->
@@ -311,7 +339,7 @@ let rec expr scope ppf = function
   | Invalid inv ->
     invalid ppf inv
   | Apply_cont ac ->
-    apply_cont ppf ac
+    Format.fprintf ppf "cont %a" apply_cont ac
   | Let let_ ->
     parens ~if_scope_is:Where_body scope ppf (fun scope ppf ->
       let_expr scope ppf let_

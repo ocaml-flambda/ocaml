@@ -29,6 +29,7 @@ let keyword_table =
     "and", AND;
     "andwhere", ANDWHERE;
     "apply", APPLY;
+    "block_load", BLOCK_LOAD;
     "ccall", CCALL;
     "closure", CLOSURE;
     "code", CODE;
@@ -41,11 +42,15 @@ let keyword_table =
     "exn", EXN;
     "fabricated", FABRICATED;
     "float", FLOAT_KIND;
+    "get_tag", GET_TAG;
     "imm", IMM;
+    "immutable_unique", IMMUTABLE_UNIQUE;
     "in", IN;
     "int32", INT32;
     "int64", INT64;
+    "is_int", IS_INT;
     "let", LET;
+    "mutable", MUTABLE;
     "nativeint", NATIVEINT;
     "newer_version_of", NEWER_VERSION_OF;
     "noalloc", NOALLOC;
@@ -55,9 +60,11 @@ let keyword_table =
     "rec", REC;
     "select_closure", SELECT_CLOSURE;
     "set_of_closures", SET_OF_CLOSURES;
+    "size", SIZE;
     "stub", STUB;
     "switch", SWITCH;
     "symbol", SYMBOL;
+    "tag_imm", TAG_IMM;
     "tupled", TUPLED;
     "unit", UNIT;
     "untag_imm", UNTAG_IMM;
@@ -75,7 +82,7 @@ let ukeyword_table =
 ]
 
 
-# 79 "flambda_lex.ml"
+# 86 "flambda_lex.ml"
 let __ocaml_lex_tables = {
   Lexing.lex_base =
    "\000\000\227\255\228\255\087\000\192\000\020\001\104\001\235\255\
@@ -764,167 +771,167 @@ let rec token lexbuf =
 and __ocaml_lex_token_rec lexbuf __ocaml_lex_state =
   match Lexing.new_engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
-# 113 "flambda_lex.mll"
+# 120 "flambda_lex.mll"
       ( Lexing.new_line lexbuf; token lexbuf )
-# 770 "flambda_lex.ml"
+# 777 "flambda_lex.ml"
 
   | 1 ->
-# 115 "flambda_lex.mll"
+# 122 "flambda_lex.mll"
       ( token lexbuf )
-# 775 "flambda_lex.ml"
+# 782 "flambda_lex.ml"
 
   | 2 ->
-# 117 "flambda_lex.mll"
+# 124 "flambda_lex.mll"
       ( comment 1 lexbuf;
         token lexbuf )
-# 781 "flambda_lex.ml"
+# 788 "flambda_lex.ml"
 
   | 3 ->
-# 120 "flambda_lex.mll"
+# 127 "flambda_lex.mll"
       ( LET )
-# 786 "flambda_lex.ml"
+# 793 "flambda_lex.ml"
 
   | 4 ->
-# 122 "flambda_lex.mll"
+# 129 "flambda_lex.mll"
       ( COLON )
-# 791 "flambda_lex.ml"
+# 798 "flambda_lex.ml"
 
   | 5 ->
-# 124 "flambda_lex.mll"
+# 131 "flambda_lex.mll"
       ( COMMA )
-# 796 "flambda_lex.ml"
+# 803 "flambda_lex.ml"
 
   | 6 ->
-# 126 "flambda_lex.mll"
+# 133 "flambda_lex.mll"
       ( DOT )
-# 801 "flambda_lex.ml"
+# 808 "flambda_lex.ml"
 
   | 7 ->
-# 128 "flambda_lex.mll"
+# 135 "flambda_lex.mll"
       ( SEMICOLON )
-# 806 "flambda_lex.ml"
+# 813 "flambda_lex.ml"
 
   | 8 ->
-# 130 "flambda_lex.mll"
+# 137 "flambda_lex.mll"
       ( EQUAL )
-# 811 "flambda_lex.ml"
+# 818 "flambda_lex.ml"
 
   | 9 ->
-# 132 "flambda_lex.mll"
+# 139 "flambda_lex.mll"
       ( LBRACE )
-# 816 "flambda_lex.ml"
+# 823 "flambda_lex.ml"
 
   | 10 ->
-# 134 "flambda_lex.mll"
+# 141 "flambda_lex.mll"
       ( RBRACE )
-# 821 "flambda_lex.ml"
+# 828 "flambda_lex.ml"
 
   | 11 ->
-# 136 "flambda_lex.mll"
+# 143 "flambda_lex.mll"
       ( LPAREN )
-# 826 "flambda_lex.ml"
+# 833 "flambda_lex.ml"
 
   | 12 ->
-# 138 "flambda_lex.mll"
+# 145 "flambda_lex.mll"
       ( RPAREN )
-# 831 "flambda_lex.ml"
+# 838 "flambda_lex.ml"
 
   | 13 ->
-# 139 "flambda_lex.mll"
+# 146 "flambda_lex.mll"
          ( PLUS )
-# 836 "flambda_lex.ml"
+# 843 "flambda_lex.ml"
 
   | 14 ->
-# 140 "flambda_lex.mll"
+# 147 "flambda_lex.mll"
          ( PLUSDOT )
-# 841 "flambda_lex.ml"
+# 848 "flambda_lex.ml"
 
   | 15 ->
-# 141 "flambda_lex.mll"
+# 148 "flambda_lex.mll"
          ( STAR )
-# 846 "flambda_lex.ml"
+# 853 "flambda_lex.ml"
 
   | 16 ->
-# 142 "flambda_lex.mll"
+# 149 "flambda_lex.mll"
          ( MINUS )
-# 851 "flambda_lex.ml"
+# 858 "flambda_lex.ml"
 
   | 17 ->
-# 143 "flambda_lex.mll"
+# 150 "flambda_lex.mll"
          ( MINUSDOT )
-# 856 "flambda_lex.ml"
+# 863 "flambda_lex.ml"
 
   | 18 ->
-# 144 "flambda_lex.mll"
+# 151 "flambda_lex.mll"
          ( MINUSGREATER )
-# 861 "flambda_lex.ml"
+# 868 "flambda_lex.ml"
 
   | 19 ->
-# 145 "flambda_lex.mll"
+# 152 "flambda_lex.mll"
         ( AT )
-# 866 "flambda_lex.ml"
+# 873 "flambda_lex.ml"
 
   | 20 ->
-# 146 "flambda_lex.mll"
+# 153 "flambda_lex.mll"
          ( PIPE )
-# 871 "flambda_lex.ml"
+# 878 "flambda_lex.ml"
 
   | 21 ->
-# 148 "flambda_lex.mll"
+# 155 "flambda_lex.mll"
       ( let s = Lexing.lexeme lexbuf in
         try Hashtbl.find keyword_table s
         with Not_found -> LIDENT s )
-# 878 "flambda_lex.ml"
+# 885 "flambda_lex.ml"
 
   | 22 ->
-# 152 "flambda_lex.mll"
+# 159 "flambda_lex.mll"
       ( let s = Lexing.lexeme lexbuf in
         try Hashtbl.find ukeyword_table s
         with Not_found -> UIDENT s )
-# 885 "flambda_lex.ml"
+# 892 "flambda_lex.ml"
 
   | 23 ->
-# 155 "flambda_lex.mll"
+# 162 "flambda_lex.mll"
                 ( INT (Lexing.lexeme lexbuf, None) )
-# 890 "flambda_lex.ml"
+# 897 "flambda_lex.ml"
 
   | 24 ->
 let
-# 156 "flambda_lex.mll"
+# 163 "flambda_lex.mll"
                     lit
-# 896 "flambda_lex.ml"
+# 903 "flambda_lex.ml"
 = Lexing.sub_lexeme lexbuf lexbuf.Lexing.lex_start_pos lexbuf.Lexing.lex_mem.(0)
 and
-# 156 "flambda_lex.mll"
+# 163 "flambda_lex.mll"
                                           modif
-# 901 "flambda_lex.ml"
+# 908 "flambda_lex.ml"
 = Lexing.sub_lexeme_char_opt lexbuf lexbuf.Lexing.lex_mem.(1) in
-# 157 "flambda_lex.mll"
+# 164 "flambda_lex.mll"
       ( INT (lit, modif) )
-# 905 "flambda_lex.ml"
+# 912 "flambda_lex.ml"
 
   | 25 ->
-# 159 "flambda_lex.mll"
+# 166 "flambda_lex.mll"
       ( FLOAT (Lexing.lexeme lexbuf |> Float.of_string) )
-# 910 "flambda_lex.ml"
+# 917 "flambda_lex.ml"
 
   | 26 ->
-# 161 "flambda_lex.mll"
+# 168 "flambda_lex.mll"
       ( raise (Error(Invalid_literal (Lexing.lexeme lexbuf),
                      current_location lexbuf)) )
-# 916 "flambda_lex.ml"
+# 923 "flambda_lex.ml"
 
   | 27 ->
-# 163 "flambda_lex.mll"
+# 170 "flambda_lex.mll"
         ( EOF )
-# 921 "flambda_lex.ml"
+# 928 "flambda_lex.ml"
 
   | 28 ->
-# 165 "flambda_lex.mll"
+# 172 "flambda_lex.mll"
       ( raise (Error(Illegal_character (Lexing.lexeme_char lexbuf 0),
                      current_location lexbuf))
       )
-# 928 "flambda_lex.ml"
+# 935 "flambda_lex.ml"
 
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf;
       __ocaml_lex_token_rec lexbuf __ocaml_lex_state
@@ -934,25 +941,25 @@ and comment n lexbuf =
 and __ocaml_lex_comment_rec n lexbuf __ocaml_lex_state =
   match Lexing.engine __ocaml_lex_tables __ocaml_lex_state lexbuf with
       | 0 ->
-# 171 "flambda_lex.mll"
+# 178 "flambda_lex.mll"
          ( Lexing.new_line lexbuf; comment n lexbuf )
-# 940 "flambda_lex.ml"
+# 947 "flambda_lex.ml"
 
   | 1 ->
-# 173 "flambda_lex.mll"
+# 180 "flambda_lex.mll"
          ( if n = 1 then ()
            else comment (n-1) lexbuf )
-# 946 "flambda_lex.ml"
+# 953 "flambda_lex.ml"
 
   | 2 ->
-# 176 "flambda_lex.mll"
+# 183 "flambda_lex.mll"
          ( comment (n+1) lexbuf )
-# 951 "flambda_lex.ml"
+# 958 "flambda_lex.ml"
 
   | 3 ->
-# 178 "flambda_lex.mll"
+# 185 "flambda_lex.mll"
          ( comment n lexbuf )
-# 956 "flambda_lex.ml"
+# 963 "flambda_lex.ml"
 
   | __ocaml_lex_state -> lexbuf.Lexing.refill_buff lexbuf;
       __ocaml_lex_comment_rec n lexbuf __ocaml_lex_state

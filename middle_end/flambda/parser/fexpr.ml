@@ -36,10 +36,15 @@ type is_recursive =
 
 type tag_scannable = int
 
+type mutability = Mutability.t =
+  | Mutable
+  | Immutable
+  | Immutable_unique
+
 type static_part =
   | Block of {
       tag : tag_scannable;
-      mutability : Mutability.t;
+      mutability : mutability;
       elements : of_kind_value list;
     }
 
@@ -83,7 +88,10 @@ type simple =
   | Const of const
 
 type unop =
+  | Get_tag
+  | Is_int
   | Opaque_identity
+  | Tag_imm
   | Untag_imm
   | Project_var of {
       project_from : closure_id;
@@ -100,10 +108,16 @@ type generic_array_specialisation =
   | Full_of_immediates
   | Full_of_arbitrary_values_but_not_floats
 
+type block_access_field_kind = Flambda_primitive.Block_access_field_kind.t =
+  | Any_value
+  | Immediate
+
 type block_access_kind =
-  | Block of kind
-  | Array of kind
-  | Generic_array of generic_array_specialisation
+  | Values of {
+      tag : tag_scannable;
+      size : targetint option;
+      field_kind : block_access_field_kind;
+    }
 
 type equality_comparison = Flambda_primitive.equality_comparison = Eq | Neq
 
@@ -112,12 +126,12 @@ type infix_binop =
   | Minus | Minusdot
 
 type binop =
-  | Block_load of block_access_kind * Mutability.t
+  | Block_load of block_access_kind * mutability
   | Phys_equal of kind option * equality_comparison
   | Infix of infix_binop
 
 type varop =
-  | Make_block of tag_scannable * Mutability.t
+  | Make_block of tag_scannable * mutability
 
 type prim =
   | Unary of unop * simple

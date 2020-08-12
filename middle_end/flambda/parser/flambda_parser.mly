@@ -11,6 +11,11 @@ let make_located txt (startpos, endpos) =
   let loc = make_loc (startpos, endpos) in
   { txt; loc }
 
+let make_targetint = function
+  | s, None -> Int64.of_string s
+  | _, Some _ ->
+    failwith "No modifier expected here"
+
 let make_tag ~loc:_ = function
   | s, None -> int_of_string s
   | _, Some _ ->
@@ -39,6 +44,7 @@ let make_const_int (i, m) : const =
 %token AT    [@symbol "@"]
 %token APPLY [@symbol "apply"]
 %token BLOCK [@symbol "Block"]
+%token BLOCK_LOAD [@symbol "block_load"]
 %token CCALL  [@symbol "ccall"]
 %token CLOSURE  [@symbol "closure"]
 %token CODE  [@symbol "code"]
@@ -56,12 +62,15 @@ let make_const_int (i, m) : const =
 %token FABRICATED [@symbol "fabricated"]
 %token <float> FLOAT
 %token FLOAT_KIND [@symbol "float"]
+%token GET_TAG [@symbol "get_tag"]
 %token HCF   [@symbol "HCF"]
 %token IMM   [@symbol "imm" ]
+%token IMMUTABLE_UNIQUE [@symbol "immutable_unique"]
 %token IN    [@symbol "in"]
 %token INT32 [@symbol "int32"]
 %token INT64 [@symbol "int64"]
 %token <string * char option> INT
+%token IS_INT [@symbol "is_int"]
 %token LBRACE [@symbol "{"]
 %token LET    [@symbol "let"]
 %token <string> LIDENT
@@ -69,6 +78,7 @@ let make_const_int (i, m) : const =
 %token MINUS    [@symbol "-"]
 %token MINUSDOT [@symbol "-."]
 %token MINUSGREATER [@symbol "->"]
+%token MUTABLE [@symbol "mutable"]
 %token NATIVEINT [@symbol "nativeint"]
 %token NEWER_VERSION_OF [@symbol "newer_version_of"]
 %token NOALLOC [@symbol "noalloc"]
@@ -85,10 +95,12 @@ let make_const_int (i, m) : const =
 %token SELECT_CLOSURE [@symbol "select_closure"]
 %token SEMICOLON [@symbol ";"]
 %token SET_OF_CLOSURES [@symbol "set_of_closures"]
+%token SIZE   [@symbol "size"]
 %token STUB   [@symbol "stub"]
 %token STAR   [@symbol "*"]
 %token SWITCH [@symbol "switch"]
 %token SYMBOL [@symbol "symbol"]
+%token TAG_IMM [@symbol "tag_imm"]
 %token TUPLED [@symbol "tupled"]
 %token <string> UIDENT
 %token UNIT   [@symbol "unit"]
@@ -100,9 +112,11 @@ let make_const_int (i, m) : const =
 %token EOF
 
 %start flambda_unit
+%type <Fexpr.block_access_field_kind> block_access_field_kind
 %type <Fexpr.flambda_unit> flambda_unit
 %type <Fexpr.static_structure> static_structure
 %type <Fexpr.kind> kind
+%type <Fexpr.mutability> mutability
 %type <Fexpr.named> named
 %type <Fexpr.of_kind_value> of_kind_value
 %%
@@ -191,7 +205,10 @@ recursive:
 ;
 
 unop:
+  | GET_TAG { Get_tag }
+  | IS_INT { Is_int }
   | OPAQUE { Opaque_identity }
+  | TAG_IMM { Tag_imm }
   | UNTAG_IMM { Untag_imm }
   | PROJECT_VAR; project_from = closure_id; DOT; var = var_within_closure
     { Project_var { project_from; var } }
@@ -207,12 +224,25 @@ infix_binop:
 ;
 
 prefix_binop:
+  | BLOCK_LOAD;
+    mutability = mutability;
+    tag = tag;
+    size = option(SIZE; size = targetint { size });
+    field_kind = block_access_field_kind;
+    { Block_load (Values { tag; size; field_kind }, mutability) }
   | PHYS_EQ; k = kind_arg_opt { Phys_equal(k, Eq) }
   | PHYS_NE; k = kind_arg_opt { Phys_equal(k, Neq) }
 
+mutability:
+  | MUTABLE { Mutable }
+  | IMMUTABLE_UNIQUE { Immutable_unique }
+  | { Immutable }
+
+block_access_field_kind:
+  | { Any_value }
+  | IMM { Immediate }
+
 binop_app:
-  | a = simple DOT LPAREN f = simple RPAREN
-    { Binary (Block_load (Block Value, Immutable), a, f) }
   | op = prefix_binop; LPAREN; arg1 = simple; COMMA; arg2 = simple; RPAREN
     { Binary (op, arg1, arg2) }
   | arg1 = simple; op = infix_binop; arg2 = simple
@@ -220,10 +250,10 @@ binop_app:
 ;
 
 block:
-  | BLOCK; t = tag; LPAREN;
+  | BLOCK; m = mutability; t = tag; LPAREN;
     elts = separated_list(COMMA, simple);
     RPAREN
-    { Variadic (Make_block (t, Immutable), elts) }
+    { Variadic (Make_block (t, m), elts) }
 ;
 
 named:
@@ -414,10 +444,13 @@ static_structure:
 ;
 
 static_part:
-  | BLOCK; tag = tag; LPAREN;
+  | BLOCK; m = mutability; tag = tag; LPAREN;
     elements = separated_list(COMMA, of_kind_value); RPAREN
-    { (Block { tag; mutability = Immutable; elements } : static_part) }
+    { (Block { tag; mutability = m; elements } : static_part) }
 ;
+
+targetint:
+  i = INT { make_targetint i }
 
 tag:
   tag = INT { make_tag ~loc:(make_loc ($startpos, $endpos)) tag }
