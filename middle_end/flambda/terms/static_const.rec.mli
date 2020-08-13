@@ -108,5 +108,7 @@ module Group : sig
 
   val pieces_of_code' : t -> Code.t list
 
+  val pieces_of_code_by_code_id : t -> Code.t Code_id.Map.t
+
   val is_fully_static : t -> bool
 end

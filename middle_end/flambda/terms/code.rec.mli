@@ -28,6 +28,11 @@ val params_and_body : t -> Function_params_and_body.t Or_deleted.t
 
 val params_and_body_opt : t -> Function_params_and_body.t option
 
+val params_and_body_must_be_present
+   : error_context:string
+  -> t
+  -> Function_params_and_body.t
+
 val newer_version_of : t -> Code_id.t option
 
 val params_arity : t -> Flambda_arity.t

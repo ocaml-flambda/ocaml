@@ -619,6 +619,8 @@ end and Static_const : sig
 
     val pieces_of_code' : t -> Code.t list
 
+    val pieces_of_code_by_code_id : t -> Code.t Code_id.Map.t
+
     val is_fully_static : t -> bool
   end
 end and Code : sig
@@ -632,6 +634,11 @@ end and Code : sig
   val code_id : t -> Code_id.t
 
   val params_and_body : t -> Function_params_and_body.t Or_deleted.t
+
+  val params_and_body_must_be_present
+     : error_context:string
+    -> t
+    -> Function_params_and_body.t
 
   val newer_version_of : t -> Code_id.t option
 

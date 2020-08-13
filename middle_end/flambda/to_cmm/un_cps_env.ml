@@ -183,6 +183,15 @@ let exn_cont env = env.k_exn
 let get_function_info env code_id =
   Exported_code.find_calling_convention env.functions_info code_id
 
+let get_func_decl_params_arity t func_decl =
+  let code_id = Function_declaration.code_id func_decl in
+  let info = get_function_info t code_id in
+  let l = Exported_code.Calling_convention.params_arity info in
+  if Function_declaration.is_tupled func_decl then
+    ~- (List.length l)
+  else
+    List.length l
+
 (* Variables *)
 
 let gen_variable v =

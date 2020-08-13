@@ -300,9 +300,7 @@ let create_let_symbol0 uacc code_age_relation (bound_symbols : Bound_symbols.t)
       Expr.create_let_symbol bound_symbols Syntactic static_consts body
     in
     let uacc =
-      Static_const.Group.pieces_of_code' static_consts
-      |> List.map (fun code -> Code.code_id code, code)
-      |> Code_id.Map.of_list
+      Static_const.Group.pieces_of_code_by_code_id static_consts
       |> UA.remember_code_for_cmx uacc
     in
     expr, uacc
@@ -353,9 +351,7 @@ let create_let_symbol uacc (scoping_rule : Symbol_scoping_rule.t)
       Expr.create_let_symbol bound_symbols scoping_rule static_consts body
     in
     let uacc =
-      Static_const.Group.pieces_of_code' defining_exprs
-      |> List.map (fun code -> Code.code_id code, code)
-      |> Code_id.Map.of_list
+      Static_const.Group.pieces_of_code_by_code_id defining_exprs
       |> UA.remember_code_for_cmx uacc
     in
     expr, uacc

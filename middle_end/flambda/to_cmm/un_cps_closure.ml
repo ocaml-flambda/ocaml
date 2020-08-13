@@ -349,8 +349,8 @@ module Greedy = struct
               let is_tupled = Function_declaration.is_tupled def in
               let code_id = Function_declaration.code_id def in
               let code = Code_id.Map.find code_id code_map in
-              let parity = Code.params_arity code in
-              let arity = List.length parity in
+              let params_arity = Code.params_arity code in
+              let arity = List.length params_arity in
               let size = if arity = 1 && not is_tupled then 2 else 3 in
               let s = create_slot size (Closure c) in
               s, add_closure_slot state c s
@@ -558,6 +558,7 @@ let compute_code_map unit =
 let compute_offsets env unit =
   let state = ref (Greedy.create_initial_state env) in
   let used_closure_vars = Flambda_unit.used_closure_vars unit in
+  (* CR lmaurer for gbury: Can this double traversal be avoided somehow? *)
   let code_map = compute_code_map unit in
   let aux ~closure_symbols:_ s =
     state := Greedy.create_slots_for_set !state code_map used_closure_vars s

@@ -37,6 +37,11 @@ let params_and_body_opt { params_and_body; _ } =
   | Deleted -> None
   | Present params_and_body -> Some params_and_body
 
+let params_and_body_must_be_present ~error_context { params_and_body; _ } =
+  match params_and_body with
+  | Deleted -> Misc.fatal_errorf "%s: params and body are deleted" error_context
+  | Present params_and_body -> params_and_body
+
 let newer_version_of { newer_version_of; _ } = newer_version_of
 
 let params_arity { params_arity; _ } = params_arity

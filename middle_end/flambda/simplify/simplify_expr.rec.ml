@@ -1097,11 +1097,12 @@ and simplify_direct_function_call
       let args = Apply.args apply in
       let provided_num_args = List.length args in
       let callee's_code = DE.find_code (DA.denv dacc) callee's_code_id in
-      (* Because of tupled functions, a function declaration's params_arity
-         may not match that of the underlying function_params_and_body.
+      (* A function declaration with [is_tupled = true] may effectively have
+         an arity that does not match that of the underlying code.
          Since direct calls adopt the calling convention of the code's body
          (whereas indirect_unknown_arity calls use the convention of the
-         function_declaration), we here need the arity of the callee's body *)
+         function_declaration), we here always use the arity from the callee's
+         code. *)
       let param_arity = Code.params_arity callee's_code in
       let num_params = List.length param_arity in
       if provided_num_args = num_params then

@@ -29,12 +29,7 @@ let inline dacc ~callee ~args function_decl
   let denv = DA.denv dacc in
   let code = DE.find_code denv (I.code_id function_decl) in
   let params_and_body =
-    match Code.params_and_body code with
-    | Present params_and_body ->
-      params_and_body
-    | Deleted ->
-      Misc.fatal_errorf "Attempt to inline deleted function %a"
-        Simple.print callee
+    Code.params_and_body_must_be_present code ~error_context:"Inlining"
   in
   Function_params_and_body.pattern_match params_and_body
     ~f:(fun ~return_continuation exn_continuation params ~body ~my_closure ->

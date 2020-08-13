@@ -336,11 +336,7 @@ let simplify_function context ~used_closure_vars ~shareable_constants
       DE.find_code (DA.denv (C.dacc_prior_to_sets context)) code_id
     in
     let params_and_body =
-      match Code.params_and_body code with
-      | Deleted ->
-        Misc.fatal_errorf "Simplifying deleted code %a" Code_id.print code_id
-      | Present params_and_body ->
-        params_and_body
+      Code.params_and_body_must_be_present code ~error_context:"Simplifying"
     in
     let params_and_body, dacc_after_body, uacc_after_upwards_traversal =
       Function_params_and_body.pattern_match params_and_body
@@ -413,6 +409,7 @@ let simplify_function context ~used_closure_vars ~shareable_constants
     let code =
       code
       |> Code.with_code_id new_code_id
+      |> Code.with_newer_version_of (Some old_code_id)
       |> Code.with_params_and_body (Present params_and_body)
     in
     let function_decl = FD.update_code_id function_decl new_code_id in

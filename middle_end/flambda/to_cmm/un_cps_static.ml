@@ -219,14 +219,7 @@ and fill_static_slot s symbs decls elts env acc offset updates slot =
       let code_symbol = Code_id.code_symbol code_id in
       let code_name = Linkage_name.to_string (Symbol.linkage_name code_symbol) in
       let acc = List.rev (C.define_symbol ~global:true external_name) @ acc in
-      let arity =
-        let info = Env.get_function_info env code_id in
-        let l = Exported_code.Calling_convention.params_arity info in
-        if Function_declaration.is_tupled decl then
-          ~- (List.length l)
-        else
-          List.length l
-      in
+      let arity = Env.get_func_decl_params_arity env decl in
       let tagged_arity = arity * 2 + 1 in
       (* We build here the **reverse** list of fields for the closure *)
       if arity = 1 || arity = 0 then begin
