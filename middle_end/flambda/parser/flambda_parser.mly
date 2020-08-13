@@ -44,7 +44,6 @@ let make_const_int (i, m) : const =
 %token AT    [@symbol "@"]
 %token APPLY [@symbol "apply"]
 %token BLOCK [@symbol "Block"]
-%token BLOCK_LOAD [@symbol "block_load"]
 %token CCALL  [@symbol "ccall"]
 %token CLOSURE  [@symbol "closure"]
 %token CODE  [@symbol "code"]
@@ -62,18 +61,16 @@ let make_const_int (i, m) : const =
 %token FABRICATED [@symbol "fabricated"]
 %token <float> FLOAT
 %token FLOAT_KIND [@symbol "float"]
-%token GET_TAG [@symbol "get_tag"]
 %token HCF   [@symbol "HCF"]
+%token <string> IDENT
 %token IMM   [@symbol "imm" ]
 %token IMMUTABLE_UNIQUE [@symbol "immutable_unique"]
 %token IN    [@symbol "in"]
 %token INT32 [@symbol "int32"]
 %token INT64 [@symbol "int64"]
 %token <string * char option> INT
-%token IS_INT [@symbol "is_int"]
 %token LBRACE [@symbol "{"]
 %token LET    [@symbol "let"]
-%token <string> LIDENT
 %token LPAREN [@symbol "("]
 %token MINUS    [@symbol "-"]
 %token MINUSDOT [@symbol "-."]
@@ -82,34 +79,38 @@ let make_const_int (i, m) : const =
 %token NATIVEINT [@symbol "nativeint"]
 %token NEWER_VERSION_OF [@symbol "newer_version_of"]
 %token NOALLOC [@symbol "noalloc"]
-%token OPAQUE [@symbol "opaque_identity"]
-%token PHYS_EQ [@symbol "phys_eq"]
-%token PHYS_NE [@symbol "phys_ne"]
 %token PIPE [@symbol "|"]
 %token PLUS     [@symbol "+"]
 %token PLUSDOT  [@symbol "+."]
-%token PROJECT_VAR [@symbol "project_var"]
 %token RBRACE [@symbol "}"]
 %token REC    [@symbol "rec"]
 %token RPAREN [@symbol ")"]
-%token SELECT_CLOSURE [@symbol "select_closure"]
 %token SEMICOLON [@symbol ";"]
 %token SET_OF_CLOSURES [@symbol "set_of_closures"]
 %token SIZE   [@symbol "size"]
 %token STUB   [@symbol "stub"]
 %token STAR   [@symbol "*"]
 %token SWITCH [@symbol "switch"]
-%token SYMBOL [@symbol "symbol"]
-%token TAG_IMM [@symbol "tag_imm"]
+%token<string> SYMBOL
 %token TUPLED [@symbol "tupled"]
-%token <string> UIDENT
 %token UNIT   [@symbol "unit"]
 %token UNREACHABLE [@symbol "Unreachable"]
-%token UNTAG_IMM [@symbol "untag_imm"]
 %token VAL    [@symbol "val"]
 %token WHERE  [@symbol "where"]
 %token WITH   [@symbol "with"]
 %token EOF
+
+%token PRIM_BLOCK [@symbol "%Block"]
+%token PRIM_BLOCK_LOAD [@symbol "%block_load"]
+%token PRIM_GET_TAG [@symbol "%get_tag"]
+%token PRIM_IS_INT [@symbol "%is_int"]
+%token PRIM_OPAQUE [@symbol "%Opaque"]
+%token PRIM_PHYS_EQ [@symbol "%phys_eq"]
+%token PRIM_PHYS_NE [@symbol "%phys_ne"]
+%token PRIM_PROJECT_VAR [@symbol "%project_var"]
+%token PRIM_SELECT_CLOSURE [@symbol "%select_closure"]
+%token PRIM_TAG_IMM [@symbol "%Tag_imm"]
+%token PRIM_UNTAG_IMM [@symbol "%untag_imm"]
 
 %start flambda_unit
 %type <Fexpr.block_access_field_kind> block_access_field_kind
@@ -188,7 +189,7 @@ code_header:
 ;
 
 static_closure_binding:
-  | SYMBOL; symbol = symbol; EQUAL; fun_decl = fun_decl;
+  | symbol = symbol; EQUAL; fun_decl = fun_decl;
     { { symbol; fun_decl } }
 ;
 
@@ -205,14 +206,14 @@ recursive:
 ;
 
 unop:
-  | GET_TAG { Get_tag }
-  | IS_INT { Is_int }
-  | OPAQUE { Opaque_identity }
-  | TAG_IMM { Tag_imm }
-  | UNTAG_IMM { Untag_imm }
-  | PROJECT_VAR; project_from = closure_id; DOT; var = var_within_closure
+  | PRIM_GET_TAG { Get_tag }
+  | PRIM_IS_INT { Is_int }
+  | PRIM_OPAQUE { Opaque_identity }
+  | PRIM_TAG_IMM { Tag_imm }
+  | PRIM_UNTAG_IMM { Untag_imm }
+  | PRIM_PROJECT_VAR; project_from = closure_id; DOT; var = var_within_closure
     { Project_var { project_from; var } }
-  | SELECT_CLOSURE; LPAREN; move_from = closure_id; MINUSGREATER;
+  | PRIM_SELECT_CLOSURE; LPAREN; move_from = closure_id; MINUSGREATER;
       move_to = closure_id; RPAREN
     { Select_closure { move_from; move_to } }
 
@@ -224,14 +225,14 @@ infix_binop:
 ;
 
 prefix_binop:
-  | BLOCK_LOAD;
+  | PRIM_BLOCK_LOAD;
     mutability = mutability;
     tag = tag;
     size = option(SIZE; size = targetint { size });
     field_kind = block_access_field_kind;
     { Block_load (Values { tag; size; field_kind }, mutability) }
-  | PHYS_EQ; k = kind_arg_opt { Phys_equal(k, Eq) }
-  | PHYS_NE; k = kind_arg_opt { Phys_equal(k, Neq) }
+  | PRIM_PHYS_EQ; k = kind_arg_opt { Phys_equal(k, Eq) }
+  | PRIM_PHYS_NE; k = kind_arg_opt { Phys_equal(k, Neq) }
 
 mutability:
   | MUTABLE { Mutable }
@@ -250,7 +251,7 @@ binop_app:
 ;
 
 block:
-  | BLOCK; m = mutability; t = tag; LPAREN;
+  | PRIM_BLOCK; m = mutability; t = tag; LPAREN;
     elts = separated_list(COMMA, simple);
     RPAREN
     { Variadic (Make_block (t, m), elts) }
@@ -439,7 +440,7 @@ kinded_args:
   | { [] }
 
 static_structure:
-  | SYMBOL; s = symbol EQUAL sp = static_part
+  | s = symbol EQUAL sp = static_part
     { { symbol = s; kind = None; defining_expr = sp } }
 ;
 
@@ -508,15 +509,15 @@ closure_id_opt :
 ;
 
 symbol:
-  | e = UIDENT { make_located e ($startpos, $endpos) }
+  | e = SYMBOL { make_located e ($startpos, $endpos) }
 ;
 
 variable:
-  | e = LIDENT { make_located e ($startpos, $endpos) }
+  | e = IDENT { make_located e ($startpos, $endpos) }
 ;
 
 continuation_id :
-  | e = LIDENT { make_located e ($startpos, $endpos) }
+  | e = IDENT { make_located e ($startpos, $endpos) }
 ;
 
 continuation:
@@ -530,6 +531,6 @@ special_continuation:
 ;
 
 var_within_closure:
-  | e = LIDENT { make_located e ($startpos, $endpos) }
+  | e = IDENT { make_located e ($startpos, $endpos) }
 ;
 %%

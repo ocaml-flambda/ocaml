@@ -7,17 +7,21 @@ type location = Lexing.position * Lexing.position
 type error =
   | Illegal_character of char
   | Invalid_literal of string
+  | No_such_primitive of string
 ;;
 
 let pp_error ppf = function
   | Illegal_character c -> Format.fprintf ppf "Illegal character %c" c
-  | Invalid_literal s -> Format.fprintf ppf "Invalid litral %s" s
+  | Invalid_literal s -> Format.fprintf ppf "Invalid literal %s" s
+  | No_such_primitive s -> Format.fprintf ppf "No such primitive %%%s" s
 
 exception Error of error * location;;
 
 let current_location lexbuf =
   (Lexing.lexeme_start_p lexbuf,
    Lexing.lexeme_end_p lexbuf)
+
+let error ~lexbuf e = raise (Error (e, current_location lexbuf))
 
 let create_hashtable init =
   let tbl = Hashtbl.create (List.length init) in
@@ -29,7 +33,7 @@ let keyword_table =
     "and", AND;
     "andwhere", ANDWHERE;
     "apply", APPLY;
-    "block_load", BLOCK_LOAD;
+    "Block", BLOCK;
     "ccall", CCALL;
     "closure", CLOSURE;
     "code", CODE;
@@ -42,44 +46,52 @@ let keyword_table =
     "exn", EXN;
     "fabricated", FABRICATED;
     "float", FLOAT_KIND;
-    "get_tag", GET_TAG;
+    "halt_and_catch_fire", HCF;
     "imm", IMM;
     "immutable_unique", IMMUTABLE_UNIQUE;
     "in", IN;
     "int32", INT32;
     "int64", INT64;
-    "is_int", IS_INT;
     "let", LET;
     "mutable", MUTABLE;
     "nativeint", NATIVEINT;
     "newer_version_of", NEWER_VERSION_OF;
     "noalloc", NOALLOC;
-    "phys_eq", PHYS_EQ;
-    "phys_ne", PHYS_NE;
-    "project_var", PROJECT_VAR;
     "rec", REC;
-    "select_closure", SELECT_CLOSURE;
     "set_of_closures", SET_OF_CLOSURES;
     "size", SIZE;
     "stub", STUB;
     "switch", SWITCH;
-    "symbol", SYMBOL;
-    "tag_imm", TAG_IMM;
     "tupled", TUPLED;
     "unit", UNIT;
-    "untag_imm", UNTAG_IMM;
+    "unreachable", UNREACHABLE;
     "val", VAL;
     "where", WHERE;
     "with", WITH;
 ]
 
-let ukeyword_table =
+let ident_or_keyword str =
+  try Hashtbl.find keyword_table str
+  with Not_found -> IDENT str
+
+let prim_table =
   create_hashtable [
-    "Opaque", OPAQUE;
-    "Block", BLOCK;
-    "HCF", HCF;
-    "Unreachable", UNREACHABLE;
+    "Block", PRIM_BLOCK;
+    "block_load", PRIM_BLOCK_LOAD;
+    "get_tag", PRIM_GET_TAG;
+    "is_int", PRIM_IS_INT;
+    "Opaque", PRIM_OPAQUE;
+    "phys_eq", PRIM_PHYS_EQ;
+    "phys_ne", PRIM_PHYS_NE;
+    "project_var", PRIM_PROJECT_VAR;
+    "select_closure", PRIM_SELECT_CLOSURE;
+    "Tag_imm", PRIM_TAG_IMM;
+    "untag_imm", PRIM_UNTAG_IMM;
 ]
+
+let prim ~lexbuf str =
+  try Hashtbl.find prim_table str
+  with Not_found -> error ~lexbuf (No_such_primitive str)
 
 }
 
@@ -87,6 +99,7 @@ let newline = ('\013'* '\010')
 let blank = [' ' '\009' '\012']
 let lowercase = ['a'-'z' '_']
 let uppercase = ['A'-'Z']
+let identstart = lowercase | uppercase
 let identchar = ['A'-'Z' 'a'-'z' '_' '\'' '0'-'9']
 let symbolchar =
   ['!' '$' '%' '&' '*' '+' '-' '.' '/' ':' '<' '=' '>' '?' '@' '^' '|' '~']
@@ -151,27 +164,21 @@ rule token = parse
   | "->" { MINUSGREATER }
   | "@" { AT }
   | "|"  { PIPE }
-  | lowercase identchar *
-      { let s = Lexing.lexeme lexbuf in
-        try Hashtbl.find keyword_table s
-        with Not_found -> LIDENT s }
-  | uppercase identchar *
-      { let s = Lexing.lexeme lexbuf in
-        try Hashtbl.find ukeyword_table s
-        with Not_found -> UIDENT s }
-  | int_literal { INT (Lexing.lexeme lexbuf, None) }
+  | identstart identchar* as ident
+         { ident_or_keyword ident }
+  | '$' (identchar* as s)
+         { SYMBOL s }
+  | '%' (identchar* as p)
+         { prim ~lexbuf p }
   | (int_literal as lit) (int_modifier as modif)?
-      { INT (lit, modif) }
-  | float_literal | hex_float_literal
-      { FLOAT (Lexing.lexeme lexbuf |> Float.of_string) }
-  | (float_literal | hex_float_literal | int_literal) identchar+
-      { raise (Error(Invalid_literal (Lexing.lexeme lexbuf),
-                     current_location lexbuf)) }
-  | eof { EOF }
-  | _
-      { raise (Error(Illegal_character (Lexing.lexeme_char lexbuf 0),
-                     current_location lexbuf))
-      }
+         { INT (lit, modif) }
+  | float_literal | hex_float_literal as lit
+         { FLOAT (lit |> Float.of_string) }
+  | (float_literal | hex_float_literal | int_literal) identchar+ as lit
+         { error ~lexbuf (Invalid_literal lit) }
+  | eof  { EOF }
+  | _ as ch
+         { error ~lexbuf (Illegal_character ch) }
 
 and comment n = parse
   | newline

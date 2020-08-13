@@ -59,7 +59,12 @@ let make_compilation_unit ~extension ~filename =
     |> Filename.basename
   in
   let name = String.capitalize_ascii basename in
-  let linkage_name = Linkage_name.create name in
+  (* CR lmaurer: Adding "caml" to the front is a hacky way to conform to the
+     simplifier, which breaks when creating the module block symbol unless the
+     compilation unit has exactly this linkage name. It would be better to
+     either have the simplifier use the current compilation unit or not
+     duplicate the prefixing logic here. *)
+  let linkage_name = Linkage_name.create ("caml" ^ name) in
   let id = Ident.create_persistent name in
   Compilation_unit.create id linkage_name
 

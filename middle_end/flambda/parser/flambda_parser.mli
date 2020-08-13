@@ -5,30 +5,33 @@ type token =
   | WITH
   | WHERE
   | VAL
-  | UNTAG_IMM
   | UNREACHABLE
   | UNIT
-  | UIDENT of (string)
   | TUPLED
-  | TAG_IMM
-  | SYMBOL
+  | SYMBOL of (string)
   | SWITCH
   | STUB
   | STAR
   | SIZE
   | SET_OF_CLOSURES
   | SEMICOLON
-  | SELECT_CLOSURE
   | RPAREN
   | REC
   | RBRACE
-  | PROJECT_VAR
+  | PRIM_UNTAG_IMM
+  | PRIM_TAG_IMM
+  | PRIM_SELECT_CLOSURE
+  | PRIM_PROJECT_VAR
+  | PRIM_PHYS_NE
+  | PRIM_PHYS_EQ
+  | PRIM_OPAQUE
+  | PRIM_IS_INT
+  | PRIM_GET_TAG
+  | PRIM_BLOCK_LOAD
+  | PRIM_BLOCK
   | PLUSDOT
   | PLUS
   | PIPE
-  | PHYS_NE
-  | PHYS_EQ
-  | OPAQUE
   | NOALLOC
   | NEWER_VERSION_OF
   | NATIVEINT
@@ -37,18 +40,16 @@ type token =
   | MINUSDOT
   | MINUS
   | LPAREN
-  | LIDENT of (string)
   | LET
   | LBRACE
-  | IS_INT
   | INT64
   | INT32
   | INT of (string * char option)
   | IN
   | IMMUTABLE_UNIQUE
   | IMM
+  | IDENT of (string)
   | HCF
-  | GET_TAG
   | FLOAT_KIND
   | FLOAT of (float)
   | FABRICATED
@@ -67,7 +68,6 @@ type token =
   | CODE
   | CLOSURE
   | CCALL
-  | BLOCK_LOAD
   | BLOCK
   | AT
   | APPLY

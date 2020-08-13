@@ -34,7 +34,7 @@ let is_exn ppf = function
   | true -> Format.fprintf ppf "@ exn"
 
 let symbol ppf { txt = s; loc = _ } =
-  Format.fprintf ppf "%s" s
+  Format.fprintf ppf "$%s" s
 
 let variable ppf { txt = s; loc = _ } =
   Format.fprintf ppf "%s" s
@@ -172,7 +172,7 @@ let binop ppf binop a b =
       | Any_value -> ()
       | Immediate -> Format.fprintf ppf "@ imm"
     in
-    Format.fprintf ppf "@[<2>block_load %a%i%a%a@ (%a,@ %a)@]"
+    Format.fprintf ppf "@[<2>%%block_load %a%i%a%a@ (%a,@ %a)@]"
       (mutability ~suffix:"@ " ()) mut
       tag
       pp_size size
@@ -181,8 +181,8 @@ let binop ppf binop a b =
   | Phys_equal (k, comp) ->
     let name =
       match comp with
-      | Eq -> "phys_eq"
-      | Neq -> "phys_neq"
+      | Eq -> "%phys_eq"
+      | Neq -> "%phys_neq"
     in
     Format.fprintf ppf "@[<2>%s%a@]"
       name
@@ -197,21 +197,21 @@ let unop ppf u =
   let str s = Format.pp_print_string ppf s in
   match u with
   | Get_tag ->
-    str "get_tag"
+    str "%get_tag"
   | Is_int ->
-    str "is_int"
+    str "%is_int"
   | Opaque_identity ->
-    str "Opaque"
+    str "%Opaque"
   | Tag_imm ->
-    str "tag_imm"
+    str "%Tag_imm"
   | Untag_imm ->
-    str "untag_imm"
+    str "%untag_imm"
   | Project_var { project_from; var } ->
-    Format.fprintf ppf "@[<2>project_var@ %a.%a@]"
+    Format.fprintf ppf "@[<2>%%project_var@ %a.%a@]"
       closure_id project_from
       var_within_closure var 
   | Select_closure { move_from; move_to } ->
-    Format.fprintf ppf "@[<2>select_closure@ (%a@ -> %a)@]"
+    Format.fprintf ppf "@[<2>%%select_closure@ (%a@ -> %a)@]"
       closure_id move_from
       closure_id move_to
 
@@ -226,16 +226,11 @@ let prim ppf = function
      *   binop b a b
      *   simple a1
      *   simple a2 *)
-  | Variadic (Make_block (tag, Immutable), elts) ->
-    Format.fprintf ppf "Block %i (%a)"
+  | Variadic (Make_block (tag, mut), elts) ->
+    Format.fprintf ppf "%%Block %a%i (%a)"
+      (mutability ~suffix:"@ " ()) mut
       tag
       (pp_comma_list simple) elts
-  | Variadic (Make_block (tag, Immutable_unique), elts) ->
-    Format.fprintf ppf "Block_unique %i (%a)"
-      tag
-      (pp_comma_list simple) elts
-  | Variadic (Make_block (_, Mutable), _) ->
-      failwith "TODO mutable block"
 
 let parameter ppf { param; kind = k } =
   kinded_variable ppf (param, k)
@@ -294,7 +289,7 @@ let named ppf = function
     fun_decl ppf decl
 
 let static_closure_binding ppf (scb : static_closure_binding) =
-  Format.fprintf ppf "symbol %a =@ %a"
+  Format.fprintf ppf "%a =@ %a"
     symbol scb.symbol
     fun_decl scb.fun_decl
 
@@ -436,7 +431,7 @@ and symbol_bindings ppf (bindings, elements) =
 
 and symbol_binding ppf (sb : symbol_binding) =
   match sb with
-  | Block_like ss -> Format.fprintf ppf "symbol %a" static_structure ss
+  | Block_like ss -> static_structure ppf ss
   | Code code -> code_binding ppf code
   | Closure clo -> static_closure_binding ppf clo
   | Set_of_closures soc ->
