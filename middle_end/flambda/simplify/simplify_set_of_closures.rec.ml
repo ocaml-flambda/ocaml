@@ -409,7 +409,10 @@ let simplify_function context ~used_closure_vars ~shareable_constants
     let code =
       code
       |> Code.with_code_id new_code_id
-      |> Code.with_newer_version_of (Some old_code_id)
+      (* CR lmaurer: Setting newer_version_of seems obviously correct here,
+         but it causes errors about deleted code. We should either fix those
+         errors or explain here why we can't set newer_version_of. *)
+      (* |> Code.with_newer_version_of (Some old_code_id) *)
       |> Code.with_params_and_body (Present params_and_body)
     in
     let function_decl = FD.update_code_id function_decl new_code_id in
