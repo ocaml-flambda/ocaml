@@ -82,15 +82,16 @@ let empty = Code_id.Map.empty
 
 let add_code code t =
   let with_calling_convention =
-    Code_id.Map.mapi (fun code_id code ->
+    Code_id.Map.filter_map ~f:(fun _code_id code ->
         match C.params_and_body code with
         | Present params_and_body ->
           let calling_convention =
             Calling_convention.compute ~params_and_body
           in
-          Present { code; calling_convention; }
+          Some (Present { code; calling_convention; })
         | Deleted ->
-          Misc.fatal_errorf "Deleted code %a" Code_id.print code_id)
+          (* CR maurerl for vlaviron: Okay to just ignore deleted code? *)
+          None)
       code
   in
   Code_id.Map.disjoint_union with_calling_convention t
