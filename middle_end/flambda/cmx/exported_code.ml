@@ -90,7 +90,7 @@ let add_code code t =
           in
           Some (Present { code; calling_convention; })
         | Deleted ->
-          (* CR maurerl for vlaviron: Okay to just ignore deleted code? *)
+          (* CR lmaurer for vlaviron: Okay to just ignore deleted code? *)
           None)
       code
   in
