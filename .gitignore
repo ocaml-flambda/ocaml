@@ -92,6 +92,8 @@ _build
 /manual/manual/cmds/warnings-help.etex
 /manual/manual/warnings-help.etex
 
+middle_end/flambda/parser/flambda_parser.ml.in
+middle_end/flambda/parser/flambda_parser.mli.in
 middle_end/flambda/simplify/simplify.ml
 middle_end/flambda/terms/flambda.ml
 middle_end/flambda/types/flambda_type.ml

@@ -2,55 +2,76 @@
 (* The type of tokens. *)
 
 type token = 
+  | WITH
+  | WHERE
+  | VAL
   | UNREACHABLE
-  | UNDERSCORE
-  | UIDENT of (string)
-  | TAG
+  | UNIT
+  | TUPLED
+  | SYMBOL of (string)
   | SWITCH
   | STUB
   | STAR
+  | SIZE
+  | SET_OF_CLOSURES
   | SEMICOLON
   | RPAREN
-  | ROOT
   | REC
-  | RBRACKET
   | RBRACE
+  | PRIM_UNTAG_IMM
+  | PRIM_TAG_IMM
+  | PRIM_SELECT_CLOSURE
+  | PRIM_PROJECT_VAR
+  | PRIM_PHYS_NE
+  | PRIM_PHYS_EQ
+  | PRIM_OPAQUE
+  | PRIM_IS_INT
+  | PRIM_GET_TAG
+  | PRIM_BLOCK_LOAD
+  | PRIM_BLOCK
   | PLUSDOT
   | PLUS
-  | OPAQUE
-  | MUT
+  | PIPE
+  | NOALLOC
+  | NEWER_VERSION_OF
+  | NATIVEINT
+  | MUTABLE
   | MINUSGREATER
   | MINUSDOT
   | MINUS
   | LPAREN
-  | LIDENT of (string)
-  | LETK
   | LET
-  | LBRACKET
   | LBRACE
-  | IS_INT
+  | INT64
+  | INT32
   | INT of (string * char option)
   | IN
+  | IMMUTABLE_UNIQUE
+  | IMM
+  | IDENT of (string)
   | HCF
-  | GET_FIELD
-  | FLOAT of (string * char option)
+  | FLOAT_KIND
+  | FLOAT of (float)
+  | FABRICATED
   | EXN
+  | ERROR
   | EQUAL
   | EOF
-  | EFFECT
+  | END
   | DOT
-  | DEF
+  | DONE
+  | DIRECT
+  | DELETED
   | CONT
   | COMMA
-  | COLONEQUAL
   | COLON
   | CODE
   | CLOSURE
   | CCALL
   | BLOCK
-  | BANG
-  | AROBASE
+  | AT
   | APPLY
+  | ANDWHERE
   | AND
 
 (* This exception is raised by the monolithic API functions. *)
@@ -59,4 +80,21 @@ exception Error
 
 (* The monolithic API. *)
 
-val program: (Lexing.lexbuf -> token) -> Lexing.lexbuf -> (Fexpr.program)
+val flambda_unit: (Lexing.lexbuf -> token) -> Lexing.lexbuf -> (Fexpr.flambda_unit)
+
+module MenhirInterpreter : sig
+  
+  (* The incremental API. *)
+  
+  include CamlinternalMenhirLib.IncrementalEngine.INCREMENTAL_ENGINE
+    with type token = token
+  
+end
+
+(* The entry point(s) to the incremental API. *)
+
+module Incremental : sig
+  
+  val flambda_unit: Lexing.position -> (Fexpr.flambda_unit) MenhirInterpreter.checkpoint
+  
+end

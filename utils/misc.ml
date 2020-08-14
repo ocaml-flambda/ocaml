@@ -383,6 +383,11 @@ module Stdlib = struct
         let l' = map_sharing f l in
         if a' == a && l' == l then l0 else a' :: l'
       | [] -> []
+
+    let map_accum_left f env l =
+      let next (acc, env) x = let (y, env) = f env x in (y :: acc, env) in
+      let (acc, env) = List.fold_left next ([], env) l in
+      (List.rev acc, env)
   end
 
   module Option = struct

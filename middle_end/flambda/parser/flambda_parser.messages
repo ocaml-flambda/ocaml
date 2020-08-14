@@ -1,0 +1,1737 @@
+flambda_unit: LIDENT APPLY UIDENT LPAREN RPAREN WITH
+##
+## Ends in an error in state: 174.
+##
+## expr -> APPLY name simple_args . MINUSGREATER continuation exn_continuation [ WITH RBRACE IN EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## APPLY name simple_args
+##
+
+Expected -> followed by a continuation.
+Example of an application:
+  apply f (arg1 arg2) -> cont * exn_cont
+
+flambda_unit: LIDENT APPLY UIDENT MINUSGREATER LIDENT WITH
+##
+## Ends in an error in state: 176.
+##
+## expr -> APPLY name simple_args MINUSGREATER continuation . exn_continuation [ WITH RBRACE IN EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## APPLY name simple_args MINUSGREATER continuation
+##
+
+Expected * followed by an exception continuation.
+Example of an application: 
+  apply f (arg1 arg2) -> cont * exn_cont
+
+flambda_unit: LIDENT APPLY UIDENT MINUSGREATER WITH
+##
+## Ends in an error in state: 175.
+##
+## expr -> APPLY name simple_args MINUSGREATER . continuation exn_continuation [ WITH RBRACE IN EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## APPLY name simple_args MINUSGREATER
+##
+
+Expected a continuation.
+Example of an application:
+  apply f (arg1 arg2) -> cont * exn_cont
+
+flambda_unit: LIDENT APPLY UIDENT WITH
+##
+## Ends in an error in state: 173.
+##
+## expr -> APPLY name . simple_args MINUSGREATER continuation exn_continuation [ WITH RBRACE IN EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## APPLY name
+##
+
+Expected an argument list in parentheses, or -> followed by a continuation.
+Examples of applications:
+  apply f -> cont * exn_cont
+  apply f () -> cont * exn_cont
+  apply f (arg1 arg2) -> cont * exn_cont
+
+flambda_unit: LIDENT APPLY WITH
+##
+## Ends in an error in state: 170.
+##
+## expr -> APPLY . name simple_args MINUSGREATER continuation exn_continuation [ WITH RBRACE IN EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## APPLY
+##
+
+Expected the name of a function to apply.
+Example of an application:
+  apply f (arg1 arg2) -> cont * exn_cont
+
+flambda_unit: LIDENT BLOCK INT LPAREN WITH
+##
+## Ends in an error in state: 167.
+##
+## named -> BLOCK tag LPAREN . list(simple) RPAREN [ WITH SEMICOLON IN AND ]
+##
+## The known suffix of the stack is as follows:
+## BLOCK tag LPAREN
+##
+
+Expected value(s) for block.
+Example of a block:
+  Block 0 (field1 field2) 
+
+flambda_unit: LIDENT BLOCK INT WITH
+##
+## Ends in an error in state: 166.
+##
+## named -> BLOCK tag . LPAREN list(simple) RPAREN [ WITH SEMICOLON IN AND ]
+##
+## The known suffix of the stack is as follows:
+## BLOCK tag
+##
+
+Expected value(s) for block, in parentheses.
+Example of a block:
+  Block 0 (field1 field2) 
+
+flambda_unit: LIDENT BLOCK WITH
+##
+## Ends in an error in state: 165.
+##
+## named -> BLOCK . tag LPAREN list(simple) RPAREN [ WITH SEMICOLON IN AND ]
+##
+## The known suffix of the stack is as follows:
+## BLOCK
+##
+
+Expected block tag.
+Example of a block:
+  Block 0 (field1 field2) 
+
+flambda_unit: LIDENT CCALL LBRACKET LIDENT RBRACKET COLON FABRICATED EQUAL
+##
+## Ends in an error in state: 161.
+##
+## expr -> CCALL LBRACKET csymbol RBRACKET simple_args return_arity . MINUSGREATER continuation exn_continuation [ WITH RBRACE IN EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## CCALL LBRACKET csymbol RBRACKET simple_args return_arity
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 141, spurious reduction of production separated_nonempty_list(STAR,kind) -> kind 
+## In state 139, spurious reduction of production kinds -> separated_nonempty_list(STAR,kind) 
+## In state 140, spurious reduction of production return_arity -> COLON kinds 
+##
+
+Expected -> followed by a continuation.
+Example of a C call:
+  ccall [f] : val -> cont * exn_cont
+
+flambda_unit: LIDENT CCALL LBRACKET LIDENT RBRACKET COLON LPAREN WITH
+##
+## Ends in an error in state: 137.
+##
+## kinds -> LPAREN . RPAREN [ MINUSGREATER EQUAL ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN
+##
+
+Expected ).
+Examples of arities:
+    ()
+    val
+    int32, val, imm
+
+flambda_unit: LIDENT CCALL LBRACKET LIDENT RBRACKET COLON VAL STAR WITH
+##
+## Ends in an error in state: 142.
+##
+## separated_nonempty_list(STAR,kind) -> kind STAR . separated_nonempty_list(STAR,kind) [ MINUSGREATER EQUAL ]
+##
+## The known suffix of the stack is as follows:
+## kind STAR
+##
+
+Expected a kind.
+
+flambda_unit: LIDENT CCALL LBRACKET LIDENT RBRACKET COLON VAL WITH
+##
+## Ends in an error in state: 141.
+##
+## separated_nonempty_list(STAR,kind) -> kind . [ MINUSGREATER EQUAL ]
+## separated_nonempty_list(STAR,kind) -> kind . STAR separated_nonempty_list(STAR,kind) [ MINUSGREATER EQUAL ]
+##
+## The known suffix of the stack is as follows:
+## kind
+##
+
+Expected one of the following: * -> =
+Examples of arities:
+  ()
+  val
+  int32, val, imm
+
+flambda_unit: LIDENT CCALL LBRACKET LIDENT RBRACKET COLON WITH
+##
+## Ends in an error in state: 136.
+##
+## return_arity -> COLON . kinds [ MINUSGREATER EQUAL ]
+##
+## The known suffix of the stack is as follows:
+## COLON
+##
+
+Expected an arity.
+Examples of arities:
+  ()
+  val
+  int32, val, imm
+
+flambda_unit: LIDENT CCALL LBRACKET LIDENT RBRACKET LPAREN RPAREN CODE
+##
+## Ends in an error in state: 160.
+##
+## expr -> CCALL LBRACKET csymbol RBRACKET simple_args . return_arity MINUSGREATER continuation exn_continuation [ WITH RBRACE IN EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## CCALL LBRACKET csymbol RBRACKET simple_args
+##
+
+Expected : followed by an arity, or -> followed by a continuation.
+Examples of C calls:
+  ccall [f] -> cont * exn_cont
+  ccall [f] () -> cont * exn_cont
+  ccall [f] (arg1 arg2) : , -> cont * exn_cont
+
+flambda_unit: LIDENT CCALL LBRACKET LIDENT RBRACKET MINUSGREATER LIDENT WITH
+##
+## Ends in an error in state: 163.
+##
+## expr -> CCALL LBRACKET csymbol RBRACKET simple_args return_arity MINUSGREATER continuation . exn_continuation [ WITH RBRACE IN EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## CCALL LBRACKET csymbol RBRACKET simple_args return_arity MINUSGREATER continuation
+##
+
+Expected * followed by an exception continuation.
+Example of a C call:
+  ccall [f] -> cont * exn_cont
+
+flambda_unit: LIDENT CCALL LBRACKET LIDENT RBRACKET MINUSGREATER WITH
+##
+## Ends in an error in state: 162.
+##
+## expr -> CCALL LBRACKET csymbol RBRACKET simple_args return_arity MINUSGREATER . continuation exn_continuation [ WITH RBRACE IN EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## CCALL LBRACKET csymbol RBRACKET simple_args return_arity MINUSGREATER
+##
+
+Expected a continuation.
+Example of a C call:
+  ccall [f] -> cont * exn_cont
+
+
+flambda_unit: LIDENT CCALL LBRACKET LIDENT RBRACKET WITH
+##
+## Ends in an error in state: 159.
+##
+## expr -> CCALL LBRACKET csymbol RBRACKET . simple_args return_arity MINUSGREATER continuation exn_continuation [ WITH RBRACE IN EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## CCALL LBRACKET csymbol RBRACKET
+##
+
+Expecting an argument list, a return arity, or a continuation specification.
+Examples of C calls:
+  ccall [f] -> cont * exn_cont
+  ccall [f] (arg1 arg2) : , -> cont * exn_cont
+
+flambda_unit: LIDENT CCALL LBRACKET LIDENT WITH
+##
+## Ends in an error in state: 158.
+##
+## expr -> CCALL LBRACKET csymbol . RBRACKET simple_args return_arity MINUSGREATER continuation exn_continuation [ WITH RBRACE IN EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## CCALL LBRACKET csymbol
+##
+
+Expecting ].
+Example of a C call:
+  ccall [f] -> cont * exn_cont
+
+flambda_unit: LIDENT CCALL LBRACKET WITH
+##
+## Ends in an error in state: 156.
+##
+## expr -> CCALL LBRACKET . csymbol RBRACKET simple_args return_arity MINUSGREATER continuation exn_continuation [ WITH RBRACE IN EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## CCALL LBRACKET
+##
+
+Expecting an identifier for a C function.
+Example of a C call:
+  ccall [f] -> cont * exn_cont
+
+flambda_unit: LIDENT CCALL WITH
+##
+## Ends in an error in state: 155.
+##
+## expr -> CCALL . LBRACKET csymbol RBRACKET simple_args return_arity MINUSGREATER continuation exn_continuation [ WITH RBRACE IN EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## CCALL
+##
+
+Expected a C identifier in [].
+Example of a C call:
+  ccall [f] -> cont * exn_cont
+
+flambda_unit: LIDENT CLOSURE WITH
+##
+## Ends in an error in state: 79.
+##
+## closure -> CLOSURE . code_id [ WITH SEMICOLON IN AND ]
+##
+## The known suffix of the stack is as follows:
+## CLOSURE
+##
+
+Expected a code id.
+Example of a closure:
+  closure f
+
+flambda_unit: LIDENT CONT LIDENT LPAREN UIDENT WITH
+##
+## Ends in an error in state: 150.
+##
+## list(simple) -> simple . list(simple) [ RPAREN ]
+##
+## The known suffix of the stack is as follows:
+## simple
+##
+
+Expected a simple value (a symbol, variable, or literal).
+
+flambda_unit: LIDENT CONT LIDENT LPAREN WITH
+##
+## Ends in an error in state: 149.
+##
+## simple_args -> LPAREN . list(simple) RPAREN [ WITH RBRACE MINUSGREATER IN EOF COLON AND ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN
+##
+
+Expected a simple value (a symbol, variable, or literal) as an argument to
+a continuation.
+Examples of continuation calls:
+  cont k
+  cont k ()
+  cont k (arg1 arg2)
+
+flambda_unit: LIDENT CONT LIDENT VAL
+##
+## Ends in an error in state: 148.
+##
+## expr -> CONT continuation . simple_args [ WITH RBRACE IN EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## CONT continuation
+##
+
+Expected an argument list in parentheses, or end of file, or one of: with } in 
+Examples of continuation calls:
+  cont k
+  cont k ()
+  cont k (arg1 arg2)
+
+flambda_unit: LIDENT CONT WITH
+##
+## Ends in an error in state: 147.
+##
+## expr -> CONT . continuation simple_args [ WITH RBRACE IN EOF AND ]
+##
+## The known suffix of the stack is as follows:
+## CONT
+##
+
+Expected a continuation to call.
+Example of a continuation call:
+  cont k
+
+flambda_unit: LIDENT LET CODE LIDENT AT LIDENT WITH
+##
+## Ends in an error in state: 115.
+##
+## code_binding -> CODE recursive code_id option(__anonymous_0) . option(__anonymous_1) kinded_args variable kinded_vars_within_closures MINUSGREATER continuation option(exn_continuation) return_arity EQUAL expr [ WITH IN AND ]
+##
+## The known suffix of the stack is as follows:
+## CODE recursive code_id option(__anonymous_0)
+##
+
+Expected a new_version_of declaration, an argument list, or a closure argument.
+Examples of code definitions:
+  code f2 @closure_id newer_version_of f1 arg1 arg2 my_closure <var1 var2>
+    -> k * e : val * val = cont k (arg1 arg2)
+  code f2 my_closure -> k * e = cont k (arg1)
+
+flambda_unit: LIDENT LET CODE LIDENT AT WITH
+##
+## Ends in an error in state: 112.
+##
+## option(__anonymous_0) -> AT . closure_id [ NEWER_VERSION_OF LPAREN LIDENT ]
+##
+## The known suffix of the stack is as follows:
+## AT
+##
+
+Expected a closure id.
+Example of a code definition specifying a closure id:
+  code f @closure_id my_closure -> k * e = cont k arg1
+
+flambda_unit: LIDENT LET CODE LIDENT LIDENT LANGLE LIDENT WITH
+##
+## Ends in an error in state: 130.
+##
+## list(kinded_var_within_closure) -> kinded_var_within_closure . list(kinded_var_within_closure) [ RANGLE ]
+##
+## The known suffix of the stack is as follows:
+## kinded_var_within_closure
+##
+
+Expected a declaration of a variable within a closure or > to end the list.
+Examples of lists of declarations of variables within a closure:
+  <>
+  <var1 (var2 : val)>
+
+flambda_unit: LIDENT LET CODE LIDENT LIDENT LANGLE LPAREN LIDENT COLON VAL WITH
+##
+## Ends in an error in state: 125.
+##
+## kinded_var_within_closure -> LPAREN var_within_closure COLON kind . RPAREN [ RANGLE LPAREN LIDENT ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN var_within_closure COLON kind
+##
+
+Expected ).
+Examples of declarations of variables within closures:
+  x
+  (y : val)
+
+flambda_unit: LIDENT LET CODE LIDENT LIDENT LANGLE LPAREN LIDENT COLON WITH
+##
+## Ends in an error in state: 124.
+##
+## kinded_var_within_closure -> LPAREN var_within_closure COLON . kind RPAREN [ RANGLE LPAREN LIDENT ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN var_within_closure COLON
+##
+
+Expected a kind.
+Examples of declarations of variables within closures:
+  x
+  (y : val)
+
+flambda_unit: LIDENT LET CODE LIDENT LIDENT LANGLE LPAREN LIDENT WITH
+##
+## Ends in an error in state: 123.
+##
+## kinded_var_within_closure -> LPAREN var_within_closure . COLON kind RPAREN [ RANGLE LPAREN LIDENT ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN var_within_closure
+##
+
+Expected : followed by a kind.
+Examples of declarations of variables within closures:
+  x
+  (y : val)
+
+flambda_unit: LIDENT LET CODE LIDENT LIDENT LANGLE LPAREN WITH
+##
+## Ends in an error in state: 122.
+##
+## kinded_var_within_closure -> LPAREN . var_within_closure COLON kind RPAREN [ RANGLE LPAREN LIDENT ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN
+##
+
+Expected an identifier for a variable within a closure.
+Examples of declarations of variables within closures:
+  x
+  (y : val)
+
+flambda_unit: LIDENT LET CODE LIDENT LIDENT LANGLE RANGLE WITH
+##
+## Ends in an error in state: 132.
+##
+## code_binding -> CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable kinded_vars_within_closures . MINUSGREATER continuation option(exn_continuation) return_arity EQUAL expr [ WITH IN AND ]
+##
+## The known suffix of the stack is as follows:
+## CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable kinded_vars_within_closures
+##
+
+Expected -> followed by a name for a continuation.
+Example of a code definition:
+  code f my_closure -> k * e = cont k arg1
+
+flambda_unit: LIDENT LET CODE LIDENT LIDENT LANGLE WITH
+##
+## Ends in an error in state: 121.
+##
+## kinded_vars_within_closures -> LANGLE . list(kinded_var_within_closure) RANGLE [ MINUSGREATER ]
+##
+## The known suffix of the stack is as follows:
+## LANGLE
+##
+
+Expected a declaration of a variable within a closure, or >.
+Examples of lists of variables within a closure:
+  <>
+  <var1 (var2 : val)>
+
+flambda_unit: LIDENT LET CODE LIDENT LIDENT MINUSGREATER LIDENT COLON VAL MINUSGREATER
+##
+## Ends in an error in state: 144.
+##
+## code_binding -> CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable kinded_vars_within_closures MINUSGREATER continuation option(exn_continuation) return_arity . EQUAL expr [ WITH IN AND ]
+##
+## The known suffix of the stack is as follows:
+## CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable kinded_vars_within_closures MINUSGREATER continuation option(exn_continuation) return_arity
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 141, spurious reduction of production separated_nonempty_list(STAR,kind) -> kind 
+## In state 139, spurious reduction of production kinds -> separated_nonempty_list(STAR,kind) 
+## In state 140, spurious reduction of production return_arity -> COLON kinds 
+##
+
+Expected = followed by an expression.
+Example of a code definition:
+  code f my_closure -> k : val = cont k (42)
+
+flambda_unit: LIDENT LET CODE LIDENT LIDENT MINUSGREATER LIDENT EQUAL WITH
+##
+## Ends in an error in state: 145.
+##
+## code_binding -> CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable kinded_vars_within_closures MINUSGREATER continuation option(exn_continuation) return_arity EQUAL . expr [ WITH IN AND ]
+##
+## The known suffix of the stack is as follows:
+## CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable kinded_vars_within_closures MINUSGREATER continuation option(exn_continuation) return_arity EQUAL
+##
+
+Expected an expression.
+Example of a code definition:
+  code f my_closure -> k = cont k (42)
+
+flambda_unit: LIDENT LET CODE LIDENT LIDENT MINUSGREATER LIDENT STAR LIDENT CODE
+##
+## Ends in an error in state: 135.
+##
+## code_binding -> CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable kinded_vars_within_closures MINUSGREATER continuation option(exn_continuation) . return_arity EQUAL expr [ WITH IN AND ]
+##
+## The known suffix of the stack is as follows:
+## CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable kinded_vars_within_closures MINUSGREATER continuation option(exn_continuation)
+##
+
+Expected : followed by a return arity, or = followed by an expression.
+Examples of code definitions:
+  code f my_closure -> k * e = cont k (42)
+  code f my_closure -> k * e : () = cont k ()
+  code f my_closure -> k * e : val * val = cont k (23 42)
+
+flambda_unit: LIDENT LET CODE LIDENT LIDENT MINUSGREATER LIDENT WITH
+##
+## Ends in an error in state: 134.
+##
+## code_binding -> CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable kinded_vars_within_closures MINUSGREATER continuation . option(exn_continuation) return_arity EQUAL expr [ WITH IN AND ]
+##
+## The known suffix of the stack is as follows:
+## CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable kinded_vars_within_closures MINUSGREATER continuation
+##
+
+Expected * followed by a name for an exception continuation, or : followed by a
+return arity, or = followed by an expression. 
+Examples of code definitions:
+  code f my_closure -> k * e : () = cont k ()
+  code f my_closure -> k : val * val = cont k (23 42)
+  code f my_closure -> k = cont k (42)
+
+flambda_unit: LIDENT LET CODE LIDENT LIDENT MINUSGREATER WITH
+##
+## Ends in an error in state: 133.
+##
+## code_binding -> CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable kinded_vars_within_closures MINUSGREATER . continuation option(exn_continuation) return_arity EQUAL expr [ WITH IN AND ]
+##
+## The known suffix of the stack is as follows:
+## CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable kinded_vars_within_closures MINUSGREATER
+##
+
+Expected a name for a return continuation.
+Example of a code definition:
+  code f my_closure -> k : () = cont k ()
+
+flambda_unit: LIDENT LET CODE LIDENT LIDENT WITH
+##
+## Ends in an error in state: 120.
+##
+## code_binding -> CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable . kinded_vars_within_closures MINUSGREATER continuation option(exn_continuation) return_arity EQUAL expr [ WITH IN AND ]
+##
+## The known suffix of the stack is as follows:
+## CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable
+##
+
+Expected < followed by variables within a closure, or -> followed by a
+continuation.
+Examples of code definitions:
+  code f (arg) my_closure -> k : val = cont k (arg)
+  code f (arg1 (arg2 : imm)) my_closure -> k : val * imm = cont k (arg1 arg2)
+  code f my_closure <var1, (var2 : imm)> -> k : () = cont k ()
+
+
+flambda_unit: LIDENT LET CODE LIDENT LPAREN RPAREN LETK
+##
+## Ends in an error in state: 119.
+##
+## code_binding -> CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args . variable kinded_vars_within_closures MINUSGREATER continuation option(exn_continuation) return_arity EQUAL expr [ WITH IN AND ]
+##
+## The known suffix of the stack is as follows:
+## CODE recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args
+##
+
+Expected an identifier for a closure argument.
+Example of a code definition:
+  code f my_closure -> k : () = cont k ()
+
+flambda_unit: LIDENT LET CODE LIDENT NEWER_VERSION_OF LIDENT LETK
+##
+## Ends in an error in state: 118.
+##
+## code_binding -> CODE recursive code_id option(__anonymous_0) option(__anonymous_1) . kinded_args variable kinded_vars_within_closures MINUSGREATER continuation option(exn_continuation) return_arity EQUAL expr [ WITH IN AND ]
+##
+## The known suffix of the stack is as follows:
+## CODE recursive code_id option(__anonymous_0) option(__anonymous_1)
+##
+
+Expected an argument list in parentheses or an identifier for a closure argument.
+Examples of code definitions:
+  code f2 newer_version_of f1 (arg1 arg2) my_closure -> k = cont k arg1
+  code f2 newer_version_of f1 my_closure -> k : () = cont k ()
+
+flambda_unit: LIDENT LET CODE LIDENT NEWER_VERSION_OF WITH
+##
+## Ends in an error in state: 116.
+##
+## option(__anonymous_1) -> NEWER_VERSION_OF . code_id [ LPAREN LIDENT ]
+##
+## The known suffix of the stack is as follows:
+## NEWER_VERSION_OF
+##
+
+Expected a code id as an argument to newer_version_of.
+Example:
+  newer_version_of f0
+
+flambda_unit: LIDENT LET CODE LIDENT WITH
+##
+## Ends in an error in state: 111.
+##
+## code_binding -> CODE recursive code_id . option(__anonymous_0) option(__anonymous_1) kinded_args variable kinded_vars_within_closures MINUSGREATER continuation option(exn_continuation) return_arity EQUAL expr [ WITH IN AND ]
+##
+## The known suffix of the stack is as follows:
+## CODE recursive code_id
+##
+
+Expected a closure id declaration or a newer_version_of declaration or an
+argument list or an identifier for a closure argument.
+Example of a closure id declaration:
+  @ closure_id
+Example of a newer_version_of declaration:
+  newer_version_of code_id
+Examples of argument lists:
+  ()
+  (var1 (var2: imm))
+
+flambda_unit: LIDENT LET CODE REC LETK
+##
+## Ends in an error in state: 110.
+##
+## code_binding -> CODE recursive . code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable kinded_vars_within_closures MINUSGREATER continuation option(exn_continuation) return_arity EQUAL expr [ WITH IN AND ]
+##
+## The known suffix of the stack is as follows:
+## CODE recursive
+##
+
+Expected a code id.
+
+flambda_unit: LIDENT LET CODE WITH
+##
+## Ends in an error in state: 109.
+##
+## code_binding -> CODE . recursive code_id option(__anonymous_0) option(__anonymous_1) kinded_args variable kinded_vars_within_closures MINUSGREATER continuation option(exn_continuation) return_arity EQUAL expr [ WITH IN AND ]
+##
+## The known suffix of the stack is as follows:
+## CODE
+##
+
+Expected rec or a code id.
+Examples of code definitions:
+  code f my_closure -> k : () = cont k ()
+  code rec f my_closure -> k : () = cont k ()
+
+flambda_unit: LIDENT LET LPAREN UNDERSCORE COLON VAL WITH
+##
+## Ends in an error in state: 212.
+##
+## kinded_variable_opt -> LPAREN variable_opt COLON kind . RPAREN [ EQUAL ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN variable_opt COLON kind
+##
+
+Expected ).
+
+flambda_unit: LIDENT LET LPAREN UNDERSCORE COLON WITH
+##
+## Ends in an error in state: 211.
+##
+## kinded_variable_opt -> LPAREN variable_opt COLON . kind RPAREN [ EQUAL ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN variable_opt COLON
+##
+
+Expected a kind.
+Examples of kinds:
+  val
+  imm
+
+flambda_unit: LIDENT LET LPAREN UNDERSCORE WITH
+##
+## Ends in an error in state: 210.
+##
+## kinded_variable_opt -> LPAREN variable_opt . COLON kind RPAREN [ EQUAL ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN variable_opt
+##
+
+Expected : and a kind.
+Examples of kinded variable/argument declarations:
+  arg1
+  (arg2 : val)
+
+flambda_unit: LIDENT LET LPAREN WITH
+##
+## Ends in an error in state: 208.
+##
+## kinded_variable_opt -> LPAREN . variable_opt COLON kind RPAREN [ EQUAL ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN
+##
+
+Expected an identifier.
+Examples of kinded variable/argument declarations:
+  arg1
+  (arg2 : val)
+
+flambda_unit: LIDENT LET SEGMENT SYMBOL UIDENT EQUAL CLOSURE LIDENT END AND WITH
+##
+## Ends in an error in state: 226.
+##
+## separated_nonempty_list(AND,segment) -> segment AND . separated_nonempty_list(AND,segment) [ IN ]
+##
+## The known suffix of the stack is as follows:
+## segment AND
+##
+
+Expected "segment".
+
+flambda_unit: LIDENT LET SEGMENT SYMBOL UIDENT EQUAL CLOSURE LIDENT END WITH
+##
+## Ends in an error in state: 225.
+##
+## separated_nonempty_list(AND,segment) -> segment . [ IN ]
+## separated_nonempty_list(AND,segment) -> segment . AND separated_nonempty_list(AND,segment) [ IN ]
+##
+## The known suffix of the stack is as follows:
+## segment
+##
+
+Expected "and" or "in".
+
+flambda_unit: LIDENT LET SEGMENT SYMBOL UIDENT EQUAL CLOSURE LIDENT IN
+##
+## Ends in an error in state: 202.
+##
+## segment -> SEGMENT segment_body . END [ IN AND ]
+##
+## The known suffix of the stack is as follows:
+## SEGMENT segment_body
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 204, spurious reduction of production separated_nonempty_list(AND,code_or_closure_binding) -> code_or_closure_binding 
+## In state 189, spurious reduction of production with_closure_elements_opt -> 
+## In state 201, spurious reduction of production segment_body -> separated_nonempty_list(AND,code_or_closure_binding) with_closure_elements_opt 
+##
+
+Expected "and", "with", or "in".
+Example of a let code expression with explicit segments:
+  let segment
+    code ident (arg) my_closure -> k = cont k arg
+    and symbol ident_clo = closure ident
+  end and segment
+    code forty_two (arg1) my_closure <var1> -> k : val =
+      let ans = project_var var1 my_closure in cont k (ans)
+    and symbol g_clo = closure g
+    with { var1 = 42 }
+  end in ...
+
+flambda_unit: LIDENT LET SEGMENT SYMBOL UIDENT EQUAL WITH
+##
+## Ends in an error in state: 97.
+##
+## static_closure_binding -> SYMBOL symbol EQUAL . closure [ WITH IN END AND ]
+##
+## The known suffix of the stack is as follows:
+## SYMBOL symbol EQUAL
+##
+
+Expected a closure expression.
+Example of a closure expression:
+  closure code_id
+
+flambda_unit: LIDENT LET SEGMENT SYMBOL UIDENT WITH
+##
+## Ends in an error in state: 96.
+##
+## static_closure_binding -> SYMBOL symbol . EQUAL closure [ WITH IN END AND ]
+##
+## The known suffix of the stack is as follows:
+## SYMBOL symbol
+##
+
+Expected = followed by a closure expression.
+Example of a let symbol expression:
+  let symbol F_clo = closure f in ...
+
+flambda_unit: LIDENT LET SEGMENT SYMBOL WITH
+##
+## Ends in an error in state: 95.
+##
+## static_closure_binding -> SYMBOL . symbol EQUAL closure [ WITH IN END AND ]
+##
+## The known suffix of the stack is as follows:
+## SYMBOL
+##
+
+Expected a symbol identifier.
+
+flambda_unit: LIDENT LET SEGMENT WITH
+##
+## Ends in an error in state: 94.
+##
+## segment -> SEGMENT . segment_body END [ IN AND ]
+##
+## The known suffix of the stack is as follows:
+## SEGMENT
+##
+
+Expected "code", "symbol", "with", or "end".
+Example of a let code expression with explicit segments:
+  let segment
+    code ident (arg) my_closure -> k = cont k arg
+    and symbol Ident = closure ident
+  end and segment
+    code forty_two (arg1) my_closure <var1> -> k : val =
+      let ans = project_var var1 my_closure in cont k (ans)
+    and symbol Forty_two = closure forty_two
+    with { var1 = 42 }
+  end in ...
+
+flambda_unit: LIDENT LET SYMBOL UIDENT EQUAL BLOCK INT LPAREN UIDENT WITH
+##
+## Ends in an error in state: 88.
+##
+## list(of_kind_value) -> of_kind_value . list(of_kind_value) [ RPAREN ]
+##
+## The known suffix of the stack is as follows:
+## of_kind_value
+##
+flambda_unit: LIDENT LET SYMBOL UIDENT EQUAL BLOCK INT LPAREN WITH
+##
+## Ends in an error in state: 84.
+##
+## static_structure -> symbol EQUAL BLOCK tag LPAREN . list(of_kind_value) RPAREN [ IN ]
+##
+## The known suffix of the stack is as follows:
+## symbol EQUAL BLOCK tag LPAREN
+##
+
+Expected a simple value (variable, symbol, or literal).
+
+flambda_unit: LIDENT LET SYMBOL UIDENT EQUAL BLOCK INT WITH
+##
+## Ends in an error in state: 83.
+##
+## static_structure -> symbol EQUAL BLOCK tag . LPAREN list(of_kind_value) RPAREN [ IN ]
+##
+## The known suffix of the stack is as follows:
+## symbol EQUAL BLOCK tag
+##
+
+Expected a list of simple values, in parentheses.
+Example:
+  (var1 Symbol2 42)
+
+flambda_unit: LIDENT LET SYMBOL UIDENT EQUAL BLOCK WITH
+##
+## Ends in an error in state: 82.
+##
+## static_structure -> symbol EQUAL BLOCK . tag LPAREN list(of_kind_value) RPAREN [ IN ]
+##
+## The known suffix of the stack is as follows:
+## symbol EQUAL BLOCK
+##
+
+Expected a tag.
+Example of a block expression:
+  Block 2 (var1 Symbol2 42)
+
+flambda_unit: LIDENT LET SYMBOL UIDENT EQUAL CLOSURE LIDENT AND WITH
+##
+## Ends in an error in state: 205.
+##
+## separated_nonempty_list(AND,code_or_closure_binding) -> code_or_closure_binding AND . separated_nonempty_list(AND,code_or_closure_binding) [ WITH IN END ]
+##
+## The known suffix of the stack is as follows:
+## code_or_closure_binding AND
+##
+
+Expected "code" or "symbol".
+
+flambda_unit: LIDENT LET SYMBOL UIDENT EQUAL CLOSURE LIDENT END
+##
+## Ends in an error in state: 215.
+##
+## let_symbol -> LET symbol_bindings . IN expr [ WITH RBRACE IN EOF END AND ]
+##
+## The known suffix of the stack is as follows:
+## LET symbol_bindings
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 204, spurious reduction of production separated_nonempty_list(AND,code_or_closure_binding) -> code_or_closure_binding 
+## In state 189, spurious reduction of production with_closure_elements_opt -> 
+## In state 201, spurious reduction of production segment_body -> separated_nonempty_list(AND,code_or_closure_binding) with_closure_elements_opt 
+## In state 224, spurious reduction of production segments -> segment_body 
+## In state 223, spurious reduction of production symbol_bindings -> segments 
+##
+
+Expected "and", "with", or "in".
+
+flambda_unit: LIDENT LET SYMBOL UIDENT EQUAL CLOSURE LIDENT IN WITH
+##
+## Ends in an error in state: 216.
+##
+## let_symbol -> LET symbol_bindings IN . expr [ WITH RBRACE IN EOF END AND ]
+##
+## The known suffix of the stack is as follows:
+## LET symbol_bindings IN
+##
+
+Expected an expression.
+
+flambda_unit: LIDENT LET SYMBOL UIDENT EQUAL CLOSURE LIDENT VAL
+##
+## Ends in an error in state: 204.
+##
+## separated_nonempty_list(AND,code_or_closure_binding) -> code_or_closure_binding . [ WITH IN END ]
+## separated_nonempty_list(AND,code_or_closure_binding) -> code_or_closure_binding . AND separated_nonempty_list(AND,code_or_closure_binding) [ WITH IN END ]
+##
+## The known suffix of the stack is as follows:
+## code_or_closure_binding
+##
+
+Expected "with", "in", "end", or "and".
+
+flambda_unit: LIDENT LET SYMBOL UIDENT EQUAL WITH
+##
+## Ends in an error in state: 78.
+##
+## static_closure_binding -> SYMBOL symbol EQUAL . closure [ WITH IN AND ]
+## static_structure -> symbol EQUAL . BLOCK tag LPAREN list(of_kind_value) RPAREN [ IN ]
+##
+## The known suffix of the stack is as follows:
+## SYMBOL symbol EQUAL
+##
+
+Expected a closure expression or a block expression.
+Example of a closure expression:
+  closure code_id
+Example of a block expression:
+  Block 2 (var1 Symbol2 42)
+
+flambda_unit: LIDENT LET SYMBOL UIDENT WITH
+##
+## Ends in an error in state: 77.
+##
+## static_closure_binding -> SYMBOL symbol . EQUAL closure [ WITH IN AND ]
+## static_structure -> symbol . EQUAL BLOCK tag LPAREN list(of_kind_value) RPAREN [ IN ]
+##
+## The known suffix of the stack is as follows:
+## SYMBOL symbol
+##
+
+Expected = followed by a closure expression or a block expression.
+Example of a closure expression:
+  closure code_id
+Example of a block expression:
+  Block 2 (var1 Symbol2 42)
+
+flambda_unit: LIDENT LET SYMBOL WITH
+##
+## Ends in an error in state: 76.
+##
+## static_closure_binding -> SYMBOL . symbol EQUAL closure [ WITH IN AND ]
+## symbol_bindings -> SYMBOL . static_structure [ IN ]
+##
+## The known suffix of the stack is as follows:
+## SYMBOL
+##
+
+Expected a symbol.
+
+flambda_unit: LIDENT LET UNDERSCORE EQUAL FLOAT AND WITH
+##
+## Ends in an error in state: 229.
+##
+## separated_nonempty_list(AND,let_binding) -> let_binding AND . separated_nonempty_list(AND,let_binding) [ WITH IN ]
+##
+## The known suffix of the stack is as follows:
+## let_binding AND
+##
+
+Expected a variable declaration.
+Examples of variable declarations:
+  _
+  x
+  (_ : val)
+  (x : imm)
+
+flambda_unit: LIDENT LET UNDERSCORE EQUAL FLOAT IN WITH
+##
+## Ends in an error in state: 221.
+##
+## let_ -> separated_nonempty_list(AND,let_binding) with_closure_elements_opt IN . expr [ WITH RBRACE IN EOF END AND ]
+##
+## The known suffix of the stack is as follows:
+## separated_nonempty_list(AND,let_binding) with_closure_elements_opt IN
+##
+
+Expected an expression.
+
+flambda_unit: LIDENT LET UNDERSCORE EQUAL FLOAT SEMICOLON
+##
+## Ends in an error in state: 228.
+##
+## separated_nonempty_list(AND,let_binding) -> let_binding . [ WITH IN ]
+## separated_nonempty_list(AND,let_binding) -> let_binding . AND separated_nonempty_list(AND,let_binding) [ WITH IN ]
+##
+## The known suffix of the stack is as follows:
+## let_binding
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 169, spurious reduction of production named -> simple 
+## In state 233, spurious reduction of production let_binding -> kinded_variable_opt EQUAL named 
+##
+
+Expected "with", "in", or "and".
+
+flambda_unit: LIDENT LET UNDERSCORE EQUAL FLOAT WITH LBRACE LIDENT EQUAL FLOAT SEMICOLON WITH
+##
+## Ends in an error in state: 199.
+##
+## separated_nonempty_list(SEMICOLON,closure_element) -> closure_element SEMICOLON . separated_nonempty_list(SEMICOLON,closure_element) [ RBRACE ]
+##
+## The known suffix of the stack is as follows:
+## closure_element SEMICOLON
+##
+
+Expected a variable-within-closure binding.
+Example of a closure environment:
+  { var1 = 42; var2 = Symbol2 }
+
+flambda_unit: LIDENT LET UNDERSCORE EQUAL FLOAT WITH LBRACE LIDENT EQUAL FLOAT WITH
+##
+## Ends in an error in state: 198.
+##
+## separated_nonempty_list(SEMICOLON,closure_element) -> closure_element . [ RBRACE ]
+## separated_nonempty_list(SEMICOLON,closure_element) -> closure_element . SEMICOLON separated_nonempty_list(SEMICOLON,closure_element) [ RBRACE ]
+##
+## The known suffix of the stack is as follows:
+## closure_element
+##
+
+Expected either ; and another closure element or } to end the list of closure
+elements.
+
+flambda_unit: LIDENT LET UNDERSCORE EQUAL FLOAT WITH LBRACE LIDENT EQUAL WITH
+##
+## Ends in an error in state: 193.
+##
+## closure_element -> var_within_closure EQUAL . simple [ SEMICOLON RBRACE ]
+##
+## The known suffix of the stack is as follows:
+## var_within_closure EQUAL
+##
+
+Expected a simple value (variable, symbol, or literal).
+
+flambda_unit: LIDENT LET UNDERSCORE EQUAL FLOAT WITH LBRACE LIDENT WITH
+##
+## Ends in an error in state: 192.
+##
+## closure_element -> var_within_closure . EQUAL simple [ SEMICOLON RBRACE ]
+##
+## The known suffix of the stack is as follows:
+## var_within_closure
+##
+
+Expected = and a simple value (variable, symbol, or literal).
+
+flambda_unit: LIDENT LET UNDERSCORE EQUAL FLOAT WITH LBRACE RBRACE IMM
+##
+## Ends in an error in state: 220.
+##
+## let_ -> separated_nonempty_list(AND,let_binding) with_closure_elements_opt . IN expr [ WITH RBRACE IN EOF END AND ]
+##
+## The known suffix of the stack is as follows:
+## separated_nonempty_list(AND,let_binding) with_closure_elements_opt
+##
+
+Expected "in" and an expression.
+
+flambda_unit: LIDENT LET UNDERSCORE EQUAL FLOAT WITH LBRACE WITH
+##
+## Ends in an error in state: 191.
+##
+## with_closure_elements_opt -> WITH LBRACE . loption(separated_nonempty_list(SEMICOLON,closure_element)) RBRACE [ IN END ]
+##
+## The known suffix of the stack is as follows:
+## WITH LBRACE
+##
+
+Expected a variable within a closure, followed by = and a simple value.
+Example:
+  var1 = Symbol2
+
+flambda_unit: LIDENT LET UNDERSCORE EQUAL FLOAT WITH WITH
+##
+## Ends in an error in state: 190.
+##
+## with_closure_elements_opt -> WITH . LBRACE loption(separated_nonempty_list(SEMICOLON,closure_element)) RBRACE [ IN END ]
+##
+## The known suffix of the stack is as follows:
+## WITH
+##
+
+Expected a closure environment delimited by {}.
+Example of a closure environment:
+  { var1 = Symbol2; var2 = 42 }
+
+flambda_unit: LIDENT LET UNDERSCORE EQUAL WITH
+##
+## Ends in an error in state: 232.
+##
+## let_binding -> kinded_variable_opt EQUAL . named [ WITH IN AND ]
+##
+## The known suffix of the stack is as follows:
+## kinded_variable_opt EQUAL
+##
+
+Expected a named expression.
+Examples of named expressions:
+  42
+  project_var var1 my_closure
+  Block 2 (var1 Symbol2 42)
+
+flambda_unit: LIDENT LET UNDERSCORE WITH
+##
+## Ends in an error in state: 231.
+##
+## let_binding -> kinded_variable_opt . EQUAL named [ WITH IN AND ]
+##
+## The known suffix of the stack is as follows:
+## kinded_variable_opt
+##
+
+Expected = followed by a named expression.
+
+flambda_unit: LIDENT LET WITH
+##
+## Ends in an error in state: 74.
+##
+## expr -> LET . let_ [ WITH RBRACE IN EOF END AND ]
+## let_symbol -> LET . symbol_bindings IN expr [ WITH RBRACE IN EOF END AND ]
+##
+## The known suffix of the stack is as follows:
+## LET
+##
+
+Expected a definition.
+Examples of let expressions:
+  let x = 42 in cont k (x)
+  let code f (arg1) my_closure -> k : val * val = cont k (arg1 arg1)
+    and symbol F = closure f in ...
+
+flambda_unit: LIDENT LETK EXN WITH
+##
+## Ends in an error in state: 50.
+##
+## exn_and_stub -> EXN . [ LIDENT ]
+## exn_and_stub -> EXN . STUB [ LIDENT ]
+##
+## The known suffix of the stack is as follows:
+## EXN
+##
+
+Expected "stub" or an identifier for a continuation.
+
+flambda_unit: LIDENT LETK LIDENT LBRACE HCF RBRACE AND LIDENT LBRACE HCF RBRACE WITH
+##
+## Ends in an error in state: 239.
+##
+## andk -> AND continuation_handler . andk [ IN ]
+##
+## The known suffix of the stack is as follows:
+## AND continuation_handler
+##
+
+Expected "and" or "in".
+
+flambda_unit: LIDENT LETK LIDENT LBRACE HCF RBRACE AND WITH
+##
+## Ends in an error in state: 238.
+##
+## andk -> AND . continuation_handler andk [ IN ]
+##
+## The known suffix of the stack is as follows:
+## AND
+##
+
+Expected a continuation handler.
+Example of a continuation handler:
+  k (arg1) { cont k2 (arg1) }
+
+flambda_unit: LIDENT LETK LIDENT LBRACE HCF RBRACE IN WITH
+##
+## Ends in an error in state: 242.
+##
+## expr -> LETK recursive continuation_handler andk IN . expr [ WITH RBRACE IN EOF END AND ]
+##
+## The known suffix of the stack is as follows:
+## LETK recursive continuation_handler andk IN
+##
+
+Expected an expression.
+
+flambda_unit: LIDENT LETK LIDENT LBRACE HCF RBRACE WITH
+##
+## Ends in an error in state: 237.
+##
+## expr -> LETK recursive continuation_handler . andk IN expr [ WITH RBRACE IN EOF END AND ]
+##
+## The known suffix of the stack is as follows:
+## LETK recursive continuation_handler
+##
+
+Expected "and" or "in".
+
+flambda_unit: LIDENT LETK LIDENT LBRACE UNREACHABLE WITH
+##
+## Ends in an error in state: 235.
+##
+## continuation_handler -> exn_and_stub continuation kinded_args LBRACE expr . RBRACE [ IN AND ]
+##
+## The known suffix of the stack is as follows:
+## exn_and_stub continuation kinded_args LBRACE expr
+##
+
+Expected }.
+
+flambda_unit: LIDENT LETK LIDENT LBRACE WITH
+##
+## Ends in an error in state: 73.
+##
+## continuation_handler -> exn_and_stub continuation kinded_args LBRACE . expr RBRACE [ IN AND ]
+##
+## The known suffix of the stack is as follows:
+## exn_and_stub continuation kinded_args LBRACE
+##
+
+Expected an expression.
+
+flambda_unit: LIDENT LETK LIDENT LPAREN LIDENT WITH
+##
+## Ends in an error in state: 70.
+##
+## list(kinded_variable) -> kinded_variable . list(kinded_variable) [ RPAREN ]
+##
+## The known suffix of the stack is as follows:
+## kinded_variable
+##
+
+Expected a parameter declaration.
+Examples of parameter declarations:
+  x
+  (y : val)
+
+flambda_unit: LIDENT LETK LIDENT LPAREN LPAREN LIDENT COLON VAL WITH
+##
+## Ends in an error in state: 65.
+##
+## kinded_variable -> LPAREN variable COLON kind . RPAREN [ RPAREN LPAREN LIDENT ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN variable COLON kind
+##
+
+Expected ).
+
+flambda_unit: LIDENT LETK LIDENT LPAREN LPAREN LIDENT COLON WITH
+##
+## Ends in an error in state: 57.
+##
+## kinded_variable -> LPAREN variable COLON . kind RPAREN [ RPAREN LPAREN LIDENT ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN variable COLON
+##
+
+Expected a kind.
+
+flambda_unit: LIDENT LETK LIDENT LPAREN LPAREN LIDENT WITH
+##
+## Ends in an error in state: 56.
+##
+## kinded_variable -> LPAREN variable . COLON kind RPAREN [ RPAREN LPAREN LIDENT ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN variable
+##
+
+Expected : followed by a kind.
+
+flambda_unit: LIDENT LETK LIDENT LPAREN LPAREN WITH
+##
+## Ends in an error in state: 55.
+##
+## kinded_variable -> LPAREN . variable COLON kind RPAREN [ RPAREN LPAREN LIDENT ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN
+##
+
+Expected an identifier for a parameter.
+
+flambda_unit: LIDENT LETK LIDENT LPAREN RPAREN LANGLE
+##
+## Ends in an error in state: 72.
+##
+## continuation_handler -> exn_and_stub continuation kinded_args . LBRACE expr RBRACE [ IN AND ]
+##
+## The known suffix of the stack is as follows:
+## exn_and_stub continuation kinded_args
+##
+
+Expected an expression within {}.
+
+flambda_unit: LIDENT LETK LIDENT LPAREN WITH
+##
+## Ends in an error in state: 54.
+##
+## kinded_args -> LPAREN . list(kinded_variable) RPAREN [ LIDENT LBRACE ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN
+##
+
+Expected zero or more parameter declarations followed by ).
+Examples of parameter delarations:
+  x
+  (y : val)
+
+flambda_unit: LIDENT LETK LIDENT WITH
+##
+## Ends in an error in state: 53.
+##
+## continuation_handler -> exn_and_stub continuation . kinded_args LBRACE expr RBRACE [ IN AND ]
+##
+## The known suffix of the stack is as follows:
+## exn_and_stub continuation
+##
+
+Expected an argument list, or an expression surrounded by {}.
+Examples of continuation handlers:
+  k (arg1 (arg2: imm)) { cont k0 (arg1) }
+  k1 { cont k3 () }
+
+flambda_unit: LIDENT LETK REC EQUAL
+##
+## Ends in an error in state: 47.
+##
+## expr -> LETK recursive . continuation_handler andk IN expr [ WITH RBRACE IN EOF END AND ]
+##
+## The known suffix of the stack is as follows:
+## LETK recursive
+##
+
+Expected a continuation handler.
+Examples of continuation handlers:
+  k (arg1 (arg2: imm)) { cont k0 (arg1) }
+  exn k1 { cont k3 () }
+
+flambda_unit: LIDENT LETK STUB EXN WITH
+##
+## Ends in an error in state: 52.
+##
+## continuation_handler -> exn_and_stub . continuation kinded_args LBRACE expr RBRACE [ IN AND ]
+##
+## The known suffix of the stack is as follows:
+## exn_and_stub
+##
+
+Expected an identifier for a continuation.
+
+flambda_unit: LIDENT LETK STUB WITH
+##
+## Ends in an error in state: 48.
+##
+## exn_and_stub -> STUB . [ LIDENT ]
+## exn_and_stub -> STUB . EXN [ LIDENT ]
+##
+## The known suffix of the stack is as follows:
+## STUB
+##
+
+Expected "exn" or an identifier for a continuation.
+
+flambda_unit: LIDENT LETK WITH
+##
+## Ends in an error in state: 45.
+##
+## expr -> LETK . recursive continuation_handler andk IN expr [ WITH RBRACE IN EOF END AND ]
+##
+## The known suffix of the stack is as follows:
+## LETK
+##
+
+Expected an optional "rec" followed by a continuation handler.
+
+flambda_unit: LIDENT OPAQUE WITH
+##
+## Ends in an error in state: 167.
+##
+## named -> unop . simple [ WITH SEMICOLON IN AND ]
+##
+## The known suffix of the stack is as follows:
+## unop
+##
+
+Expected a simple value (variable, symbol, or literal).
+
+flambda_unit: LIDENT PROJECT_VAR WITH
+##
+## Ends in an error in state: 41.
+##
+## unop -> PROJECT_VAR . var_within_closure [ UIDENT LIDENT INT FLOAT ]
+##
+## The known suffix of the stack is as follows:
+## PROJECT_VAR
+##
+
+Expected a variable within a closure.
+
+flambda_unit: LIDENT STAR LIDENT AND
+##
+## Ends in an error in state: 6.
+##
+## flambda_unit -> continuation option(exn_continuation) . expr EOF [ # ]
+##
+## The known suffix of the stack is as follows:
+## continuation option(exn_continuation)
+##
+
+Expected a top-level expression.
+
+flambda_unit: LIDENT STAR WITH
+##
+## Ends in an error in state: 4.
+##
+## exn_continuation -> STAR . continuation [ WITH UNREACHABLE UIDENT SWITCH RBRACE PROJECT_VAR OPAQUE LIDENT LETK LET INT IN HCF FLOAT EQUAL EOF END CONT COLON CLOSURE CCALL BLOCK APPLY AND ]
+##
+## The known suffix of the stack is as follows:
+## STAR
+##
+
+Expected an identifier for an exception continuation.
+
+flambda_unit: LIDENT SWITCH FABRICATED
+##
+## Ends in an error in state: 21.
+##
+## expr -> SWITCH . simple LBRACE switch RBRACE [ WITH RBRACE IN EOF END AND ]
+##
+## The known suffix of the stack is as follows:
+## SWITCH switch_sort
+##
+
+Expected a simple value (variable, symbol, or literal).
+
+flambda_unit: LIDENT SWITCH UIDENT LBRACE INT MINUSGREATER LIDENT SEMICOLON WITH
+##
+## Ends in an error in state: 35.
+##
+## switch -> switch_case SEMICOLON . switch [ RBRACE ]
+##
+## The known suffix of the stack is as follows:
+## switch_case SEMICOLON
+##
+
+Expected a switch case.
+Example of a switch case:
+  2 -> k2
+
+flambda_unit: LIDENT SWITCH UIDENT LBRACE INT MINUSGREATER LIDENT WITH
+##
+## Ends in an error in state: 34.
+##
+## switch -> switch_case . [ RBRACE ]
+## switch -> switch_case . SEMICOLON switch [ RBRACE ]
+##
+## The known suffix of the stack is as follows:
+## switch_case
+##
+
+Expected either ; and a switch case or } to end the list.
+
+flambda_unit: LIDENT SWITCH UIDENT LBRACE INT MINUSGREATER WITH
+##
+## Ends in an error in state: 32.
+##
+## switch_case -> tag MINUSGREATER . continuation [ SEMICOLON RBRACE ]
+##
+## The known suffix of the stack is as follows:
+## tag MINUSGREATER
+##
+
+Expected the identifier of a continuation.
+
+flambda_unit: LIDENT SWITCH UIDENT LBRACE INT WITH
+##
+## Ends in an error in state: 31.
+##
+## switch_case -> tag . MINUSGREATER continuation [ SEMICOLON RBRACE ]
+##
+## The known suffix of the stack is as follows:
+## tag
+##
+
+Expected -> followed by the identifier of a continuation.
+
+flambda_unit: LIDENT SWITCH UIDENT LBRACE SEMICOLON WITH
+##
+## Ends in an error in state: 38.
+##
+## expr -> SWITCH simple LBRACE switch . RBRACE [ WITH RBRACE IN EOF END AND ]
+##
+## The known suffix of the stack is as follows:
+## SWITCH simple LBRACE switch
+##
+
+Expected a swich case.
+Example of a switch case:
+  2 -> k2
+
+flambda_unit: LIDENT SWITCH UIDENT LBRACE WITH
+##
+## Ends in an error in state: 28.
+##
+## expr -> SWITCH simple LBRACE . switch RBRACE [ WITH RBRACE IN EOF END AND ]
+##
+## The known suffix of the stack is as follows:
+## SWITCH simple LBRACE
+##
+
+Expected one or more switch cases, separated by semicolons, followed by }.
+Example of a switch statement:
+  switch x { 1 -> k1; 2 -> k2 }
+
+flambda_unit: LIDENT SWITCH UIDENT WITH
+##
+## Ends in an error in state: 27.
+##
+## expr -> SWITCH simple . LBRACE switch RBRACE [ WITH RBRACE IN EOF END AND ]
+##
+## The known suffix of the stack is as follows:
+## SWITCH simple
+##
+
+Expected one or more switch cases, separated by semicolons, surrounded by {}.
+Example:
+  { 1 -> k1; 2 -> k2 }
+
+flambda_unit: LIDENT UIDENT DOT LPAREN UIDENT WITH
+##
+## Ends in an error in state: 176.
+##
+## binop -> simple DOT LPAREN simple . RPAREN [ WITH SEMICOLON IN AND ]
+##
+## The known suffix of the stack is as follows:
+## simple DOT LPAREN simple
+##
+
+Expected ).
+
+flambda_unit: LIDENT UIDENT DOT LPAREN WITH
+##
+## Ends in an error in state: 175.
+##
+## binop -> simple DOT LPAREN . simple RPAREN [ WITH SEMICOLON IN AND ]
+##
+## The known suffix of the stack is as follows:
+## simple DOT LPAREN
+##
+
+Expected a simple value (variable, symbol, or literal).
+
+flambda_unit: LIDENT UIDENT DOT WITH
+##
+## Ends in an error in state: 174.
+##
+## binop -> simple DOT . LPAREN simple RPAREN [ WITH SEMICOLON IN AND ]
+##
+## The known suffix of the stack is as follows:
+## simple DOT
+##
+
+Expected (.
+Example of a block load:
+  var.(2)
+
+flambda_unit: LIDENT UIDENT PLUSDOT WITH
+##
+## Ends in an error in state: 178.
+##
+## named -> simple infix_binop . simple [ WITH SEMICOLON IN AND ]
+##
+## The known suffix of the stack is as follows:
+## simple infix_binop
+##
+
+Expected a simple value (variable, symbol, or literal).
+
+flambda_unit: LIDENT UIDENT SEMICOLON WITH
+##
+## Ends in an error in state: 181.
+##
+## expr -> named SEMICOLON . expr [ WITH RBRACE IN EOF END AND ]
+##
+## The known suffix of the stack is as follows:
+## named SEMICOLON
+##
+
+Expected an expression.
+
+flambda_unit: LIDENT UIDENT VAL
+##
+## Ends in an error in state: 169.
+##
+## binop -> simple . DOT LPAREN simple RPAREN [ WITH SEMICOLON IN AND ]
+## named -> simple . [ WITH SEMICOLON IN AND ]
+## named -> simple . infix_binop simple [ WITH SEMICOLON IN AND ]
+##
+## The known suffix of the stack is as follows:
+## simple
+##
+flambda_unit: LIDENT UIDENT WITH
+##
+## Ends in an error in state: 180.
+##
+## expr -> named . SEMICOLON expr [ WITH RBRACE IN EOF END AND ]
+##
+## The known suffix of the stack is as follows:
+## named
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 169, spurious reduction of production named -> simple 
+##
+
+Expected an infix binary operator or one of: .( ; with in and 
+
+flambda_unit: LIDENT UNREACHABLE WITH
+##
+## Ends in an error in state: 244.
+##
+## flambda_unit -> continuation option(exn_continuation) expr . EOF [ # ]
+##
+## The known suffix of the stack is as follows:
+## continuation option(exn_continuation) expr
+##
+
+Expected end of file.
+
+flambda_unit: LIDENT WITH
+##
+## Ends in an error in state: 3.
+##
+## flambda_unit -> continuation . option(exn_continuation) expr EOF [ # ]
+##
+## The known suffix of the stack is as follows:
+## continuation
+##
+
+Expected either * followed by an identifier for an exception continuation, or
+an expression.
+
+flambda_unit: WITH
+##
+## Ends in an error in state: 0.
+##
+## flambda_unit' -> . flambda_unit [ # ]
+##
+## The known suffix of the stack is as follows:
+##
+##
+
+Expected an identifier for a continuation.
+

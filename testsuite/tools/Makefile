@@ -38,6 +38,21 @@ codegen_LIBS = $(addprefix $(COMPILERLIBSDIR)/,\
 codegen_OBJECTS = $(addsuffix .cmo,\
   parsecmmaux parsecmm lexcmm codegen_main)
 
+parseflambda_MAIN=parseflambda
+parseflambda_PROG=$(parseflambda_MAIN)$(EXE)
+parseflambda_DIRS=\
+  asmcomp \
+  parsing \
+  typing \
+  utils \
+  middle_end/flambda/compilenv_deps \
+  middle_end/flambda/terms \
+  middle_end/flambda/parser \
+  middle_end/flambda/simplify
+parseflambda_OCAMLFLAGS = -g $(addprefix -I $(TOPDIR)/, $(parseflambda_DIRS))
+
+parseflambda_LIBS = $(addprefix $(COMPILERLIBSDIR)/,\
+  ocamlcommon ocamloptcomp)
 tools := $(expect_PROG)
 
 ifeq "$(NATIVE_COMPILER)" "true"
@@ -58,10 +73,15 @@ $(expect_PROG): COMPFLAGS = $(expect_OCAMLFLAGS)
 
 $(codegen_PROG): COMPFLAGS = $(codegen_OCAMLFLAGS)
 
+$(parseflambda_PROG): COMPFLAGS = $(parseflambda_OCAMLFLAGS)
+
 codegen_main.cmo: parsecmm.cmo
 
 $(codegen_PROG): $(codegen_OBJECTS)
 	$(OCAMLC) -o $@ $(codegen_LIBS:=.cma) $^
+
+$(parseflambda_PROG): $(parseflambda_MAIN).cmo
+	$(OCAMLC) -o $@ $(parseflambda_LIBS:=.cma) $^
 
 parsecmm.mli parsecmm.ml: parsecmm.mly
 	$(OCAMLYACC) -q parsecmm.mly
