@@ -1345,15 +1345,7 @@ and fill_slot decls elts env acc offset slot =
     let code_id = Function_declaration.code_id decl in
     let code_symbol = Code_id.code_symbol code_id in
     let code_name = Linkage_name.to_string (Symbol.linkage_name code_symbol) in
-    let arity =
-      if Function_declaration.is_tupled decl then begin
-        let info = Env.get_function_info env code_id in
-        let l = Exported_code.Calling_convention.params_arity info in
-        ~- (List.length l)
-      end else begin
-        List.length (Function_declaration.params_arity decl)
-      end
-    in
+    let arity = Env.get_func_decl_params_arity env decl in
     (* We build here the **reverse** list of fields for the closure *)
     if arity = 1 || arity = 0 then begin
       let acc =

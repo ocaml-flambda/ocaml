@@ -157,14 +157,13 @@ module type Downwards_env = sig
 
   val define_code
      : t
-    -> ?newer_version_of:Code_id.t
     -> code_id:Code_id.t
-    -> params_and_body:Function_params_and_body.t
+    -> code:Code.t
     -> t
 
   val mem_code : t -> Code_id.t -> bool
 
-  val find_code : t -> Code_id.t -> Function_params_and_body.t
+  val find_code : t -> Code_id.t -> Code.t
 
   val with_code : from:t -> t -> t
 

@@ -339,7 +339,7 @@ module Greedy = struct
 
   (* Create slots (and create the cross-referencing). *)
 
-  let rec create_closure_slots set state = function
+  let rec create_closure_slots set state code_map = function
     | [] -> state
     | (c, def) :: r ->
         let s, state =
@@ -347,14 +347,16 @@ module Greedy = struct
           | Some s -> s, state
           | None ->
               let is_tupled = Function_declaration.is_tupled def in
-              let parity = Function_declaration.params_arity def in
-              let arity = List.length parity in
+              let code_id = Function_declaration.code_id def in
+              let code = Code_id.Map.find code_id code_map in
+              let params_arity = Code.params_arity code in
+              let arity = List.length params_arity in
               let size = if arity = 1 && not is_tupled then 2 else 3 in
               let s = create_slot size (Closure c) in
               s, add_closure_slot state c s
         in
         let () = add_unallocated_slot_to_set s set in
-        create_closure_slots set state r
+        create_closure_slots set state code_map r
 
   let rec create_env_var_slots set state = function
     | [] -> state
@@ -369,14 +371,14 @@ module Greedy = struct
         let () = add_unallocated_slot_to_set s set in
         create_env_var_slots set state r
 
-  let create_slots_for_set state used_closure_vars set_id =
+  let create_slots_for_set state code_map used_closure_vars set_id =
     let set = make_set set_id in
     let state = add_set_to_state state set in
     (* Fill closure slots *)
     let function_decls = Set_of_closures.function_decls set_id in
     let closure_map = Function_declarations.funs function_decls in
     let closures = Closure_id.Map.bindings closure_map in
-    let state = create_closure_slots set state closures in
+    let state = create_closure_slots set state code_map closures in
     (* Fill env var slots *)
     let env_map =
       Var_within_closure.Map.filter (fun clos_var _bound_to ->
@@ -545,13 +547,23 @@ module Greedy = struct
 
 end
 
+let compute_code_map unit =
+  let map = ref Code_id.Map.empty in
+  let aux ~id code =
+    map := Code_id.Map.add id code !map
+  in
+  Flambda_unit.iter unit ~code:aux;
+  !map
+
 let compute_offsets env unit =
   let state = ref (Greedy.create_initial_state env) in
   let used_closure_vars = Flambda_unit.used_closure_vars unit in
+  (* CR lmaurer for gbury: Can this double traversal be avoided somehow? *)
+  let code_map = compute_code_map unit in
   let aux ~closure_symbols:_ s =
-    state := Greedy.create_slots_for_set !state used_closure_vars s
+    state := Greedy.create_slots_for_set !state code_map used_closure_vars s
   in
-  Flambda_unit.iter_sets_of_closures unit ~f:aux;
+  Flambda_unit.iter unit ~set_of_closures:aux;
   Greedy.finalize !state
 
 

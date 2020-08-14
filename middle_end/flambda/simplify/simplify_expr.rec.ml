@@ -732,9 +732,9 @@ and simplify_direct_tuple_application
     -> 'a k -> Expr.t * 'a * UA.t
 = fun dacc apply code_id k ->
   let dbg = Apply.dbg apply in
-  let callee's_params_and_body = DE.find_code (DA.denv dacc) code_id in
+  let callee's_code = DE.find_code (DA.denv dacc) code_id in
   let param_arity =
-    Function_params_and_body.params_arity callee's_params_and_body
+    Code.params_arity callee's_code
   in
   let n = List.length param_arity in
   (* Split the tuple argument from other potential
@@ -979,16 +979,20 @@ and simplify_direct_partial_application
         ~name:(Closure_id.to_string callee's_closure_id ^ "_partial")
         (Compilation_unit.get_current_exn ())
     in
-    let function_decl =
-      Function_declaration.create ~code_id
+    let code =
+      Code.create
+        code_id
+        ~params_and_body:(Present params_and_body)
+        ~newer_version_of:None
         ~params_arity:(KP.List.arity remaining_params)
         ~result_arity
         ~stub:true
-        ~dbg
         ~inline:Default_inline
         ~is_a_functor:false
         ~recursive
-        ~is_tupled:false
+    in
+    let function_decl =
+      Function_declaration.create ~code_id ~is_tupled:false ~dbg 
     in
     let function_decls =
       Function_declarations.create
@@ -997,27 +1001,25 @@ and simplify_direct_partial_application
     let closure_elements =
       Var_within_closure.Map.of_list applied_args_with_closure_vars
     in
-    let dummy_code =
+    let defining_expr =
+      Lifted_constant.create_code code_id (Code code)
+    in
+    let dummy_defining_expr =
       (* We should not add the real piece of code in the lifted constant.
          A new piece of code will always be generated when the [Let] we
          generate below is simplified.  As such we can simply add a lifted
          constant identifying deleted code.  This will ensure, if for some
          reason the constant makes it to Cmm stage, that code size is not
          increased unnecessarily. *)
-      Lifted_constant.create_code code_id
-        (Code (Static_const.Code.deleted code_id))
-    in
-    let code =
-      Lifted_constant.create_code code_id
-        (Code (Static_const.Code.create code_id
-          ~params_and_body:(Present params_and_body)
-          ~newer_version_of:None))
+      Lifted_constant.create_code code_id (Code (Code.make_deleted code))
     in
     let dacc =
-      DA.add_lifted_constant dacc dummy_code
-      |> DA.map_denv ~f:(fun denv -> DE.add_lifted_constant denv code)
+      DA.add_lifted_constant dacc dummy_defining_expr
+      |> DA.map_denv ~f:(fun denv -> DE.add_lifted_constant denv defining_expr)
     in
-    Set_of_closures.create function_decls ~closure_elements, dacc, dummy_code
+    Set_of_closures.create function_decls ~closure_elements,
+    dacc,
+    dummy_defining_expr
   in
   let apply_cont =
     Apply_cont.create apply_continuation
@@ -1095,12 +1097,13 @@ and simplify_direct_function_call
       let args = Apply.args apply in
       let provided_num_args = List.length args in
       let callee's_code = DE.find_code (DA.denv dacc) callee's_code_id in
-      (* Because of tupled functions, a function declaration's params_arity
-         may not match that of the underlying function_params_and_body.
+      (* A function declaration with [is_tupled = true] may effectively have
+         an arity that does not match that of the underlying code.
          Since direct calls adopt the calling convention of the code's body
          (whereas indirect_unknown_arity calls use the convention of the
-         function_declaration), we here need the arity of the callee's body *)
-      let param_arity = Function_params_and_body.params_arity callee's_code in
+         function_declaration), we here always use the arity from the callee's
+         code. *)
+      let param_arity = Code.params_arity callee's_code in
       let num_params = List.length param_arity in
       if provided_num_args = num_params then
         simplify_direct_full_application dacc apply function_decl_opt
@@ -1274,11 +1277,12 @@ and simplify_function_call
         | Some newer -> Rec_info.merge rec_info ~newer
       in
       let callee's_code_id_from_type = I.code_id inlinable in
+      let callee's_code = DE.find_code denv callee's_code_id_from_type in
       let must_be_detupled = call_must_be_detupled (I.is_tupled inlinable) in
       simplify_direct_function_call dacc apply ~callee's_code_id_from_type
         ~callee's_code_id_from_call_kind ~callee's_closure_id ~arg_types
-        ~result_arity:(I.result_arity inlinable)
-        ~recursive:(I.recursive inlinable)
+        ~result_arity:(Code.result_arity callee's_code)
+        ~recursive:(Code.recursive callee's_code)
         ~must_be_detupled
         (Some (inlinable, function_decl_rec_info)) k
     | Ok (Non_inlinable non_inlinable) ->
@@ -1291,11 +1295,14 @@ and simplify_function_call
         | Indirect_known_arity _ -> None
       in
       let must_be_detupled = call_must_be_detupled (N.is_tupled non_inlinable) in
+      let callee's_code_from_type =
+        DE.find_code denv callee's_code_id_from_type
+      in
       simplify_direct_function_call dacc apply ~callee's_code_id_from_type
         ~callee's_code_id_from_call_kind
         ~callee's_closure_id ~arg_types
-        ~result_arity:(N.result_arity non_inlinable)
-        ~recursive:(N.recursive non_inlinable)
+        ~result_arity:(Code.result_arity callee's_code_from_type)
+        ~recursive:(Code.recursive callee's_code_from_type)
         ~must_be_detupled
         None k
     | Bottom ->

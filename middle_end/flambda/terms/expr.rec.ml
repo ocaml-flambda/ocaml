@@ -378,11 +378,18 @@ let create_let_cont let_cont = create (Let_cont let_cont)
 let create_apply apply = create (Apply apply)
 let create_apply_cont apply_cont = create (Apply_cont apply_cont)
 
-let create_invalid () =
-  if !Clflags.treat_invalid_code_as_unreachable then
-    create (Invalid Treat_as_unreachable)
-  else
-    create (Invalid Halt_and_catch_fire)
+let create_invalid ?semantics () =
+  let semantics : Invalid_term_semantics.t =
+    match semantics with
+    | Some semantics ->
+      semantics
+    | None -> 
+      if !Clflags.treat_invalid_code_as_unreachable then
+        Treat_as_unreachable
+      else
+        Halt_and_catch_fire
+  in
+  create (Invalid semantics)
 
 type switch_creation_result =
   | Have_deleted_comparison_but_not_branch

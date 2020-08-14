@@ -31,21 +31,12 @@ let function_decl_type denv function_decl ?code_id ?params_and_body rec_info =
   if Inlining_decision.Function_declaration_decision.can_inline decision then
     T.create_inlinable_function_declaration
       ~code_id
-      ~param_arity:(FD.params_arity function_decl)
-      ~result_arity:(FD.result_arity function_decl)
-      ~stub:(FD.stub function_decl)
       ~dbg:(FD.dbg function_decl)
-      ~inline:(FD.inline function_decl)
-      ~is_a_functor:(FD.is_a_functor function_decl)
-      ~recursive:(FD.recursive function_decl)
       ~is_tupled:(FD.is_tupled function_decl)
       ~rec_info
   else
     T.create_non_inlinable_function_declaration
       ~code_id
-      ~param_arity:(FD.params_arity function_decl)
-      ~result_arity:(FD.result_arity function_decl)
-      ~recursive:(FD.recursive function_decl)
       ~is_tupled:(FD.is_tupled function_decl)
 
 module Context_for_multiple_sets_of_closures : sig
@@ -69,8 +60,6 @@ module Context_for_multiple_sets_of_closures : sig
 
   val old_to_new_code_ids_all_sets : t -> Code_id.t Code_id.Map.t
 
-  val new_to_old_code_ids_all_sets : t -> Code_id.t Code_id.Map.t
-
   val closure_bound_names_inside_functions_all_sets
      : t
     -> Name_in_binding_pos.t Closure_id.Map.t list
@@ -87,9 +76,6 @@ end = struct
   let dacc_inside_functions t = t.dacc_inside_functions
 
   let old_to_new_code_ids_all_sets t = t.old_to_new_code_ids_all_sets
-
-  let new_to_old_code_ids_all_sets t =
-    Code_id.invert_map (old_to_new_code_ids_all_sets t)
 
   let closure_bound_names_inside_functions_all_sets t =
     t.closure_bound_names_inside_functions_all_sets
@@ -234,9 +220,12 @@ end = struct
 
   let bind_existing_code_to_new_code_ids denv ~old_to_new_code_ids_all_sets =
     Code_id.Map.fold (fun old_code_id new_code_id denv ->
-        let params_and_body = DE.find_code denv old_code_id in
-        DE.define_code denv ~code_id:new_code_id ~newer_version_of:old_code_id
-          ~params_and_body)
+        let code =
+          DE.find_code denv old_code_id
+          |> Code.with_newer_version_of (Some old_code_id)
+          |> Code.with_code_id new_code_id
+        in
+        DE.define_code denv ~code_id:new_code_id ~code)
       old_to_new_code_ids_all_sets
       denv
 
@@ -331,7 +320,7 @@ let dacc_inside_function context ~used_closure_vars ~shareable_constants
 type simplify_function_result = {
   function_decl : FD.t;
   new_code_id : Code_id.t;
-  params_and_body : Function_params_and_body.t;
+  code : Code.t;
   function_type : T.Function_declaration_type.t;
   dacc_after_body : DA.t;
   uacc_after_upwards_traversal : UA.t;
@@ -343,8 +332,11 @@ let simplify_function context ~used_closure_vars ~shareable_constants
   let name = Closure_id.to_string closure_id in
   Profile.record_call ~accumulate:true name (fun () ->
     let code_id = FD.code_id function_decl in
-    let params_and_body =
+    let code =
       DE.find_code (DA.denv (C.dacc_prior_to_sets context)) code_id
+    in
+    let params_and_body =
+      Code.params_and_body_must_be_present code ~error_context:"Simplifying"
     in
     let params_and_body, dacc_after_body, uacc_after_upwards_traversal =
       Function_params_and_body.pattern_match params_and_body
@@ -379,7 +371,7 @@ let simplify_function context ~used_closure_vars ~shareable_constants
           match
             Simplify_toplevel.simplify_toplevel dacc body
               ~return_continuation
-              ~return_arity:(FD.result_arity function_decl)
+              ~return_arity:(Code.result_arity code)
               exn_continuation
               ~return_cont_scope:Scope.initial
               ~exn_cont_scope:(Scope.next Scope.initial)
@@ -414,6 +406,12 @@ let simplify_function context ~used_closure_vars ~shareable_constants
     let new_code_id =
       Code_id.Map.find old_code_id (C.old_to_new_code_ids_all_sets context)
     in
+    let code =
+      code
+      |> Code.with_code_id new_code_id
+      |> Code.with_newer_version_of (Some old_code_id)
+      |> Code.with_params_and_body (Present params_and_body)
+    in
     let function_decl = FD.update_code_id function_decl new_code_id in
     let function_type =
       (* We need to use [dacc_after_body] to ensure that all [code_ids] in
@@ -423,7 +421,7 @@ let simplify_function context ~used_closure_vars ~shareable_constants
     in
     { function_decl;
       new_code_id;
-      params_and_body;
+      code;
       function_type;
       dacc_after_body;
       uacc_after_upwards_traversal;
@@ -431,7 +429,7 @@ let simplify_function context ~used_closure_vars ~shareable_constants
 
 type simplify_set_of_closures0_result = {
   set_of_closures : Flambda.Set_of_closures.t;
-  code : Flambda.Function_params_and_body.t Code_id.Lmap.t;
+  code : Code.t Code_id.Lmap.t;
   dacc : Downwards_acc.t;
 }
 
@@ -454,7 +452,7 @@ let simplify_set_of_closures0 dacc context set_of_closures
            (result_function_decls_in_set, code, fun_types,
             code_age_relation, used_closure_vars, shareable_constants,
             lifted_consts_prev_functions) ->
-        let { function_decl; new_code_id; params_and_body; function_type;
+        let { function_decl; new_code_id; code = new_code; function_type;
               dacc_after_body; uacc_after_upwards_traversal; } =
           simplify_function context ~used_closure_vars ~shareable_constants
             closure_id function_decl
@@ -476,7 +474,7 @@ let simplify_set_of_closures0 dacc context set_of_closures
         let result_function_decls_in_set =
           (closure_id, function_decl) :: result_function_decls_in_set
         in
-        let code = (new_code_id, params_and_body) :: code in
+        let code = (new_code_id, new_code) :: code in
         let fun_types = Closure_id.Map.add closure_id function_type fun_types in
         let lifted_consts_prev_functions =
           LCS.union lifted_consts_this_function lifted_consts_prev_functions
@@ -628,15 +626,7 @@ let simplify_and_lift_set_of_closures dacc ~closure_bound_vars_inverse
   let dacc =
     ListLabels.fold_left (Code_id.Lmap.bindings code)
       ~init:dacc
-      ~f:(fun dacc (code_id, params_and_body) ->
-        let newer_version_of =
-          Code_id.Map.find code_id (C.new_to_old_code_ids_all_sets context)
-        in
-        let code =
-          SC.Code.create code_id
-            ~params_and_body:(Present params_and_body)
-            ~newer_version_of:(Some newer_version_of)
-        in
+      ~f:(fun dacc (code_id, code) ->
         let lifted_constant = LC.create_code code_id (Code code) in
         DA.add_lifted_constant dacc lifted_constant
         |> DA.map_denv ~f:(fun denv ->
@@ -701,16 +691,10 @@ let simplify_non_lifted_set_of_closures0 dacc bound_vars ~closure_bound_vars
     Reachable.reachable (Named.create_set_of_closures set_of_closures)
   in
   let lifted_constants =
-    let newer_versions_of = C.new_to_old_code_ids_all_sets context in
-    Code_id.Lmap.fold (fun code_id params_and_body lifted_constants ->
-        let newer_version_of =
-          Some (Code_id.Map.find code_id newer_versions_of)
-        in
+    Code_id.Lmap.fold (fun code_id code lifted_constants ->
         let lifted_constant =
           LC.create_code code_id
-            (Code (Static_const.Code.create code_id
-              ~params_and_body:(Present params_and_body)
-              ~newer_version_of))
+            (Code code)
         in
         lifted_constant :: lifted_constants)
       code
@@ -848,23 +832,10 @@ let simplify_lifted_set_of_closures0 context ~closure_symbols
   let dacc =
     DA.map_denv dacc ~f:(fun denv ->
       (* CR mshinwell: factor out *)
-      Code_id.Lmap.fold (fun code_id params_and_body denv ->
-          let newer_version_of =
-            Code_id.Map.find code_id (C.new_to_old_code_ids_all_sets context)
-          in
-          DE.define_code ~newer_version_of denv ~code_id ~params_and_body)
+      Code_id.Lmap.fold (fun code_id code denv ->
+          DE.define_code denv ~code_id ~code)
         code
         denv)
-  in
-  let code =
-    Code_id.Lmap.mapi (fun code_id params_and_body ->
-        let newer_version_of =
-          Code_id.Map.find_opt code_id (C.new_to_old_code_ids_all_sets context)
-        in
-        SC.Code.create code_id
-          ~params_and_body:(Present params_and_body)
-          ~newer_version_of)
-      code
   in
   let code_patterns =
     Code_id.Lmap.keys code

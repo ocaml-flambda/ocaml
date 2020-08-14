@@ -14,6 +14,7 @@
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
+module C = Flambda.Code
 module P = Flambda.Function_params_and_body
 
 module Calling_convention = struct
@@ -52,7 +53,7 @@ end
 
 type t0 =
   | Present of {
-    params_and_body : P.t;
+    code : C.t;
     calling_convention : Calling_convention.t;
   }
   | Imported of { calling_convention : Calling_convention.t; }
@@ -61,13 +62,13 @@ type t = t0 Code_id.Map.t
 
 let print0 ppf t0 =
   match t0 with
-  | Present { params_and_body; calling_convention; } ->
+  | Present { code; calling_convention; } ->
     Format.fprintf ppf
       "@[<hov 1>(Present@ (\
-         @[<hov 1>(params_and_body@ %a)@]\
+         @[<hov 1>(code@ %a)@]\
          @[<hov 1>(calling_convention@ %a)@]\
        ))@]"
-      P.print params_and_body
+      C.print code
       Calling_convention.print calling_convention
   | Imported { calling_convention; } ->
     Format.fprintf ppf
@@ -81,11 +82,16 @@ let empty = Code_id.Map.empty
 
 let add_code code t =
   let with_calling_convention =
-    Code_id.Map.map (fun params_and_body ->
-        let calling_convention =
-          Calling_convention.compute ~params_and_body
-        in
-        Present { params_and_body; calling_convention; })
+    Code_id.Map.filter_map ~f:(fun _code_id code ->
+        match C.params_and_body code with
+        | Present params_and_body ->
+          let calling_convention =
+            Calling_convention.compute ~params_and_body
+          in
+          Some (Present { code; calling_convention; })
+        | Deleted ->
+          (* CR lmaurer for vlaviron: Okay to just ignore deleted code? *)
+          None)
       code
   in
   Code_id.Map.disjoint_union with_calling_convention t
@@ -94,7 +100,7 @@ let mark_as_imported t =
   let forget_params_and_body t0 =
     match t0 with
     | Imported _ -> t0
-    | Present { params_and_body = _; calling_convention; } ->
+    | Present { code = _; calling_convention; } ->
       Imported { calling_convention; }
   in
   Code_id.Map.map forget_params_and_body t
@@ -116,8 +122,8 @@ let merge t1 t2 =
       Misc.fatal_errorf "Cannot merge two definitions for code id %a"
         Code_id.print code_id
     | Imported { calling_convention = cc_imported; },
-      (Present { calling_convention = cc_present; params_and_body = _; } as t0)
-    | (Present { calling_convention = cc_present; params_and_body = _; } as t0),
+      (Present { calling_convention = cc_present; code = _; } as t0)
+    | (Present { calling_convention = cc_present; code = _; } as t0),
       Imported { calling_convention = cc_imported; } ->
       if Calling_convention.equal cc_present cc_imported then Some t0
       else
@@ -137,7 +143,7 @@ let find_code t code_id =
   match Code_id.Map.find code_id t with
   | exception Not_found ->
     Misc.fatal_errorf "Code ID %a not bound" Code_id.print code_id
-  | Present { params_and_body; calling_convention = _; } -> params_and_body
+  | Present { code; calling_convention = _; } -> code
   | Imported _ ->
     Misc.fatal_errorf "Actual code for Code ID %a is missing"
       Code_id.print code_id
@@ -155,7 +161,7 @@ let find_code_if_not_imported t code_id =
        instead so we can end up with missing code IDs during the reachability
        computation, and have to assume that it fits the above case. *)
     None
-  | Present { params_and_body; calling_convention = _; } -> Some params_and_body
+  | Present { code; calling_convention = _; } -> Some code
   | Imported _ ->
     None
 
@@ -163,7 +169,7 @@ let find_calling_convention t code_id =
   match Code_id.Map.find code_id t with
   | exception Not_found ->
     Misc.fatal_errorf "Code ID %a not bound" Code_id.print code_id
-  | Present { params_and_body = _; calling_convention; } -> calling_convention
+  | Present { code = _; calling_convention; } -> calling_convention
   | Imported { calling_convention; } -> calling_convention
 
 let remove_unreachable t ~reachable_names =
@@ -175,9 +181,8 @@ let all_ids_for_export t =
   Code_id.Map.fold (fun code_id code_data all_ids ->
       let all_ids = Ids_for_export.add_code_id all_ids code_id in
       match code_data with
-      | Present { params_and_body; calling_convention = _; } ->
-        Ids_for_export.union all_ids
-          (P.all_ids_for_export params_and_body)
+      | Present { code; calling_convention = _; } ->
+        Ids_for_export.union all_ids (C.all_ids_for_export code)
       | Imported { calling_convention = _; } -> all_ids)
     t
     Ids_for_export.empty
@@ -187,11 +192,11 @@ let import import_map t =
       let code_id = Ids_for_export.Import_map.code_id import_map code_id in
       let code_data =
         match code_data with
-        | Present { calling_convention; params_and_body; } ->
-          let params_and_body =
-            Flambda.Function_params_and_body.import import_map params_and_body
+        | Present { calling_convention; code; } ->
+          let code =
+            Flambda.Code.import import_map code
           in
-          Present { calling_convention; params_and_body; }
+          Present { calling_convention; code; }
         | Imported { calling_convention; } ->
           Imported { calling_convention; }
       in

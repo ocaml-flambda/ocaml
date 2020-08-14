@@ -58,87 +58,92 @@ let used_closure_vars t =
 
 (* Iter on all sets of closures of a given program. *)
 (* CR mshinwell: These functions should be pushed directly into [Flambda] *)
-module Iter_sets_of_closures = struct
-  let rec expr f e =
+module Iter = struct
+  let rec expr f_c f_s e =
     match (Expr.descr e : Expr.descr) with
-    | Let e' -> let_expr f e'
-    | Let_cont e' -> let_cont f e'
-    | Apply e' -> apply_expr f e'
-    | Apply_cont e' -> apply_cont f e'
-    | Switch e' -> switch f e'
-    | Invalid e' -> invalid f e'
+    | Let e' -> let_expr f_c f_s e'
+    | Let_cont e' -> let_cont f_c f_s e'
+    | Apply e' -> apply_expr f_c f_s e'
+    | Apply_cont e' -> apply_cont f_c f_s e'
+    | Switch e' -> switch f_c f_s e'
+    | Invalid e' -> invalid f_c f_s e'
 
-  and named let_expr (bindable_let_bound : Bindable_let_bound.t) f n =
+  and named let_expr (bindable_let_bound : Bindable_let_bound.t) f_c f_s n =
     match (n : Named.t) with
     | Simple _ | Prim _ -> ()
     | Set_of_closures s ->
-        f ~closure_symbols:None s
+        f_s ~closure_symbols:None s
     | Static_consts consts ->
       match bindable_let_bound with
-      | Symbols { bound_symbols; _ } -> static_consts f bound_symbols consts
+      | Symbols { bound_symbols; _ } ->
+        static_consts f_c f_s bound_symbols consts
       | Singleton _ | Set_of_closures _ ->
         Misc.fatal_errorf "[Static_const] can only be bound to [Symbols]:@ %a"
           Let.print let_expr
 
-  and let_expr f t =
+  and let_expr f_c f_s t =
     Let.pattern_match t ~f:(fun bindable_let_bound ~body ->
         let e = Let.defining_expr t in
-        named t bindable_let_bound f e;
-        expr f body
+        named t bindable_let_bound f_c f_s e;
+        expr f_c f_s body
       )
 
-  and let_cont f = function
+  and let_cont f_c f_s = function
     | Let_cont.Non_recursive { handler; _ } ->
         Non_recursive_let_cont_handler.pattern_match handler ~f:(fun k ~body ->
             let h = Non_recursive_let_cont_handler.handler handler in
-            let_cont_aux f k h body
+            let_cont_aux f_c f_s k h body
           )
     | Let_cont.Recursive handlers ->
         Recursive_let_cont_handlers.pattern_match handlers ~f:(fun ~body conts ->
             assert (not (Continuation_handlers.contains_exn_handler conts));
-            let_cont_rec f conts body
+            let_cont_rec f_c f_s conts body
           )
 
-  and let_cont_aux f k h body =
-    continuation_handler f k h;
-    expr f body
+  and let_cont_aux f_c f_s k h body =
+    continuation_handler f_c f_s k h;
+    expr f_c f_s body
 
-  and let_cont_rec f conts body =
+  and let_cont_rec f_c f_s conts body =
     let map = Continuation_handlers.to_map conts in
-    Continuation.Map.iter (continuation_handler f) map;
-    expr f body
+    Continuation.Map.iter (continuation_handler f_c f_s) map;
+    expr f_c f_s body
 
-  and continuation_handler f _ h =
+  and continuation_handler f_c f_s _ h =
     let h = Continuation_handler.params_and_handler h in
     Continuation_params_and_handler.pattern_match h ~f:(fun _ ~handler ->
-        expr f handler
+        expr f_c f_s handler
       )
 
   (* Expression application, continuation application and Switches
      only use single expressions and continuations, so no sets_of_closures
      can syntatically appear inside. *)
-  and apply_expr _ _ = ()
+  and apply_expr _ _ _ = ()
 
-  and apply_cont _ _ = ()
+  and apply_cont _ _ _ = ()
 
-  and switch _ _ = ()
+  and switch _ _ _ = ()
 
-  and invalid _ _ = ()
+  and invalid _ _ _ = ()
 
-  and static_consts f bound_symbols static_consts =
+  and static_consts f_c f_s bound_symbols static_consts =
     Static_const.Group.match_against_bound_symbols static_consts bound_symbols
       ~init:()
-      ~code:(fun () _code_id (code : Static_const.Code.t) ->
-        match code.params_and_body with
+      ~code:(fun () code_id (code : Code.t) ->
+        f_c ~id:code_id code;
+        match Code.params_and_body code with
         | Deleted -> ()
         | Present params_and_body ->
           Function_params_and_body.pattern_match params_and_body
             ~f:(fun ~return_continuation:_ _ _ ~body ~my_closure:_ ->
-                expr f body))
+                expr f_c f_s body))
       ~set_of_closures:(fun () ~closure_symbols set_of_closures ->
-        f ~closure_symbols:(Some closure_symbols) set_of_closures)
+        f_s ~closure_symbols:(Some closure_symbols) set_of_closures)
       ~block_like:(fun () _ _ -> ())
 end
 
-let iter_sets_of_closures t ~f =
-  Iter_sets_of_closures.expr f t.body
+let ignore_code ~id:_ _ = ()
+let ignore_set_of_closures ~closure_symbols:_ _ = ()
+
+let iter ?(code = ignore_code) ?(set_of_closures = ignore_set_of_closures) t =
+  Iter.expr code set_of_closures t.body

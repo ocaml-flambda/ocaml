@@ -286,14 +286,13 @@ let create_let_symbol0 uacc code_age_relation (bound_symbols : Bound_symbols.t)
             ~all_code_ids_still_existing:all_code_ids_free_names_after)
         code_ids_only_used_in_newer_version_of
     in
-    let module Code = Static_const.Code in
     let static_consts =
       ListLabels.map (Static_const.Group.to_list static_consts)
         ~f:(fun static_const : Static_const.t ->
           match Static_const.to_code static_const with
           | Some code
             when Code_id.Set.mem (Code.code_id code) code_ids_to_make_deleted ->
-            Code (Static_const.Code.make_deleted code)
+            Code (Code.make_deleted code)
           | Some _ | None -> static_const)
       |> Static_const.Group.create
     in
@@ -301,7 +300,7 @@ let create_let_symbol0 uacc code_age_relation (bound_symbols : Bound_symbols.t)
       Expr.create_let_symbol bound_symbols Syntactic static_consts body
     in
     let uacc =
-      Static_const.Group.pieces_of_code static_consts
+      Static_const.Group.pieces_of_code_by_code_id static_consts
       |> UA.remember_code_for_cmx uacc
     in
     expr, uacc
@@ -352,7 +351,7 @@ let create_let_symbol uacc (scoping_rule : Symbol_scoping_rule.t)
       Expr.create_let_symbol bound_symbols scoping_rule static_consts body
     in
     let uacc =
-      Static_const.Group.pieces_of_code defining_exprs
+      Static_const.Group.pieces_of_code_by_code_id defining_exprs
       |> UA.remember_code_for_cmx uacc
     in
     expr, uacc

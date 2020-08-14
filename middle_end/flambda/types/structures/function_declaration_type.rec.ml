@@ -22,65 +22,33 @@ module TEE = Typing_env_extension
 module Inlinable = struct
   type t = {
     code_id : Code_id.t;
-    param_arity : Flambda_arity.t;
-    result_arity : Flambda_arity.t;
-    stub : bool;
     dbg : Debuginfo.t;
-    inline : Inline_attribute.t;
-    is_a_functor : bool;
-    recursive : Recursive.t;
     rec_info : Rec_info.t;
     is_tupled : bool;
   }
 
-  let print ppf { code_id; param_arity; result_arity; stub; dbg;
-                  inline; is_a_functor; recursive; rec_info; is_tupled; } =
+  let print ppf { code_id; dbg; rec_info; is_tupled; } =
     Format.fprintf ppf
       "@[<hov 1>(Inlinable@ \
         @[<hov 1>(code_id@ %a)@]@ \
-        @[<hov 1>(param_arity@ %a)@]@ \
-        @[<hov 1>(result_arity@ %a)@] \
-        @[<hov 1>(stub@ %b)@] \
         @[<hov 1>(dbg@ %a)@] \
-        @[<hov 1>(inline@ %a)@] \
-        @[<hov 1>(is_a_functor@ %b)@] \
-        @[<hov 1>(recursive@ %a)@]@ \
         @[<hov 1>(rec_info@ %a)@]\
         @[<hov 1><is_tupled@ %b)@]\
         )@]"
       Code_id.print code_id
-      Flambda_arity.print param_arity
-      Flambda_arity.print result_arity
-      stub
       Debuginfo.print_compact dbg
-      Inline_attribute.print inline
-      is_a_functor
-      Recursive.print recursive
       Rec_info.print rec_info
       is_tupled
 
-  let create ~code_id ~param_arity ~result_arity ~stub ~dbg ~inline
-        ~is_a_functor ~recursive ~rec_info ~is_tupled =
+  let create ~code_id ~dbg ~rec_info ~is_tupled =
     { code_id;
-      param_arity;
-      result_arity;
-      stub;
       dbg;
-      inline;
-      is_a_functor;
-      recursive;
       rec_info;
       is_tupled;
     }
 
   let code_id t = t.code_id
-  let param_arity t = t.param_arity
-  let result_arity t = t.result_arity
-  let stub t = t.stub
   let dbg t = t.dbg
-  let inline t = t.inline
-  let is_a_functor t = t.is_a_functor
-  let recursive t = t.recursive
   let rec_info t = t.rec_info
   let is_tupled t = t.is_tupled
 end
@@ -88,39 +56,24 @@ end
 module Non_inlinable = struct
   type t = {
     code_id : Code_id.t;
-    param_arity : Flambda_arity.t;
-    result_arity : Flambda_arity.t;
-    recursive : Recursive.t;
     is_tupled : bool;
   }
 
-  let print ppf { code_id; param_arity; result_arity; recursive; is_tupled; } =
+  let print ppf { code_id; is_tupled; } =
     Format.fprintf ppf
       "@[<hov 1>(Non_inlinable@ \
         @[<hov 1>(code_id@ %a)@]@ \
-        @[<hov 1>(param_arity@ %a)@]@ \
-        @[<hov 1>(result_arity@ %a)@] \
-        @[<hov 1>(recursive@ %a)@]\
         @[<hov 1>(is_tupled@ %b)@]\
         )@]"
       Code_id.print code_id
-      Flambda_arity.print param_arity
-      Flambda_arity.print result_arity
-      Recursive.print recursive
       is_tupled
 
-  let create ~code_id ~param_arity ~result_arity ~recursive ~is_tupled =
+  let create ~code_id ~is_tupled =
     { code_id;
-      param_arity;
-      result_arity;
-      recursive;
       is_tupled;
     }
 
   let code_id t = t.code_id
-  let param_arity t = t.param_arity
-  let result_arity t = t.result_arity
-  let recursive t = t.recursive
   let is_tupled t = t.is_tupled
 end
 
@@ -144,35 +97,27 @@ let print ppf t =
 let free_names (t : t) =
   match t with
   | Bottom | Unknown -> Name_occurrences.empty
-  | Ok (Inlinable { code_id; param_arity = _; result_arity = _; stub = _;
-                    dbg = _; inline = _; is_a_functor = _; recursive = _;
-                    rec_info = _; is_tupled = _; })
-  | Ok (Non_inlinable { code_id; param_arity = _; result_arity = _;
-                        recursive = _; is_tupled = _; }) ->
+  | Ok (Inlinable { code_id; dbg = _; rec_info = _; is_tupled = _; })
+  | Ok (Non_inlinable { code_id; is_tupled = _; }) ->
     Name_occurrences.add_code_id Name_occurrences.empty code_id
       Name_mode.in_types
 
 let all_ids_for_export (t : t) =
   match t with
   | Bottom | Unknown -> Ids_for_export.empty
-  | Ok (Inlinable { code_id; param_arity = _; result_arity = _; stub = _;
-                    dbg = _; inline = _; is_a_functor = _; recursive = _;
-                    rec_info = _; is_tupled = _; })
-  | Ok (Non_inlinable { code_id; param_arity = _; result_arity = _;
-                        recursive = _; is_tupled = _; }) ->
+  | Ok (Inlinable { code_id; dbg = _; rec_info = _; is_tupled = _; })
+  | Ok (Non_inlinable { code_id; is_tupled = _; }) ->
     Ids_for_export.add_code_id Ids_for_export.empty code_id
 
 let import import_map (t : t) : t =
   match t with
   | Bottom | Unknown -> t
-  | Ok (Inlinable { code_id; param_arity; result_arity; stub;
-                    dbg; inline; is_a_functor; recursive; rec_info; is_tupled; }) ->
+  | Ok (Inlinable { code_id; dbg; rec_info; is_tupled; }) ->
     let code_id = Ids_for_export.Import_map.code_id import_map code_id in
-    Ok (Inlinable { code_id; param_arity; result_arity; stub;
-                    dbg; inline; is_a_functor; recursive; rec_info; is_tupled; })
-  | Ok (Non_inlinable { code_id; param_arity; result_arity; recursive; is_tupled }) ->
+    Ok (Inlinable { code_id; dbg; rec_info; is_tupled; })
+  | Ok (Non_inlinable { code_id; is_tupled; }) ->
     let code_id = Ids_for_export.Import_map.code_id import_map code_id in
-    Ok (Non_inlinable { code_id; param_arity; result_arity; recursive; is_tupled })
+    Ok (Non_inlinable { code_id; is_tupled; })
 
 let apply_name_permutation t _perm = t
 
@@ -211,27 +156,17 @@ struct
       | Join -> Ok (Unknown, TEE.empty ())
       end
     | Ok (Non_inlinable {
-        code_id = code_id1;
-        param_arity = param_arity1; result_arity = result_arity1;
-        recursive = recursive1; is_tupled = is_tupled1;
+        code_id = code_id1; is_tupled = is_tupled1;
       }), Ok (Non_inlinable {
-        code_id = code_id2;
-        param_arity = param_arity2; result_arity = result_arity2;
-        recursive = recursive2; is_tupled = is_tupled2;
+        code_id = code_id2; is_tupled = is_tupled2;
       }) ->
       let typing_env = Meet_or_join_env.target_join_env env in
       let target_code_age_rel = TE.code_age_relation typing_env in
       let resolver = TE.code_age_relation_resolver typing_env in
       let check_other_things_and_return code_id : (t * TEE.t) Or_bottom.t =
-        assert (Flambda_arity.equal param_arity1 param_arity2);
-        assert (Flambda_arity.equal result_arity1 result_arity2);
-        assert (Recursive.equal recursive1 recursive2);
         assert (Bool.equal is_tupled1 is_tupled2);
         Ok (Ok (Non_inlinable {
             code_id;
-            param_arity = param_arity1;
-            result_arity = result_arity1;
-            recursive = recursive1;
             is_tupled = is_tupled1;
           }),
           TEE.empty ())
@@ -266,25 +201,13 @@ struct
       Ok (Unknown, TEE.empty ())
     | Ok (Inlinable {
         code_id = code_id1;
-        param_arity = param_arity1;
-        result_arity = result_arity1;
-        stub = stub1;
         dbg = dbg1;
-        inline = inline1;
-        is_a_functor = is_a_functor1;
-        recursive = recursive1;
         rec_info = _rec_info1;
         is_tupled = is_tupled1;
       }),
       Ok (Inlinable {
         code_id = code_id2;
-        param_arity = param_arity2;
-        result_arity = result_arity2;
-        stub = stub2;
         dbg = dbg2;
-        inline = inline2;
-        is_a_functor = is_a_functor2;
-        recursive = recursive2;
         rec_info = _rec_info2;
         is_tupled = is_tupled2;
       }) ->
@@ -292,23 +215,11 @@ struct
       let target_code_age_rel = TE.code_age_relation typing_env in
       let resolver = TE.code_age_relation_resolver typing_env in
       let check_other_things_and_return code_id : (t * TEE.t) Or_bottom.t =
-        assert (Flambda_arity.equal param_arity1 param_arity2);
-        assert (Flambda_arity.equal result_arity1 result_arity2);
-        assert (Bool.equal stub1 stub2);
         assert (Int.equal (Debuginfo.compare dbg1 dbg2) 0);
-        assert (Inline_attribute.equal inline1 inline2);
-        assert (Bool.equal is_a_functor1 is_a_functor2);
-        assert (Recursive.equal recursive1 recursive2);
         assert (Bool.equal is_tupled1 is_tupled2);
         Ok (Ok (Inlinable {
             code_id;
-            param_arity = param_arity1;
-            result_arity = result_arity1;
-            stub = stub1;
             dbg = dbg1;
-            inline = inline1;
-            is_a_functor = is_a_functor1;
-            recursive = recursive1;
             rec_info = _rec_info1;
             is_tupled = is_tupled1;
           }),
@@ -362,20 +273,12 @@ let join env t1 t2 : t =
 
 let apply_rec_info (t : t) rec_info : t Or_bottom.t =
   match t with
-  | Ok (Inlinable { code_id; param_arity; result_arity; stub; dbg; inline;
-                    is_a_functor; recursive; rec_info = rec_info'; is_tupled; }) ->
+  | Ok (Inlinable { code_id; dbg; rec_info = rec_info'; is_tupled; }) ->
     let rec_info = Rec_info.merge rec_info' ~newer:rec_info in
     Ok (Ok (Inlinable { code_id;
-      param_arity;
-      result_arity;
-      stub;
       dbg;
-      inline;
-      is_a_functor;
-      recursive;
       rec_info;
       is_tupled;
     }))
-  | Ok (Non_inlinable { code_id = _; param_arity = _; result_arity = _;
-                        recursive = _; is_tupled = _; }) -> Ok t
+  | Ok (Non_inlinable { code_id = _; is_tupled = _; }) -> Ok t
   | Unknown | Bottom -> Ok t
