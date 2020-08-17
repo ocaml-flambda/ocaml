@@ -43,6 +43,7 @@ let make_const_int (i, m) : const =
 %token ANDWHERE [@symbol "andwhere"]
 %token AT    [@symbol "@"]
 %token APPLY [@symbol "apply"]
+%token BIGARROW [@symbol "===>"]
 %token BLOCK [@symbol "Block"]
 %token CCALL  [@symbol "ccall"]
 %token CLOSURE  [@symbol "closure"]
@@ -92,6 +93,7 @@ let make_const_int (i, m) : const =
 %token STAR   [@symbol "*"]
 %token SWITCH [@symbol "switch"]
 %token<string> SYMBOL
+%token TAG_IMM [@symbol "tag_imm"]
 %token TUPLED [@symbol "tupled"]
 %token UNIT   [@symbol "unit"]
 %token UNREACHABLE [@symbol "Unreachable"]
@@ -112,9 +114,10 @@ let make_const_int (i, m) : const =
 %token PRIM_TAG_IMM [@symbol "%Tag_imm"]
 %token PRIM_UNTAG_IMM [@symbol "%untag_imm"]
 
-%start flambda_unit
+%start flambda_unit expect_test_spec
 %type <Fexpr.block_access_field_kind> block_access_field_kind
 %type <Fexpr.flambda_unit> flambda_unit
+%type <Fexpr.expect_test_spec> expect_test_spec
 %type <Fexpr.static_structure> static_structure
 %type <Fexpr.kind> kind
 %type <Fexpr.mutability> mutability
@@ -126,6 +129,11 @@ flambda_unit:
   | body = module_
     EOF
     { body }
+;
+
+expect_test_spec:
+  | before = module_; BIGARROW; after = module_; EOF
+    { { before; after } }
 ;
 
 (* XCR lwhite: Probably easier to just use some default names for these

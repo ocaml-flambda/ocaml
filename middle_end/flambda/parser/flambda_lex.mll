@@ -164,6 +164,7 @@ rule token = parse
   | "->" { MINUSGREATER }
   | "@" { AT }
   | "|"  { PIPE }
+  | "===>" { BIGARROW }
   | identstart identchar* as ident
          { ident_or_keyword ident }
   | '$' (identchar* as s)

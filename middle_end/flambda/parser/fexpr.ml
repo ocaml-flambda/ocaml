@@ -304,3 +304,9 @@ type expect_test_spec = {
   before : flambda_unit;
   after : flambda_unit;
 }
+
+type markdown_node =
+  | Text of string
+  | Expect of expect_test_spec
+
+type markdown_doc = markdown_node list

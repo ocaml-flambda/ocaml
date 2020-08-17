@@ -70,6 +70,12 @@ let print_rawflambda ppf unit =
       (Flambda_colours.each_file ())
       (Flambda_colours.normal ())
       Flambda_unit.print unit
+  end;
+  if !Clflags.dump_rawfexpr then begin
+    Format.fprintf ppf "\n%sAfter closure conversion:%s@ %a@."
+      (Flambda_colours.each_file ())
+      (Flambda_colours.normal ())
+      Print_fexpr.flambda_unit (unit |> Flambda_to_fexpr.conv)
   end
 
 let print_flambda name ppf unit =
@@ -79,6 +85,28 @@ let print_flambda name ppf unit =
       name
       (Flambda_colours.normal ())
       Flambda_unit.print unit
+  end;
+  if !Clflags.dump_fexpr then begin
+    Format.fprintf ppf "\n%sAfter %s:%s@ %a@."
+      (Flambda_colours.each_file ())
+      name
+      (Flambda_colours.normal ())
+      Print_fexpr.flambda_unit (unit |> Flambda_to_fexpr.conv)
+  end
+
+let output_flexpect ~ml_filename old_unit new_unit =
+  if !Clflags.dump_flexpect then begin
+    let basename = Filename.chop_suffix ml_filename ".ml" in
+    let filename = basename ^ ".flt" in
+    let before = old_unit |> Flambda_to_fexpr.conv in
+    let after = new_unit |> Flambda_to_fexpr.conv in
+    let test : Fexpr.expect_test_spec = { before; after; }
+    in
+    let out = open_out filename in
+    Misc.try_finally ~always:(fun () -> close_out out) (fun () ->
+      let ppf = out |> Format.formatter_of_out_channel in
+      Print_fexpr.expect_test_spec ppf test;
+      Format.pp_print_flush ppf ())
   end
 
 let middle_end0 ppf ~prefixname:_ ~backend ~filename ~module_ident
@@ -115,12 +143,13 @@ let middle_end0 ppf ~prefixname:_ ~backend ~filename ~module_ident
     in
     print_rawflambda ppf flambda;
     check_invariants flambda;
-    let flambda =
+    let new_flambda =
       Profile.record_call ~accumulate:true "simplify"
         (fun () -> Simplify.run ~backend ~round:1 flambda)
     in
-    print_flambda "simplify" ppf flambda.unit;
-    flambda)
+    print_flambda "simplify" ppf new_flambda.unit;
+    output_flexpect ~ml_filename:filename flambda new_flambda.unit;
+    new_flambda)
 
 let middle_end ~ppf_dump:ppf ~prefixname ~backend ~filename ~module_ident
       ~module_block_size_in_words ~module_initializer : middle_end_result =

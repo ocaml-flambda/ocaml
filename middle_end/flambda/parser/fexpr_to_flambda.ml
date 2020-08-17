@@ -80,18 +80,18 @@ let enter_code env = {
   vars_within_closures = env.vars_within_closures;
 }
 
-let fresh_cont env ?sort { Fexpr.txt = c; loc = _ } arity =
-  let c' = Continuation.create ?sort () in
-  c',
+let fresh_cont env ?sort { Fexpr.txt = name; loc = _ } arity =
+  let c = Continuation.create ?sort ~name () in
+  c,
   { env with
-    continuations = CM.add c (c', arity) env.continuations }
+    continuations = CM.add name (c, arity) env.continuations }
 
-let fresh_exn_cont env { Fexpr.txt = c; loc = _ } =
-  let c' = Continuation.create ~sort:Exn () in
-  let e = Exn_continuation.create ~exn_handler:c' ~extra_args:[] in
+let fresh_exn_cont env { Fexpr.txt = name; loc = _ } =
+  let c = Continuation.create ~sort:Exn ~name () in
+  let e = Exn_continuation.create ~exn_handler:c ~extra_args:[] in
   e,
   { env with
-    exn_continuations = CM.add c e env.exn_continuations }
+    exn_continuations = CM.add name e env.exn_continuations }
 
 let fresh_var env { Fexpr.txt = name; loc = _ } =
   let v = Variable.create name ~user_visible:() in
@@ -133,7 +133,7 @@ let declare_symbol (env:env) { Fexpr.txt = name; loc } =
       name Lambda.print_scoped_location loc
   else
     let symbol =
-      Symbol.create
+      Symbol.unsafe_create
         (Compilation_unit.get_current_exn ())
         (Linkage_name.create name)
     in
@@ -720,8 +720,8 @@ let conv ~backend ~module_ident (fexpr : Fexpr.flambda_unit) : Flambda_unit.t =
     Backend.symbol_for_global' (
       Ident.create_persistent (Ident.name module_ident))
   in
-  let return_continuation = Continuation.create () in
-  let exn_continuation = Continuation.create ~sort:Exn () in
+  let return_continuation = Continuation.create ~name:"done" () in
+  let exn_continuation = Continuation.create ~sort:Exn ~name:"error" () in
   let exn_continuation_as_exn_continuation =
     Exn_continuation.create ~exn_handler:exn_continuation ~extra_args:[]
   in

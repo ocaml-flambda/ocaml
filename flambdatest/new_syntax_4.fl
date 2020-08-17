@@ -1,5 +1,5 @@
 let code rec even (i) clo -> k * e =
-  let i_u = untag_imm i in
+  let i_u = %untag_imm i in
   switch i_u 
     | 0 -> k1
     | 1 -> k2
@@ -7,21 +7,21 @@ let code rec even (i) clo -> k * e =
     k1 = cont k (0)
   where
     k2 = (
-      let f = project_var even.f clo in
+      let f = %project_var even.f clo in
       apply f (i) -> k3 * e
       where
         k3 (x) = (
-          let odd = select_closure (even -> odd) clo in
+          let odd = %select_closure (even -> odd) clo in
           let i' = i - 1 in
           apply odd (i') -> k4 * e
           where
             k4 (xs) =
-              let b = Block 0 (x, xs) in
+              let b = %Block 0 (x, xs) in
               cont k (b)
         )
     )
 and code rec odd (i) clo -> k * e =
-  let i_u = untag_imm i in
+  let i_u = %untag_imm i in
   switch i_u 
     | 0 -> k1
     | 1 -> k2
@@ -29,16 +29,16 @@ and code rec odd (i) clo -> k * e =
     k1 = cont k (0)
   where
     k2 = (
-      let g = project_var odd.g clo in
+      let g = %project_var odd.g clo in
       apply g (i) -> k3 * e
       where
         k3 (x) = (
-          let even = select_closure (odd -> even) clo in
+          let even = %select_closure (odd -> even) clo in
           let i' = i - 1 in
           apply even (i') -> k4 * e
           where
             k4 (xs) =
-              let b = Block 0 (x, xs) in
+              let b = %Block 0 (x, xs) in
               cont k (b)
         )
     )
@@ -49,7 +49,8 @@ let code alternate (f, g, i) clo -> k * e =
   with { f = f; g = g }
   in
   apply even (i) -> k * e
-and symbol Alternate = closure alternate
 in
-let symbol B = Block 0 (Alternate) in
-cont done (B)
+let alternate = closure alternate
+in
+let $camlNew_syntax_4 = Block 0 (alternate) in
+cont done ($camlNew_syntax_4)

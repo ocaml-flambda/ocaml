@@ -1,51 +1,55 @@
 let code rec eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeven (i) clo
     -> k * e =
-  let i_u = untag_imm i in
+  let i_u = %untag_imm i in
   switch i_u 
     | 0 -> k1
     | 1 -> k2
   where
-    k1 = cont k (0t)
+    k1 = cont k (0)
   where
     k2 = (
-      let f = project_var f clo in
+      let f =
+        %project_var
+          eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeven.f clo 
+      in
       apply f (i) -> k3 * e
       where
         k3 (x) = (
-          let odd = select_closure (even -> odd) clo in
-          let i' = i - 1t in
+          let odd = %select_closure (even -> odd) clo in
+          let i' = i - 1 in
           apply odd (i') -> k4 * e
           where
             k4 (xs) =
-              let b = Block 0 (x, xs) in
+              let b = %Block 0 (x, xs) in
               cont k (b)
         )
     )
 and code rec odd (i) cloooooooooooooooooooooooooooooooooooooooooooooooooooo
     -> k * e =
-  let i_u = untag_imm i in
+  let i_u = %untag_imm i in
   switch i_u 
     | 0 -> k1
     | 1 -> k2
   where
-    k1 = cont k (0t)
+    k1 = cont k (0)
   where
     k2 = (
       let g =
-        project_var g cloooooooooooooooooooooooooooooooooooooooooooooooooooo
+        %project_var odd.g
+          cloooooooooooooooooooooooooooooooooooooooooooooooooooo
       in
       apply g (i) -> k3 * e
       where
         k3 (x) = (
           let even =
-            select_closure (odd -> even)
+            %select_closure (odd -> even)
               cloooooooooooooooooooooooooooooooooooooooooooooooooooo
           in
-          let i' = i - 1t in
+          let i' = i - 1 in
           apply even (i') -> k4 * e
           where
             k4 (xs) =
-              let b = Block 0 (x, xs) in
+              let b = %Block 0 (x, xs) in
               cont k (b)
         )
     )
@@ -59,7 +63,7 @@ let code alternate (f, g, i) clo -> k * e =
   in
   apply eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeven
     (i) -> k * e
-and symbol Alternate = closure alternate
+and $Alternate = closure alternate
 in
-let symbol B = Block 0 (Alternate) in
-cont done (B)
+let $camlFormatting_test = Block 0 ($Alternate) in
+cont done ($camlFormatting_test)

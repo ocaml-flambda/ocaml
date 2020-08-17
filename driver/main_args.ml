@@ -761,6 +761,19 @@ let mk_dflambda_verbose f =
       each pass"
 ;;
 
+let mk_dfexpr f =
+  "-dfexpr", Arg.Unit f, " Print Flambda terms in .fl form"
+;;
+
+let mk_drawfexpr f =
+  "-drawfexpr", Arg.Unit f, " Print Flambda terms in .fl form after closure \
+      conversion"
+;;
+
+let mk_dflexpect f =
+  "-dflexpect", Arg.Unit f, " Generate flexpect test as <target>.flt"
+;;
+
 let mk_dinstr f =
   "-dinstr", Arg.Unit f, " (undocumented)"
 ;;
@@ -1196,6 +1209,9 @@ module type Optcommon_options = sig
   val _dflambda_no_invariants : unit -> unit
   val _dflambda_let : int -> unit
   val _dflambda_verbose : unit -> unit
+  val _dfexpr : unit -> unit
+  val _drawfexpr : unit -> unit
+  val _dflexpect : unit -> unit
   val _drawclambda : unit -> unit
   val _dclambda : unit -> unit
   val _dcmm : unit -> unit
@@ -1626,6 +1642,9 @@ struct
     mk_dflambda_no_invariants F._dflambda_no_invariants;
     mk_dflambda_let F._dflambda_let;
     mk_dflambda_verbose F._dflambda_verbose;
+    mk_drawfexpr F._drawfexpr;
+    mk_dfexpr F._dfexpr;
+    mk_dflexpect F._dflexpect;
     mk_dcmm F._dcmm;
     mk_dsel F._dsel;
     mk_dcombine F._dcombine;
@@ -1779,6 +1798,8 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_dclambda F._dclambda;
     mk_drawflambda F._drawflambda;
     mk_dflambda F._dflambda;
+    mk_drawfexpr F._drawfexpr;
+    mk_dfexpr F._dfexpr;
     mk_dcmm F._dcmm;
     mk_dsel F._dsel;
     mk_dcombine F._dcombine;
@@ -1961,18 +1982,21 @@ module Default = struct
     let _dcmm = set dump_cmm
     let _dcombine = set dump_combine
     let _dcse = set dump_cse
+    let _dfexpr = set dump_fexpr
     let _dflambda = set dump_flambda
     let _dflambda_invariants = set flambda_invariant_checks
     let _dflambda_let stamp = dump_flambda_let := (Some stamp)
     let _dflambda_no_invariants = clear flambda_invariant_checks
     let _dflambda_verbose () =
       set dump_flambda (); set dump_flambda_verbose ()
+    let _dflexpect = set dump_flexpect
     let _dinterval = set dump_interval
     let _dinterf = set dump_interf
     let _dlinear = set dump_linear
     let _dlive () = dump_live := true
     let _dprefer = set dump_prefer
     let _drawclambda = set dump_rawclambda
+    let _drawfexpr = set dump_rawfexpr
     let _drawflambda = set dump_rawflambda
     let _dreload = set dump_reload
     let _drunavail () = debug_runavail := true

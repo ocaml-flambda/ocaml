@@ -45,6 +45,7 @@ INCLUDES=-I utils -I parsing -I typing -I bytecomp -I file_formats \
         -I middle_end/flambda \
         -I middle_end/flambda/basic \
         -I middle_end/flambda/cmx \
+        -I middle_end/flambda/compare \
         -I middle_end/flambda/from_lambda \
         -I middle_end/flambda/inlining \
         -I middle_end/flambda/lifting \
@@ -392,7 +393,11 @@ MIDDLE_END_FLAMBDA_PARSER=\
   middle_end/flambda/parser/flambda_parser.cmo \
   middle_end/flambda/parser/flambda_parser_messages.cmo \
   middle_end/flambda/parser/flambda_lex.cmo \
+  middle_end/flambda/parser/flambda_to_fexpr.cmo \
   middle_end/flambda/parser/parse_flambda.cmo
+
+MIDDLE_END_FLAMBDA_COMPARE=\
+  middle_end/flambda/compare/compare.cmo
 
 MIDDLE_END_FLAMBDA=\
   $(MIDDLE_END_FLAMBDA_BASIC) \
@@ -403,6 +408,7 @@ MIDDLE_END_FLAMBDA=\
   $(MIDDLE_END_FLAMBDA_SIMPLIFY) \
   $(MIDDLE_END_FLAMBDA_FROM_LAMBDA) \
   $(MIDDLE_END_FLAMBDA_PARSER) \
+  $(MIDDLE_END_FLAMBDA_COMPARE) \
   middle_end/flambda/flambda_middle_end.cmo
 
 MIDDLE_END=\
@@ -1533,6 +1539,7 @@ partialclean::
            middle_end/flambda \
            middle_end/flambda/basic \
            middle_end/flambda/cmx \
+           middle_end/flambda/compare \
            middle_end/flambda/from_lambda \
            middle_end/flambda/inlining \
            middle_end/flambda/naming \
@@ -1565,6 +1572,7 @@ depend: beforedepend
          middle_end/flambda \
          middle_end/flambda/basic \
          middle_end/flambda/cmx \
+         middle_end/flambda/compare \
          middle_end/flambda/from_lambda \
          middle_end/flambda/inlining \
          middle_end/flambda/lifting \

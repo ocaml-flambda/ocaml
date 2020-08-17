@@ -11,7 +11,7 @@ let parse_flambda ~backend filename =
     match Parse_flambda.parse_fexpr filename with
     | Ok unit ->
       let comp_unit =
-        Parse_flambda.make_compilation_unit ~extension:"fl" ~filename
+        Parse_flambda.make_compilation_unit ~extension:".fl" ~filename ()
       in
       Compilation_unit.set_current comp_unit;
       Format.printf "%a@.@."
