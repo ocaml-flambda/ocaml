@@ -8,11 +8,9 @@ let pp_list ~sep f ppf =
     ~pp_sep:(fun ppf () -> Format.fprintf ppf sep)
     ppf
 
-let pp_semi_list f = pp_list ~sep:";" f
+let pp_star_list f = pp_list ~sep:" *@ " f
 
-let pp_star_list f = pp_list ~sep:" * " f
-
-let pp_comma_list f = pp_list ~sep:", " f
+let pp_comma_list f = pp_list ~sep:",@ " f
 
 let pp_option ?prefix ?suffix f ppf = function
   | None -> ()
@@ -33,23 +31,47 @@ let is_exn ppf = function
   | false -> ()
   | true -> Format.fprintf ppf "@ exn"
 
+let char_between c (low, high) =
+  Char.compare low c <= 0 && Char.compare c high <= 0
+
+let is_identstart c =
+  Char.equal c '_' || char_between c ('a', 'z') || char_between c ('A', 'Z')
+
+let is_identchar c =
+  is_identstart c || Char.equal c '\'' || char_between c ('0', '9')
+
+let is_unquoted_symbol s =
+  not (String.equal s "") && Misc.Stdlib.String.for_all is_identchar s
+
+let is_unquoted_ident s =
+  not (String.equal s "")
+  && is_identstart s.[0]
+  && Misc.Stdlib.String.for_all is_identchar s
+
 let symbol ppf { txt = s; loc = _ } =
-  Format.fprintf ppf "$%s" s
+  if is_unquoted_symbol s
+    then Format.fprintf ppf "$%s" s
+    else Format.fprintf ppf "$`%s`" s
+
+let ident ppf s =
+  if is_unquoted_ident s && not (Flambda_lex.is_keyword s)
+    then Format.pp_print_string ppf s
+    else Format.fprintf ppf "`%s`" s
 
 let variable ppf { txt = s; loc = _ } =
-  Format.fprintf ppf "%s" s
+  ident ppf s
 
 let var_within_closure ppf { txt = s; loc = _ } =
-  Format.fprintf ppf "%s" s
+  ident ppf s
 
 let code_id ppf ({ txt = s; loc = _ } : code_id) =
-  Format.fprintf ppf "%s" s
+  ident ppf s
 
 let closure_id ppf ({ txt = s; loc = _ } : closure_id) =
-  Format.fprintf ppf "%s" s
+  ident ppf s
 
 let continuation_id ppf ({ txt = s; loc = _ } : continuation_id) =
-  Format.fprintf ppf "%s" s
+  ident ppf s
 
 let special_continuation ppf special_cont =
   match special_cont with
@@ -111,6 +133,12 @@ let simple ppf : simple -> unit = function
   | Var v -> variable ppf v
   | Const c -> const ppf c
 
+let simple_args ~omit_if_empty ppf = function
+  | [] when omit_if_empty -> ()
+  | args ->
+    Format.fprintf ppf "@ (@[<hv>%a@])"
+      (pp_comma_list simple) args
+
 let name ppf : name -> unit = function
   | Symbol s -> symbol ppf s
   | Var v -> variable ppf v
@@ -126,7 +154,7 @@ let mutability ?prefix ?suffix () ppf mut =
 
 let static_part ppf : static_part -> _ = function
   | Block { tag; mutability = mut; elements = elts } ->
-    Format.fprintf ppf "Block %a%i (%a)"
+    Format.fprintf ppf "Block %a%i (@[<hv>%a@])"
       (mutability ~suffix:"@ " ()) mut
       tag
       (pp_comma_list of_kind_value) elts
@@ -227,10 +255,10 @@ let prim ppf = function
      *   simple a1
      *   simple a2 *)
   | Variadic (Make_block (tag, mut), elts) ->
-    Format.fprintf ppf "%%Block %a%i (%a)"
+    Format.fprintf ppf "@[<2>%%Block %a%i%a@]"
       (mutability ~suffix:"@ " ()) mut
       tag
-      (pp_comma_list simple) elts
+      (simple_args ~omit_if_empty:false) elts
 
 let parameter ppf { param; kind = k } =
   kinded_variable ppf (param, k)
@@ -243,12 +271,10 @@ let kinded_parameters ppf = function
 
 let apply_cont ppf (ac : Fexpr.apply_cont) =
   match ac with
-  | { cont; trap_action = None; args = [] } ->
-    Format.fprintf ppf "%a" continuation cont
   | { cont; trap_action = None; args } ->
-    Format.fprintf ppf "%a (@[<hv>%a@])"
+    Format.fprintf ppf "@[<hv2>%a%a@]"
       continuation cont
-      (pp_comma_list simple) args
+      (simple_args ~omit_if_empty:true) args
   | _ ->
       failwith "TODO Apply_cont"
 
@@ -257,17 +283,11 @@ let switch_case ppf (v, c) =
     v
     apply_cont c
 
-let simple_args ppf = function
-  | [] -> ()
-  | args ->
-    Format.fprintf ppf "@ @[(@[<hv>%a@])@]@ "
-      (pp_comma_list simple) args
-
 let closure_elements ppf = function
   | None -> ()
   | Some ces ->
     Format.fprintf ppf "@ @[<hv2>with {";
-    pp_semi_list (fun ppf ({ var; value } : closure_element) ->
+    pp_list ~sep:";" (fun ppf ({ var; value } : closure_element) ->
       Format.fprintf ppf "@ @[<hv2>%a =@ %a@]"
         var_within_closure var
         simple value
@@ -293,19 +313,18 @@ let static_closure_binding ppf (scb : static_closure_binding) =
     symbol scb.symbol
     fun_decl scb.fun_decl
 
-let call_kind ppf ck =
+let empty_fmt : (unit, Format.formatter, unit) format = ""
+
+let call_kind ?(prefix=empty_fmt) ?(suffix=empty_fmt) () ppf ck =
   match ck with
   | Function Indirect -> ()
   | Function (Direct { code_id = c }) ->
-    (* CR-someday lmaurer: Find a way to write this without leaking
-     * implementation details from the caller---in particular, without knowing
-     * that the calling function wants a space *before* the call kind if
-     * anything is printed. If need be, extend Format by adding a way to
-     * collapse multiple consecutive spaces into one. *)
-    Format.fprintf ppf "@ direct(%a)" code_id c
+    Format.fprintf ppf "%adirect(%a)%a"
+      Format.fprintf prefix code_id c Format.fprintf suffix
   | C_call { alloc } ->
-    Format.fprintf ppf "@ ccall";
-    if not alloc then Format.fprintf ppf "@ noalloc"
+    Format.fprintf ppf "%a@ ccall" Format.fprintf prefix;
+    if not alloc then Format.fprintf ppf "@ noalloc";
+    Format.fprintf ppf suffix
 
 
 let func_name_with_optional_arities ppf (n, arities) =
@@ -334,7 +353,7 @@ let rec expr scope ppf = function
   | Invalid inv ->
     invalid ppf inv
   | Apply_cont ac ->
-    Format.fprintf ppf "cont %a" apply_cont ac
+    Format.fprintf ppf "@[cont %a@]" apply_cont ac
   | Let let_ ->
     parens ~if_scope_is:Where_body scope ppf (fun scope ppf ->
       let_expr scope ppf let_
@@ -376,10 +395,10 @@ let rec expr scope ppf = function
       args;
       func;
       arities } ->
-    Format.fprintf ppf "@[<hv 2>apply@ %a%a%a@[<hov2>->@ %a@]@ %a@]"
+    Format.fprintf ppf "@[<hv 2>apply%a@ %a%a@ @[<hov2>->@ %a@]@ %a@]"
+      (call_kind ~prefix:"@ " ()) kind
       func_name_with_optional_arities (func, arities)
-      call_kind kind
-      simple_args args
+      (simple_args ~omit_if_empty:true) args
       continuation ret
       exn_continuation ek
 

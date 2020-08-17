@@ -74,6 +74,9 @@ let ident_or_keyword str =
   try Hashtbl.find keyword_table str
   with Not_found -> IDENT str
 
+let is_keyword str =
+  Hashtbl.mem keyword_table str
+
 let prim_table =
   create_hashtable [
     "Block", PRIM_BLOCK;
@@ -95,16 +98,11 @@ let prim ~lexbuf str =
 
 }
 
-let newline = ('\013'* '\010')
 let blank = [' ' '\009' '\012']
 let lowercase = ['a'-'z' '_']
 let uppercase = ['A'-'Z']
 let identstart = lowercase | uppercase
 let identchar = ['A'-'Z' 'a'-'z' '_' '\'' '0'-'9']
-let symbolchar =
-  ['!' '$' '%' '&' '*' '+' '-' '.' '/' ':' '<' '=' '>' '?' '@' '^' '|' '~']
-let dotsymbolchar =
-  ['!' '$' '%' '&' '*' '+' '-' '/' ':' '=' '>' '?' '@' '^' '|' '~']
 let decimal_literal =
   ['0'-'9'] ['0'-'9' '_']*
 let hex_digit =
@@ -129,7 +127,7 @@ let hex_float_literal =
 let int_modifier = ['G'-'Z' 'g'-'z']
 
 rule token = parse
-  | newline
+  | "\n"
       { Lexing.new_line lexbuf; token lexbuf }
   | blank +
       { token lexbuf }
@@ -167,8 +165,10 @@ rule token = parse
   | "===>" { BIGARROW }
   | identstart identchar* as ident
          { ident_or_keyword ident }
-  | '$' (identchar* as s)
-         { SYMBOL s }
+  | '`' ([^ '`' '\n']* as ident) '`'
+         { IDENT ident }
+  | '$' ((identchar* as ident) | '`' ([^ '`' '\n']* as ident) '`')
+         { SYMBOL ident }
   | '%' (identchar* as p)
          { prim ~lexbuf p }
   | (int_literal as lit) (int_modifier as modif)?
@@ -182,7 +182,7 @@ rule token = parse
          { error ~lexbuf (Illegal_character ch) }
 
 and comment n = parse
-  | newline
+  | "\n"
          { Lexing.new_line lexbuf; comment n lexbuf }
   | "*)"
          { if n = 1 then ()
