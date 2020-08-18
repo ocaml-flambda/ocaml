@@ -130,7 +130,7 @@ let invariant env
     | Function Indirect_unknown_arity ->
       E.check_simples_are_bound_and_of_kind env args K.value
     | Function (Indirect_known_arity { param_arity; return_arity = _; }) ->
-      ignore (param_arity : Flambda_arity.t);
+      ignore (param_arity : Flambda_arity.With_subkinds.t);
       E.check_simples_are_bound env args
     | Method { kind; obj; } ->
       ignore (kind : Call_kind.method_kind);
@@ -154,7 +154,7 @@ let invariant env
       | a ->
         Misc.fatal_errorf "This [Apply] never returns and so expects an empty \
                            arity, but has a call kind arity of %a:@ %a"
-          Flambda_arity.print a print t
+          Flambda_arity.With_subkinds.print a print t
       end
     (* general case *)
     | Return continuation ->
@@ -172,13 +172,14 @@ let invariant env
             print t
         end;
         let expected_arity = Call_kind.return_arity call_kind in
-        if not (Flambda_arity.equal arity expected_arity)
+        if not (Flambda_arity.With_subkinds.compatible expected_arity
+          ~when_used_at:arity)
         then begin
           Misc.fatal_errorf "Continuation %a called with wrong arity in \
                              this [Apply] term: expected %a but used at %a:@ %a"
             Continuation.print continuation
-            Flambda_arity.print expected_arity
-            Flambda_arity.print arity
+            Flambda_arity.With_subkinds.print expected_arity
+            Flambda_arity.With_subkinds.print arity
             print t
         end (*;
               E.Continuation_stack.unify continuation stack cont_stack *)
@@ -199,13 +200,14 @@ let invariant env
             print t
         | Exn_handler -> ()
         end;
-        let expected_arity = [Flambda_kind.value] in
-        if not (Flambda_arity.equal arity expected_arity) then begin
+        let expected_arity = [Flambda_kind.With_subkind.any_value] in
+        if not (Flambda_arity.With_subkinds.equal arity expected_arity)
+        then begin
           Misc.fatal_errorf "Exception continuation %a named in this \
                              [Apply] term has the wrong arity: expected %a but have %a:@ %a"
             Continuation.print continuation
-            Flambda_arity.print expected_arity
-            Flambda_arity.print arity
+            Flambda_arity.With_subkinds.print expected_arity
+            Flambda_arity.With_subkinds.print arity
             print t
         end (*;
               E.Continuation_stack.unify exn_continuation stack cont_stack *)
