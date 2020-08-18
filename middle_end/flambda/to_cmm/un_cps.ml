@@ -1421,7 +1421,7 @@ let unit (middle_end_result : Flambda_middle_end.middle_end_result) =
   in
   let functions_info = middle_end_result.all_code in
   Profile.record_call "flambda_to_cmm" (fun () ->
-    let offsets = Un_cps_closure.compute_offsets offsets unit in
+    let offsets = Un_cps_closure.compute_offsets offsets functions_info unit in
     begin match middle_end_result.cmx with
     | None -> () (* Either opaque was passed, or there is no need to export
                     offsets *)
