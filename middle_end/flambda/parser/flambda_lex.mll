@@ -30,6 +30,7 @@ let create_hashtable init =
 
 let keyword_table =
   create_hashtable [
+    "always", ALWAYS;
     "and", AND;
     "andwhere", ANDWHERE;
     "apply", APPLY;
@@ -38,6 +39,7 @@ let keyword_table =
     "closure", CLOSURE;
     "code", CODE;
     "cont", CONT;
+    "default", DEFAULT;
     "deleted", DELETED;
     "direct", DIRECT;
     "done", DONE;
@@ -50,11 +52,14 @@ let keyword_table =
     "imm", IMM;
     "immutable_unique", IMMUTABLE_UNIQUE;
     "in", IN;
+    "inline", INLINE;
+    "inlining_depth", INLINING_DEPTH;
     "int32", INT32;
     "int64", INT64;
     "let", LET;
     "mutable", MUTABLE;
     "nativeint", NATIVEINT;
+    "never", NEVER;
     "newer_version_of", NEWER_VERSION_OF;
     "noalloc", NOALLOC;
     "rec", REC;
@@ -65,6 +70,8 @@ let keyword_table =
     "tupled", TUPLED;
     "unit", UNIT;
     "unreachable", UNREACHABLE;
+    "unroll", UNROLL;
+    "unsigned", UNSIGNED;
     "val", VAL;
     "where", WHERE;
     "with", WITH;
@@ -82,6 +89,7 @@ let prim_table =
     "Block", PRIM_BLOCK;
     "block_load", PRIM_BLOCK_LOAD;
     "get_tag", PRIM_GET_TAG;
+    "int_comp", PRIM_INT_COMP;
     "is_int", PRIM_IS_INT;
     "Opaque", PRIM_OPAQUE;
     "phys_eq", PRIM_PHYS_EQ;
@@ -155,10 +163,18 @@ rule token = parse
   | ")"
       { RPAREN }
   | "+"  { PLUS }
-  | "+." { PLUSDOT }
   | "*"  { STAR }
   | "-"  { MINUS }
+  | "<"  { LESS }
+  | ">"  { GREATER }
+  | "<=" { LESSEQUAL }
+  | ">=" { GREATEREQUAL }
+  | "+." { PLUSDOT }
   | "-." { MINUSDOT }
+  | "=." { EQUALDOT }
+  | "!=." { NOTEQUALDOT }
+  | "<." { LESSDOT }
+  | "<=." { LESSEQUALDOT }
   | "->" { MINUSGREATER }
   | "@" { AT }
   | "|"  { PIPE }

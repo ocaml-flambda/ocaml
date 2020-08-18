@@ -11,6 +11,11 @@ let make_located txt (startpos, endpos) =
   let loc = make_loc (startpos, endpos) in
   { txt; loc }
 
+let make_plain_int = function
+  | s, None -> Int64.of_string s |> Int64.to_int
+  | _, Some _ ->
+    failwith "No modifier expected here"
+
 let make_targetint = function
   | s, None -> Int64.of_string s
   | _, Some _ ->
@@ -39,6 +44,7 @@ let make_const_int (i, m) : const =
 
 /* Tokens */
 
+%token ALWAYS [@symbol "always"]
 %token AND   [@symbol "and"]
 %token ANDWHERE [@symbol "andwhere"]
 %token AT    [@symbol "@"]
@@ -51,26 +57,38 @@ let make_const_int (i, m) : const =
 %token COMMA [@symbol "comma"]
 %token COLON  [@symbol ":"]
 %token CONT  [@symbol "cont"]
+%token DEFAULT [@symbol "default"]
 %token DELETED [@symbol "deleted"]
 %token DIRECT [@symbol "direct"]
 %token DONE  [@symbol "done"]
 %token DOT   [@symbol "."]
 %token END   [@symbol "end"]
 %token EQUAL [@symbol "="]
+%token EQUALDOT [@symbol "=."]
 %token ERROR [@symbol "error"]
 %token EXN   [@symbol "exn"]
 %token FABRICATED [@symbol "fabricated"]
 %token <float> FLOAT
 %token FLOAT_KIND [@symbol "float"]
+%token GREATER [@symbol ">"]
+%token GREATEREQUAL [@symbol ">="]
+%token GREATERDOT [@symbol ">."]
+%token GREATEREQUALDOT [@symbol ">"]
 %token HCF   [@symbol "HCF"]
 %token <string> IDENT
 %token IMM   [@symbol "imm" ]
 %token IMMUTABLE_UNIQUE [@symbol "immutable_unique"]
 %token IN    [@symbol "in"]
+%token INLINE [@symbol "inline"]
+%token INLINING_DEPTH [@symbol "inlining_depth"]
 %token INT32 [@symbol "int32"]
 %token INT64 [@symbol "int64"]
 %token <string * char option> INT
 %token LBRACE [@symbol "{"]
+%token LESS   [@symbol "<"]
+%token LESSDOT [@symbol "<."]
+%token LESSEQUAL [@symbol "<="]
+%token LESSEQUALDOT [@symbol "<=."]
 %token LET    [@symbol "let"]
 %token LPAREN [@symbol "("]
 %token MINUS    [@symbol "-"]
@@ -78,8 +96,10 @@ let make_const_int (i, m) : const =
 %token MINUSGREATER [@symbol "->"]
 %token MUTABLE [@symbol "mutable"]
 %token NATIVEINT [@symbol "nativeint"]
+%token NEVER  [@symbol "never"]
 %token NEWER_VERSION_OF [@symbol "newer_version_of"]
 %token NOALLOC [@symbol "noalloc"]
+%token NOTEQUALDOT [@symbol "!=."]
 %token PIPE [@symbol "|"]
 %token PLUS     [@symbol "+"]
 %token PLUSDOT  [@symbol "+."]
@@ -93,10 +113,11 @@ let make_const_int (i, m) : const =
 %token STAR   [@symbol "*"]
 %token SWITCH [@symbol "switch"]
 %token<string> SYMBOL
-%token TAG_IMM [@symbol "tag_imm"]
 %token TUPLED [@symbol "tupled"]
 %token UNIT   [@symbol "unit"]
 %token UNREACHABLE [@symbol "Unreachable"]
+%token UNROLL [@symbol "unroll"]
+%token UNSIGNED [@symbol "unsigned"]
 %token VAL    [@symbol "val"]
 %token WHERE  [@symbol "where"]
 %token WITH   [@symbol "with"]
@@ -105,6 +126,7 @@ let make_const_int (i, m) : const =
 %token PRIM_BLOCK [@symbol "%Block"]
 %token PRIM_BLOCK_LOAD [@symbol "%block_load"]
 %token PRIM_GET_TAG [@symbol "%get_tag"]
+%token PRIM_INT_COMP [@symbol "%int_comp"]
 %token PRIM_IS_INT [@symbol "%is_int"]
 %token PRIM_OPAQUE [@symbol "%Opaque"]
 %token PRIM_PHYS_EQ [@symbol "%phys_eq"]
@@ -120,9 +142,11 @@ let make_const_int (i, m) : const =
 %type <Fexpr.expect_test_spec> expect_test_spec
 %type <Fexpr.static_structure> static_structure
 %type <Fexpr.kind> kind
+%type <Fexpr.ordered_comparison> int_comp
 %type <Fexpr.mutability> mutability
 %type <Fexpr.named> named
 %type <Fexpr.of_kind_value> of_kind_value
+%type <Fexpr.standard_int> standard_int
 %%
 
 flambda_unit:
@@ -173,8 +197,8 @@ code:
     exn_cont = exn_continuation_id;
     ret_arity = return_arity;
     EQUAL; body = expr;
-    { let recursive, id, newer_version_of = header in
-      { id; newer_version_of; param_arity = None; ret_arity; recursive;
+    { let recursive, inline, id, newer_version_of = header in
+      { id; newer_version_of; param_arity = None; ret_arity; recursive; inline;
         params_and_body = Present { params; closure_var; ret_cont; exn_cont;
                                     body } } }
   | header = code_header;
@@ -183,18 +207,23 @@ code:
     param_arity = kinds;
     MINUSGREATER;
     ret_arity = kinds;
-    { let recursive, id, newer_version_of = header in
+    { let recursive, inline, id, newer_version_of = header in
       { id; newer_version_of; param_arity = Some param_arity;
-        ret_arity = Some ret_arity; recursive; params_and_body = Deleted } }
+        ret_arity = Some ret_arity; recursive; inline;
+        params_and_body = Deleted } }
 ;
 
 code_header:
   | CODE;
     recursive = recursive;
+    inline = option(inline);
     id = code_id;
-    newer_version_of = option(NEWER_VERSION_OF; id = code_id { id });
-    { recursive, id, newer_version_of }
+    newer_version_of = option(newer_version_of);
+    { recursive, inline, id, newer_version_of }
 ;
+
+newer_version_of:
+  | NEWER_VERSION_OF LPAREN; id = code_id; RPAREN { id };
 
 static_closure_binding:
   | symbol = symbol; EQUAL; fun_decl = fun_decl;
@@ -227,9 +256,19 @@ unop:
 
 infix_binop:
   | PLUS { Plus }
-  | PLUSDOT { Plusdot }
   | MINUS { Minus }
+  | LESS { Lt }
+  | LESSEQUAL { Le }
+  | GREATER { Gt }
+  | GREATEREQUAL { Ge }
+  | PLUSDOT { Plusdot }
   | MINUSDOT { Minusdot }
+  | EQUALDOT { Eqdot }
+  | NOTEQUALDOT { Neqdot }
+  | LESSDOT { Lt }
+  | LESSEQUALDOT { Le }
+  | GREATERDOT { Gt }
+  | GREATEREQUALDOT { Ge }
 ;
 
 prefix_binop:
@@ -241,6 +280,9 @@ prefix_binop:
     { Block_load (Values { tag; size; field_kind }, mutability) }
   | PRIM_PHYS_EQ; k = kind_arg_opt { Phys_equal(k, Eq) }
   | PRIM_PHYS_NE; k = kind_arg_opt { Phys_equal(k, Neq) }
+  | PRIM_INT_COMP;
+    i = standard_int; s = signed_or_unsigned; c = int_comp;
+    { Int_comp (i, s, c) }
 
 mutability:
   | MUTABLE { Mutable }
@@ -250,6 +292,23 @@ mutability:
 block_access_field_kind:
   | { Any_value }
   | IMM { Immediate }
+
+standard_int:
+  | { Tagged_immediate }
+  | IMM { Naked_immediate }
+  | INT32 { Naked_int32 }
+  | INT64 { Naked_int64 }
+  | NATIVEINT { Naked_nativeint }
+
+signed_or_unsigned:
+  | { Signed }
+  | UNSIGNED { Unsigned }
+
+int_comp:
+  | LESS { Lt }
+  | GREATER { Gt }
+  | LESSEQUAL { Le }
+  | GREATEREQUAL { Ge }
 
 binop_app:
   | op = prefix_binop; LPAREN; arg1 = simple; COMMA; arg2 = simple; RPAREN
@@ -402,7 +461,10 @@ fun_decl:
 ;
 
 apply_expr:
-  | call_kind = call_kind func = func_name_with_optional_arities 
+  | call_kind = call_kind;
+    inline = option(inline);
+    inlining_depth = option(inlining_depth);
+    func = func_name_with_optional_arities 
     args = simple_args MINUSGREATER
     r = continuation e = exn_continuation
      { let (func, arities) = func in {
@@ -411,6 +473,8 @@ apply_expr:
           exn_continuation = e;
           args = args;
           call_kind;
+          inline;
+          inlining_depth;
           arities;
      } }
 ;
@@ -422,6 +486,15 @@ call_kind:
   | CCALL; noalloc = boption(NOALLOC)
     { C_call { alloc = not noalloc } }
 ;
+
+inline:
+  | INLINE LPAREN ALWAYS RPAREN { Always_inline }
+  | INLINE LPAREN NEVER RPAREN { Never_inline }
+  | UNROLL LPAREN; i = plain_int; RPAREN { Unroll i }
+  | INLINE LPAREN DEFAULT RPAREN { Default_inline }
+
+inlining_depth:
+  | INLINING_DEPTH LPAREN; i = plain_int; RPAREN { i }
 
 apply_cont_expr:
   | cont = continuation; args = simple_args
@@ -463,6 +536,10 @@ targetint:
 
 tag:
   tag = INT { make_tag ~loc:(make_loc ($startpos, $endpos)) tag }
+;
+
+plain_int:
+  i = INT { make_plain_int i }
 ;
 
 of_kind_value:

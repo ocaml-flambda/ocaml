@@ -1,3 +1,5 @@
+[@@@ocaml.warning "+a-4-30-40-41-42"]
+
 module type Convertible_id = sig
   type t
   type fexpr_id
@@ -366,6 +368,28 @@ let binop (op : Flambda_primitive.binary_primitive) : Fexpr.binop =
     Infix Plus
   | Int_arith (Tagged_immediate, Sub) ->
     Infix Minus
+  | Int_comp (Tagged_immediate, Signed, Lt) ->
+    Infix Lt
+  | Int_comp (Tagged_immediate, Signed, Gt) ->
+    Infix Gt
+  | Int_comp (Tagged_immediate, Signed, Le) ->
+    Infix Le
+  | Int_comp (Tagged_immediate, Signed, Ge) ->
+    Infix Ge
+  | Int_comp (i, s, c) ->
+    Int_comp (i, s, c)
+  | Float_comp Eq ->
+    Infix Eqdot
+  | Float_comp Neq ->
+    Infix Neqdot
+  | Float_comp Lt ->
+    Infix Ltdot
+  | Float_comp Gt ->
+    Infix Gtdot
+  | Float_comp Le ->
+    Infix Ledot
+  | Float_comp Ge ->
+    Infix Gedot
   | _ ->
     Misc.fatal_errorf "TODO: Binary primitive: %a"
       Flambda_primitive.Without_args.print
@@ -573,6 +597,11 @@ and static_let_expr env bound_symbols defining_expr body : Fexpr.expr =
         | other -> Some other
       in
       let recursive = recursive_flag (Flambda.Code.recursive code) in
+      let inline =
+        match Flambda.Code.inline code with
+        | Default_inline -> None
+        | other -> Some other
+      in
       let params_and_body : Fexpr.params_and_body Fexpr.or_deleted =
         match Flambda.Code.params_and_body code with
         | Deleted -> Deleted
@@ -602,7 +631,7 @@ and static_let_expr env bound_symbols defining_expr body : Fexpr.expr =
           Present params_and_body
       in
       Code { id = code_id; newer_version_of; param_arity; ret_arity; recursive;
-             params_and_body}
+             inline; params_and_body}
     | _, _ ->
       Misc.fatal_errorf "Mismatched pattern and constant: %a vs. %a"
         Bound_symbols.Pattern.print pat
@@ -723,7 +752,7 @@ and apply_expr env (app : Apply_expr.t) : Fexpr.expr =
   let args = List.map (simple env) (Apply_expr.args app) in
   let call_kind : Fexpr.call_kind =
     match Apply_expr.call_kind app with
-    | Function (Direct { code_id; closure_id }) ->
+    | Function (Direct { code_id; closure_id; return_arity = _ }) ->
       let code_id = Env.find_code_id_exn env code_id in
       let closure_id = Env.translate_closure_id env closure_id in
       let closure_id =
@@ -749,7 +778,18 @@ and apply_expr env (app : Apply_expr.t) : Fexpr.expr =
     | _ ->
       None
   in
-  Apply { func; continuation; exn_continuation; args; call_kind; arities }
+  let inline =
+    match Apply_expr.inline app with
+    | Default_inline -> None
+    | other -> Some other
+  in
+  let inlining_depth =
+    match Apply_expr.inlining_depth app with
+    | 0 -> None
+    | other -> Some other
+  in
+  Apply { func; continuation; exn_continuation; args; call_kind; inline;
+          inlining_depth; arities }
 and apply_cont_expr env app_cont : Fexpr.expr =
   Apply_cont (apply_cont env app_cont)
 and apply_cont env app_cont : Fexpr.apply_cont =

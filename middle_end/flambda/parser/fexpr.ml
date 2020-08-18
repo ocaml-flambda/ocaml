@@ -119,15 +119,37 @@ type block_access_kind =
       field_kind : block_access_field_kind;
     }
 
-type equality_comparison = Flambda_primitive.equality_comparison = Eq | Neq
+type standard_int = Flambda_kind.Standard_int.t =
+  | Tagged_immediate
+  | Naked_immediate
+  | Naked_int32
+  | Naked_int64
+  | Naked_nativeint
+
+type ordered_comparison = Flambda_primitive.ordered_comparison =
+  | Lt | Gt
+  | Le | Ge
+
+type equality_comparison = Flambda_primitive.equality_comparison =
+  | Eq | Neq
+
+type signed_or_unsigned = Flambda_primitive.signed_or_unsigned =
+  | Signed | Unsigned
 
 type infix_binop =
   | Plus | Plusdot
   | Minus | Minusdot
+  | Eqdot
+  | Neqdot
+  | Lt | Ltdot
+  | Gt | Gtdot
+  | Le | Ledot
+  | Ge | Gedot
 
 type binop =
   | Block_load of block_access_kind * mutability
   | Phys_equal of kind option * equality_comparison
+  | Int_comp of standard_int * signed_or_unsigned * ordered_comparison
   | Infix of infix_binop
 
 type varop =
@@ -174,6 +196,12 @@ type function_arities = {
   ret_arity : flambda_arity;
 }
 
+type inline_attribute = Inline_attribute.t =
+  | Always_inline
+  | Never_inline
+  | Unroll of int
+  | Default_inline
+
 type apply = {
     func : name;
     continuation : continuation;
@@ -181,9 +209,8 @@ type apply = {
     args : simple list;
     call_kind : call_kind;
     arities : function_arities option;
-    (* dbg : Debuginfo.t; *)
-    (* inline : inline_attribute;
-     * specialise : specialise_attribute; *)
+    inline : inline_attribute option;
+    inlining_depth : int option;
   }
 
 type size = int
@@ -276,6 +303,7 @@ and code = {
   param_arity : flambda_arity option;
   ret_arity : flambda_arity option;
   recursive : is_recursive;
+  inline : inline_attribute option;
   params_and_body : params_and_body or_deleted;
 }
 

@@ -5,10 +5,11 @@ type token =
   | WITH
   | WHERE
   | VAL
+  | UNSIGNED
+  | UNROLL
   | UNREACHABLE
   | UNIT
   | TUPLED
-  | TAG_IMM
   | SYMBOL of (string)
   | SWITCH
   | STUB
@@ -27,14 +28,17 @@ type token =
   | PRIM_PHYS_EQ
   | PRIM_OPAQUE
   | PRIM_IS_INT
+  | PRIM_INT_COMP
   | PRIM_GET_TAG
   | PRIM_BLOCK_LOAD
   | PRIM_BLOCK
   | PLUSDOT
   | PLUS
   | PIPE
+  | NOTEQUALDOT
   | NOALLOC
   | NEWER_VERSION_OF
+  | NEVER
   | NATIVEINT
   | MUTABLE
   | MINUSGREATER
@@ -42,20 +46,31 @@ type token =
   | MINUS
   | LPAREN
   | LET
+  | LESSEQUALDOT
+  | LESSEQUAL
+  | LESSDOT
+  | LESS
   | LBRACE
   | INT64
   | INT32
   | INT of (string * char option)
+  | INLINING_DEPTH
+  | INLINE
   | IN
   | IMMUTABLE_UNIQUE
   | IMM
   | IDENT of (string)
   | HCF
+  | GREATEREQUALDOT
+  | GREATEREQUAL
+  | GREATERDOT
+  | GREATER
   | FLOAT_KIND
   | FLOAT of (float)
   | FABRICATED
   | EXN
   | ERROR
+  | EQUALDOT
   | EQUAL
   | EOF
   | END
@@ -63,6 +78,7 @@ type token =
   | DONE
   | DIRECT
   | DELETED
+  | DEFAULT
   | CONT
   | COMMA
   | COLON
@@ -75,6 +91,7 @@ type token =
   | APPLY
   | ANDWHERE
   | AND
+  | ALWAYS
 
 (* This exception is raised by the monolithic API functions. *)
 

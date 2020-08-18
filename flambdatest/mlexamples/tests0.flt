@@ -24,7 +24,10 @@ in
     let $camlTests0 = Block 0 (field_0) in
     cont done ($camlTests0)
 ===>
-let code f_0 (param) my_closure -> k * k1 = cont k (0) in
-let $camlTests0__f_1 = closure f_0 @f in
+let code f_0 deleted : val -> val in
+let code f_0_1 newer_version_of(f_0) (param) my_closure -> k * k1 =
+  cont k (0)
+in
+let $camlTests0__f_1 = closure f_0_1 @f in
 let $camlTests0 = Block 0 ($camlTests0__f_1) in
 cont done ($camlTests0)
