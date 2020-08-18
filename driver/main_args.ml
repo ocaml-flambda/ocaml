@@ -180,9 +180,11 @@ let mk_dump_pass f =
 ;;
 
 let mk_oclassic f =
-  "-Oclassic", Arg.Unit f, " Make inlining decisions at function definition \
-     time rather than at the call site (replicates previous behaviour of the \
-     compiler)"
+  "-Oclassic", Arg.Unit f, " Emulate optimisation of non-Flambda compilers"
+;;
+
+let mk_o1 f =
+  "-O1", Arg.Unit f, " Default level of optimization"
 ;;
 
 let mk_o2 f =
@@ -1194,6 +1196,7 @@ module type Optcommon_options = sig
   val _no_unbox_free_vars_of_closures : unit -> unit
   val _no_unbox_specialised_args : unit -> unit
   val _oclassic : unit -> unit
+  val _o1 : unit -> unit
   val _o2 : unit -> unit
   val _o3 : unit -> unit
   val _insn_sched : unit -> unit
@@ -1536,6 +1539,7 @@ struct
     mk_no_unbox_specialised_args F._no_unbox_specialised_args;
     mk_o F._o;
     mk_oclassic F._oclassic;
+    mk_o1 F._o1;
     mk_o2 F._o2;
     mk_o3 F._o3;
     mk_opaque F._opaque;
@@ -1712,6 +1716,7 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_no_unbox_free_vars_of_closures F._no_unbox_free_vars_of_closures;
     mk_no_unbox_specialised_args F._no_unbox_specialised_args;
     mk_oclassic F._oclassic;
+    mk_o1 F._o1;
     mk_o2 F._o2;
     mk_o3 F._o3;
     mk_open F._open;
@@ -2118,17 +2123,15 @@ module Default = struct
       Flambda.oclassic_flags ();
       use_inlining_arguments_set classic_arguments;
       ()
-    (*
     let _o1 () =
-      set Flambda.o1_flags;
+      Flambda.o1_flags ();
       use_inlining_arguments_set o1_arguments;
       ()
-    *)
     let _o2 () =
       Flambda.o2_flags ();
       use_inlining_arguments_set o2_arguments;
       (* CR Gbury: uncomment this when flambda2 can do more than one pass/round
-      default_simplify_rounds := 2; move this up after cse_depth
+      default_simplify_rounds := 2; move this up before the o2_argument set
       use_inlining_arguments_set ~round:0 o1_arguments;
       *)
       ()
@@ -2136,7 +2139,7 @@ module Default = struct
       Flambda.o3_flags ();
       use_inlining_arguments_set o3_arguments;
       (* CR Gbury: uncomment this when flambda2 can do more than one pass/round
-      default_simplify_rounds := 3; move this up after cse_depth
+      default_simplify_rounds := 3; move this up before the o3_argument set
       use_inlining_arguments_set ~round:1 o2_arguments;
       use_inlining_arguments_set ~round:0 o1_arguments;
       *)

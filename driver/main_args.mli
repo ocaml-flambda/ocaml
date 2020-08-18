@@ -185,6 +185,7 @@ module type Optcommon_options = sig
   val _no_unbox_free_vars_of_closures : unit -> unit
   val _no_unbox_specialised_args : unit -> unit
   val _oclassic : unit -> unit
+  val _o1 : unit -> unit
   val _o2 : unit -> unit
   val _o3 : unit -> unit
   val _insn_sched : unit -> unit
