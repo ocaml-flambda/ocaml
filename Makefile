@@ -66,6 +66,7 @@ INCLUDES=-I utils -I parsing -I typing -I bytecomp -I file_formats \
         -I middle_end/flambda/types/type_of_kind/boilerplate \
         -I middle_end/flambda/unboxing \
         -I asmcomp -I asmcomp/debug \
+        -I memprof/memtrace \
         -I driver -I toplevel
 
 COMPFLAGS=-strict-sequence -principal -absname -w +a-4-9-40-41-42-44-45-48-66 \
@@ -181,7 +182,16 @@ ASMCOMP_FLAMBDA=\
   middle_end/flambda/to_cmm/un_cps_static.cmo \
   middle_end/flambda/to_cmm/un_cps.cmo
 
+ASMCOMP_MEMTRACE=\
+  memprof/memtrace/buf.cmo \
+  memprof/memtrace/location_codec.cmo \
+  memprof/memtrace/backtrace_codec.cmo \
+  memprof/memtrace/trace.cmo \
+  memprof/memtrace/memprof_tracer.cmo \
+  memprof/memtrace/memtrace.cmo
+
 ASMCOMP=\
+  $(ASMCOMP_MEMTRACE) \
   $(ARCH_SPECIFIC_ASMCOMP) \
   asmcomp/arch.cmo \
   asmcomp/cmm.cmo asmcomp/printcmm.cmo \
@@ -1591,6 +1601,7 @@ depend: beforedepend
          middle_end/flambda/types/type_of_kind \
          middle_end/flambda/types/type_of_kind/boilerplate \
          middle_end/flambda/unboxing \
+         memprof/memtrace \
          driver toplevel; \
          do $(CAMLDEP) $(DEPFLAGS) $(DEPINCLUDES) $$d/*.mli $$d/*.ml || exit; \
          done) > .depend
