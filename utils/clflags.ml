@@ -447,7 +447,7 @@ module Flambda = struct
 
   let oclassic_flags () =
     cse_depth := 2;
-    join_points := true;
+    join_points := false;
     unbox_along_intra_function_control_flow := true;
     lift_toplevel_inconstants := false;
     Expert.fallback_inlining_heuristic := true;
