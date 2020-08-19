@@ -314,6 +314,12 @@ let read_one_param ppf position name v =
       use_inlining_arguments_set classic_arguments;
       ()
     end
+  | "O1" ->
+    if check_bool ppf "O1" v then begin
+      Flambda.o1_flags ();
+      use_inlining_arguments_set o1_arguments;
+      ()
+    end
   | "O2" ->
     if check_bool ppf "O2" v then begin
       Flambda.o2_flags ();
