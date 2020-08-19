@@ -14,7 +14,8 @@
 
 (* Compute offsets for elements in sets of closures *)
 
-val compute_offsets : Exported_offsets.t -> Flambda_unit.t -> Exported_offsets.t
+val compute_offsets :
+  Exported_offsets.t -> Exported_code.t -> Flambda_unit.t -> Exported_offsets.t
 (** Compute offsets for a whole compilation unit.
     Takes the offsets from all cmx files read as input. *)
 
