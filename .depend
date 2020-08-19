@@ -3679,12 +3679,15 @@ middle_end/flambda/flambda_middle_end.cmo : \
     middle_end/flambda/simplify/simplify.cmi \
     utils/profile.cmi \
     lambda/printlambda.cmi \
+    middle_end/flambda/parser/print_fexpr.cmi \
     middle_end/flambda/from_lambda/prepare_lambda.cmi \
     utils/misc.cmi \
     middle_end/flambda/from_lambda/ilambda.cmi \
     middle_end/flambda/terms/flambda_unit.cmi \
+    middle_end/flambda/parser/flambda_to_fexpr.cmi \
     middle_end/flambda/compilenv_deps/flambda_colours.cmi \
     middle_end/flambda/cmx/flambda_cmx_format.cmi \
+    middle_end/flambda/parser/fexpr.cmo \
     middle_end/flambda/cmx/exported_code.cmi \
     middle_end/flambda/from_lambda/eliminate_mutable_vars.cmi \
     middle_end/flambda/from_lambda/cps_conversion.cmi \
@@ -3696,12 +3699,15 @@ middle_end/flambda/flambda_middle_end.cmx : \
     middle_end/flambda/simplify/simplify.cmx \
     utils/profile.cmx \
     lambda/printlambda.cmx \
+    middle_end/flambda/parser/print_fexpr.cmx \
     middle_end/flambda/from_lambda/prepare_lambda.cmx \
     utils/misc.cmx \
     middle_end/flambda/from_lambda/ilambda.cmx \
     middle_end/flambda/terms/flambda_unit.cmx \
+    middle_end/flambda/parser/flambda_to_fexpr.cmx \
     middle_end/flambda/compilenv_deps/flambda_colours.cmx \
     middle_end/flambda/cmx/flambda_cmx_format.cmx \
+    middle_end/flambda/parser/fexpr.cmx \
     middle_end/flambda/cmx/exported_code.cmx \
     middle_end/flambda/from_lambda/eliminate_mutable_vars.cmx \
     middle_end/flambda/from_lambda/cps_conversion.cmx \
@@ -3956,12 +3962,15 @@ middle_end/flambda/flambda_middle_end.cmo : \
     middle_end/flambda/simplify/simplify.cmi \
     utils/profile.cmi \
     lambda/printlambda.cmi \
+    middle_end/flambda/parser/print_fexpr.cmi \
     middle_end/flambda/from_lambda/prepare_lambda.cmi \
     utils/misc.cmi \
     middle_end/flambda/from_lambda/ilambda.cmi \
     middle_end/flambda/terms/flambda_unit.cmi \
+    middle_end/flambda/parser/flambda_to_fexpr.cmi \
     middle_end/flambda/compilenv_deps/flambda_colours.cmi \
     middle_end/flambda/cmx/flambda_cmx_format.cmi \
+    middle_end/flambda/parser/fexpr.cmo \
     middle_end/flambda/cmx/exported_code.cmi \
     middle_end/flambda/from_lambda/eliminate_mutable_vars.cmi \
     middle_end/flambda/from_lambda/cps_conversion.cmi \
@@ -3973,12 +3982,15 @@ middle_end/flambda/flambda_middle_end.cmx : \
     middle_end/flambda/simplify/simplify.cmx \
     utils/profile.cmx \
     lambda/printlambda.cmx \
+    middle_end/flambda/parser/print_fexpr.cmx \
     middle_end/flambda/from_lambda/prepare_lambda.cmx \
     utils/misc.cmx \
     middle_end/flambda/from_lambda/ilambda.cmx \
     middle_end/flambda/terms/flambda_unit.cmx \
+    middle_end/flambda/parser/flambda_to_fexpr.cmx \
     middle_end/flambda/compilenv_deps/flambda_colours.cmx \
     middle_end/flambda/cmx/flambda_cmx_format.cmx \
+    middle_end/flambda/parser/fexpr.cmx \
     middle_end/flambda/cmx/exported_code.cmx \
     middle_end/flambda/from_lambda/eliminate_mutable_vars.cmx \
     middle_end/flambda/from_lambda/cps_conversion.cmx \
@@ -5544,12 +5556,16 @@ middle_end/flambda/parser/fexpr.cmo : \
     middle_end/flambda/basic/mutability.cmi \
     lambda/lambda.cmi \
     middle_end/flambda/basic/invalid_term_semantics.cmi \
-    middle_end/flambda/terms/flambda_primitive.cmi
+    middle_end/flambda/basic/inline_attribute.cmi \
+    middle_end/flambda/terms/flambda_primitive.cmi \
+    middle_end/flambda/types/kinds/flambda_kind.cmi
 middle_end/flambda/parser/fexpr.cmx : \
     middle_end/flambda/basic/mutability.cmx \
     lambda/lambda.cmx \
     middle_end/flambda/basic/invalid_term_semantics.cmx \
-    middle_end/flambda/terms/flambda_primitive.cmx
+    middle_end/flambda/basic/inline_attribute.cmx \
+    middle_end/flambda/terms/flambda_primitive.cmx \
+    middle_end/flambda/types/kinds/flambda_kind.cmx
 middle_end/flambda/parser/fexpr_to_flambda.cmo : \
     middle_end/flambda/compilenv_deps/variable.cmi \
     middle_end/flambda/basic/var_within_closure.cmi \
@@ -5570,6 +5586,7 @@ middle_end/flambda/parser/fexpr_to_flambda.cmo : \
     middle_end/flambda/compilenv_deps/linkage_name.cmi \
     lambda/lambda.cmi \
     middle_end/flambda/basic/kinded_parameter.cmi \
+    middle_end/flambda/basic/inline_attribute.cmi \
     typing/ident.cmi \
     middle_end/flambda/terms/function_declarations.cmi \
     middle_end/flambda/terms/function_declaration.cmi \
@@ -5610,6 +5627,7 @@ middle_end/flambda/parser/fexpr_to_flambda.cmx : \
     middle_end/flambda/compilenv_deps/linkage_name.cmx \
     lambda/lambda.cmx \
     middle_end/flambda/basic/kinded_parameter.cmx \
+    middle_end/flambda/basic/inline_attribute.cmx \
     typing/ident.cmx \
     middle_end/flambda/terms/function_declarations.cmx \
     middle_end/flambda/terms/function_declaration.cmx \
@@ -5636,9 +5654,13 @@ middle_end/flambda/parser/fexpr_to_flambda.cmi : \
     middle_end/flambda/flambda_backend_intf.cmi \
     middle_end/flambda/parser/fexpr.cmo
 middle_end/flambda/parser/flambda_lex.cmo : \
-    middle_end/flambda/parser/flambda_parser.cmi
+    middle_end/flambda/parser/flambda_parser.cmi \
+    middle_end/flambda/parser/flambda_lex.cmi
 middle_end/flambda/parser/flambda_lex.cmx : \
-    middle_end/flambda/parser/flambda_parser.cmx
+    middle_end/flambda/parser/flambda_parser.cmx \
+    middle_end/flambda/parser/flambda_lex.cmi
+middle_end/flambda/parser/flambda_lex.cmi : \
+    middle_end/flambda/parser/flambda_parser.cmi
 middle_end/flambda/parser/flambda_parser.cmo : \
     parsing/location.cmi \
     lambda/lambda.cmi \
@@ -5733,16 +5755,19 @@ middle_end/flambda/parser/flambda_to_fexpr.cmi : \
     middle_end/flambda/terms/flambda_unit.cmi \
     middle_end/flambda/parser/fexpr.cmo
 middle_end/flambda/parser/parse_flambda.cmo : \
+    utils/misc.cmi \
     parsing/location.cmi \
     middle_end/flambda/compilenv_deps/linkage_name.cmi \
     typing/ident.cmi \
     middle_end/flambda/parser/flambda_parser_messages.cmi \
     middle_end/flambda/parser/flambda_parser.cmi \
-    middle_end/flambda/parser/flambda_lex.cmo \
+    middle_end/flambda/parser/flambda_lex.cmi \
     middle_end/flambda/parser/fexpr_to_flambda.cmi \
+    middle_end/flambda/parser/fexpr.cmo \
     middle_end/flambda/compilenv_deps/compilation_unit.cmi \
     middle_end/flambda/parser/parse_flambda.cmi
 middle_end/flambda/parser/parse_flambda.cmx : \
+    utils/misc.cmx \
     parsing/location.cmx \
     middle_end/flambda/compilenv_deps/linkage_name.cmx \
     typing/ident.cmx \
@@ -5750,19 +5775,26 @@ middle_end/flambda/parser/parse_flambda.cmx : \
     middle_end/flambda/parser/flambda_parser.cmx \
     middle_end/flambda/parser/flambda_lex.cmx \
     middle_end/flambda/parser/fexpr_to_flambda.cmx \
+    middle_end/flambda/parser/fexpr.cmx \
     middle_end/flambda/compilenv_deps/compilation_unit.cmx \
     middle_end/flambda/parser/parse_flambda.cmi
 middle_end/flambda/parser/parse_flambda.cmi : \
     parsing/location.cmi \
     middle_end/flambda/terms/flambda_unit.cmi \
-    middle_end/flambda/parser/flambda_lex.cmo \
+    middle_end/flambda/parser/flambda_lex.cmi \
     middle_end/flambda/flambda_backend_intf.cmi \
     middle_end/flambda/parser/fexpr.cmo \
     middle_end/flambda/compilenv_deps/compilation_unit.cmi
 middle_end/flambda/parser/print_fexpr.cmo : \
+    utils/misc.cmi \
+    middle_end/flambda/basic/inline_attribute.cmi \
+    middle_end/flambda/parser/flambda_lex.cmi \
     middle_end/flambda/parser/fexpr.cmo \
     middle_end/flambda/parser/print_fexpr.cmi
 middle_end/flambda/parser/print_fexpr.cmx : \
+    utils/misc.cmx \
+    middle_end/flambda/basic/inline_attribute.cmx \
+    middle_end/flambda/parser/flambda_lex.cmx \
     middle_end/flambda/parser/fexpr.cmx \
     middle_end/flambda/parser/print_fexpr.cmi
 middle_end/flambda/parser/print_fexpr.cmi : \

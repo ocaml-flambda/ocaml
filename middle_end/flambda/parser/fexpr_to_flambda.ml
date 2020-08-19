@@ -1,4 +1,4 @@
-[@@@warning "+9"]
+[@@@ocaml.warning "+a-4-30-40-41-42"]
 
 (* Continuation variables *)
 module C = struct
@@ -281,11 +281,22 @@ let unop env (unop:Fexpr.unop) : Flambda_primitive.unary_primitive =
     Select_closure { move_from; move_to }
 
 let infix_binop (binop:Fexpr.infix_binop) : Flambda_primitive.binary_primitive =
+  let int_comp c = Flambda_primitive.Int_comp (Tagged_immediate, Signed, c) in
   match binop with
   | Plus -> Int_arith (Tagged_immediate, Add)
   | Minus -> Int_arith (Tagged_immediate, Sub)
+  | Lt -> int_comp Lt
+  | Gt -> int_comp Gt
+  | Le -> int_comp Le
+  | Ge -> int_comp Ge
   | Plusdot
   | Minusdot -> failwith "TODO binop"
+  | Eqdot -> Float_comp Eq
+  | Neqdot -> Float_comp Neq
+  | Ltdot -> Float_comp Lt
+  | Gtdot -> Float_comp Gt
+  | Ledot -> Float_comp Le
+  | Gedot -> Float_comp Ge
 
 let binop (binop:Fexpr.binop) : Flambda_primitive.binary_primitive =
   match binop with
@@ -306,6 +317,8 @@ let binop (binop:Fexpr.binop) : Flambda_primitive.binary_primitive =
     Phys_equal (kind, op)
   | Infix op ->
     infix_binop op
+  | Int_comp (i, s, c) ->
+    Int_comp (i, s, c)
 
 let convert_block_shape ~num_fields =
   List.init num_fields (
@@ -584,7 +597,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
         let set = set_of_closures env fun_decls elements in
         Set_of_closures set
       | Closure _ -> assert false (* should have been filtered out above *)
-      | Code { id; newer_version_of; param_arity; ret_arity; recursive;
+      | Code { id; newer_version_of; param_arity; ret_arity; recursive; inline;
                params_and_body } ->
         let code_id = find_code_id env id in
         let newer_version_of =
@@ -641,6 +654,9 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
             Present params_and_body
         in
         let recursive = convert_recursive_flag recursive in
+        let inline =
+          inline |> Option.value ~default:Inline_attribute.Default_inline
+        in
         let code =
           Flambda.Code.create
             code_id
@@ -649,7 +665,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
             ~params_arity
             ~result_arity
             ~stub:false
-            ~inline:Default_inline
+            ~inline
             ~is_a_functor:false
             ~recursive
         in
@@ -665,6 +681,8 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
   | Apply {
     func;
     call_kind;
+    inline;
+    inlining_depth;
     continuation;
     exn_continuation;
     args;
@@ -706,6 +724,12 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
             Misc.fatal_errorf "Must specify arities for C call"
         end
     in
+    let inline =
+      inline |> Option.value ~default:Inline_attribute.Default_inline
+    in
+    let inlining_depth =
+      inlining_depth |> Option.value ~default:0
+    in
     let exn_continuation = find_exn_cont env exn_continuation in
     let apply =
       Flambda.Apply.create
@@ -715,8 +739,8 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
         ~args:((List.map (simple env)) args)
         ~call_kind
         (Debuginfo.none)
-        ~inline:Default_inline
-        ~inlining_depth:0
+        ~inline
+        ~inlining_depth
     in
     Flambda.Expr.create_apply apply
 

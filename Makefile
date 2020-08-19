@@ -387,11 +387,11 @@ MIDDLE_END_FLAMBDA_FROM_LAMBDA=\
 
 MIDDLE_END_FLAMBDA_PARSER=\
   middle_end/flambda/parser/fexpr.cmo \
+  middle_end/flambda/parser/flambda_lex.cmo \
   middle_end/flambda/parser/print_fexpr.cmo \
   middle_end/flambda/parser/fexpr_to_flambda.cmo \
   middle_end/flambda/parser/flambda_parser.cmo \
   middle_end/flambda/parser/flambda_parser_messages.cmo \
-  middle_end/flambda/parser/flambda_lex.cmo \
   middle_end/flambda/parser/flambda_to_fexpr.cmo \
   middle_end/flambda/parser/parse_flambda.cmo
 

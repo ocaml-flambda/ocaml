@@ -1,25 +1,30 @@
+[@@@ocaml.warning "+a-4-30-40-41-42"]
+
 (* CR lmaurer: Need to adjust to new syntax once that's more settled. (Also
  * need to update error messages once the syntax is settled.) *)
 
-open Fexpr
+open! Fexpr
 
 let pp_list ~sep f ppf =
   Format.pp_print_list f
     ~pp_sep:(fun ppf () -> Format.fprintf ppf sep)
     ppf
 
-let pp_semi_list f = pp_list ~sep:";" f
+let pp_star_list f = pp_list ~sep:" *@ " f
 
-let pp_star_list f = pp_list ~sep:" * " f
+let pp_comma_list f = pp_list ~sep:",@ " f
 
-let pp_comma_list f = pp_list ~sep:", " f
+let empty_fmt : (unit, Format.formatter, unit) format = ""
+
+let pp_with ?(prefix=empty_fmt) ?(suffix=empty_fmt) ppf =
+  Format.kdprintf (fun pp ->
+    Format.fprintf ppf prefix;
+    pp ppf;
+    Format.fprintf ppf suffix)
 
 let pp_option ?prefix ?suffix f ppf = function
   | None -> ()
-  | Some x ->
-    (match prefix with Some p -> Format.fprintf ppf p | None -> ());
-    f ppf x;
-    (match suffix with Some s -> Format.fprintf ppf s | None -> ())
+  | Some x -> pp_with ?prefix ?suffix ppf "%a" f x
 
 let recursive ppf = function
   | Nonrecursive -> ()
@@ -33,23 +38,47 @@ let is_exn ppf = function
   | false -> ()
   | true -> Format.fprintf ppf "@ exn"
 
+let char_between c (low, high) =
+  Char.compare low c <= 0 && Char.compare c high <= 0
+
+let is_identstart c =
+  Char.equal c '_' || char_between c ('a', 'z') || char_between c ('A', 'Z')
+
+let is_identchar c =
+  is_identstart c || Char.equal c '\'' || char_between c ('0', '9')
+
+let is_unquoted_symbol s =
+  not (String.equal s "") && Misc.Stdlib.String.for_all is_identchar s
+
+let is_unquoted_ident s =
+  not (String.equal s "")
+  && is_identstart s.[0]
+  && Misc.Stdlib.String.for_all is_identchar s
+
 let symbol ppf { txt = s; loc = _ } =
-  Format.fprintf ppf "$%s" s
+  if is_unquoted_symbol s
+    then Format.fprintf ppf "$%s" s
+    else Format.fprintf ppf "$`%s`" s
+
+let ident ppf s =
+  if is_unquoted_ident s && not (Flambda_lex.is_keyword s)
+    then Format.pp_print_string ppf s
+    else Format.fprintf ppf "`%s`" s
 
 let variable ppf { txt = s; loc = _ } =
-  Format.fprintf ppf "%s" s
+  ident ppf s
 
 let var_within_closure ppf { txt = s; loc = _ } =
-  Format.fprintf ppf "%s" s
+  ident ppf s
 
 let code_id ppf ({ txt = s; loc = _ } : code_id) =
-  Format.fprintf ppf "%s" s
+  ident ppf s
 
 let closure_id ppf ({ txt = s; loc = _ } : closure_id) =
-  Format.fprintf ppf "%s" s
+  ident ppf s
 
 let continuation_id ppf ({ txt = s; loc = _ } : continuation_id) =
-  Format.fprintf ppf "%s" s
+  ident ppf s
 
 let special_continuation ppf special_cont =
   match special_cont with
@@ -93,6 +122,21 @@ let kinded_variable ppf (v, (k:kind option)) =
   | Some k ->
     Format.fprintf ppf "@[<2>%a :@ %a@]" variable v kind k
 
+let standard_int ?prefix ?suffix () ppf (i : standard_int) =
+  let str = match i with
+    | Tagged_immediate -> None
+    | Naked_immediate -> Some "imm"
+    | Naked_int32 -> Some "int32"
+    | Naked_int64 -> Some "int64"
+    | Naked_nativeint -> Some "nativeint"
+  in
+  pp_option ?prefix ?suffix Format.pp_print_string ppf str
+
+let signed_or_unsigned ?prefix ?suffix () ppf (s : signed_or_unsigned) =
+  match s with
+  | Signed -> ()
+  | Unsigned -> pp_with ?prefix ?suffix ppf "unsigned"
+
 let of_kind_value ppf : of_kind_value -> unit = function
   | Symbol s -> symbol ppf s
   | Dynamically_computed v -> variable ppf v
@@ -111,6 +155,12 @@ let simple ppf : simple -> unit = function
   | Var v -> variable ppf v
   | Const c -> const ppf c
 
+let simple_args ~omit_if_empty ppf = function
+  | [] when omit_if_empty -> ()
+  | args ->
+    Format.fprintf ppf "@ (@[<hv>%a@])"
+      (pp_comma_list simple) args
+
 let name ppf : name -> unit = function
   | Symbol s -> symbol ppf s
   | Var v -> variable ppf v
@@ -126,7 +176,7 @@ let mutability ?prefix ?suffix () ppf mut =
 
 let static_part ppf : static_part -> _ = function
   | Block { tag; mutability = mut; elements = elts } ->
-    Format.fprintf ppf "Block %a%i (%a)"
+    Format.fprintf ppf "Block %a%i (@[<hv>%a@])"
       (mutability ~suffix:"@ " ()) mut
       tag
       (pp_comma_list of_kind_value) elts
@@ -153,9 +203,19 @@ let infix_binop ppf b =
   let s =
     match b with
     | Plus -> "+"
-    | Plusdot -> "+."
     | Minus -> "-"
+    | Lt -> "<"
+    | Gt -> ">"
+    | Le -> "<="
+    | Ge -> ">="
+    | Eqdot -> "=."
+    | Neqdot -> "!=."
+    | Plusdot -> "+."
     | Minusdot -> "-."
+    | Ltdot -> "<."
+    | Gtdot -> ">."
+    | Ledot -> "<=."
+    | Gedot -> ">=."
   in
   Format.pp_print_string ppf s
 
@@ -192,6 +252,20 @@ let binop ppf binop a b =
       simple a
       infix_binop op
       simple b
+  | Int_comp (i, s, c) ->
+    begin
+      Format.fprintf ppf "@[<2>%%int_comp %a%a"
+        (standard_int ~suffix:"@ " ()) i
+        (signed_or_unsigned ~suffix:"@ " ()) s;
+      let str =
+        match c with
+        | Lt -> "<"
+        | Gt -> ">"
+        | Le -> "<="
+        | Ge -> ">="
+      in
+      Format.fprintf ppf "%s@]" str
+    end
 
 let unop ppf u =
   let str s = Format.pp_print_string ppf s in
@@ -227,10 +301,10 @@ let prim ppf = function
      *   simple a1
      *   simple a2 *)
   | Variadic (Make_block (tag, mut), elts) ->
-    Format.fprintf ppf "%%Block %a%i (%a)"
+    Format.fprintf ppf "@[<2>%%Block %a%i%a@]"
       (mutability ~suffix:"@ " ()) mut
       tag
-      (pp_comma_list simple) elts
+      (simple_args ~omit_if_empty:false) elts
 
 let parameter ppf { param; kind = k } =
   kinded_variable ppf (param, k)
@@ -243,12 +317,10 @@ let kinded_parameters ppf = function
 
 let apply_cont ppf (ac : Fexpr.apply_cont) =
   match ac with
-  | { cont; trap_action = None; args = [] } ->
-    Format.fprintf ppf "%a" continuation cont
   | { cont; trap_action = None; args } ->
-    Format.fprintf ppf "%a (@[<hv>%a@])"
+    Format.fprintf ppf "@[<hv2>%a%a@]"
       continuation cont
-      (pp_comma_list simple) args
+      (simple_args ~omit_if_empty:true) args
   | _ ->
       failwith "TODO Apply_cont"
 
@@ -257,17 +329,11 @@ let switch_case ppf (v, c) =
     v
     apply_cont c
 
-let simple_args ppf = function
-  | [] -> ()
-  | args ->
-    Format.fprintf ppf "@ @[(@[<hv>%a@])@]@ "
-      (pp_comma_list simple) args
-
 let closure_elements ppf = function
   | None -> ()
   | Some ces ->
     Format.fprintf ppf "@ @[<hv2>with {";
-    pp_semi_list (fun ppf ({ var; value } : closure_element) ->
+    pp_list ~sep:";" (fun ppf ({ var; value } : closure_element) ->
       Format.fprintf ppf "@ @[<hv2>%a =@ %a@]"
         var_within_closure var
         simple value
@@ -293,20 +359,30 @@ let static_closure_binding ppf (scb : static_closure_binding) =
     symbol scb.symbol
     fun_decl scb.fun_decl
 
-let call_kind ppf ck =
+let call_kind ?prefix ?suffix () ppf ck =
   match ck with
   | Function Indirect -> ()
-  | Function (Direct { code_id = c }) ->
-    (* CR-someday lmaurer: Find a way to write this without leaking
-     * implementation details from the caller---in particular, without knowing
-     * that the calling function wants a space *before* the call kind if
-     * anything is printed. If need be, extend Format by adding a way to
-     * collapse multiple consecutive spaces into one. *)
-    Format.fprintf ppf "@ direct(%a)" code_id c
+  | Function (Direct { code_id = c; closure_id = cl }) ->
+    pp_with ?prefix ?suffix ppf "@[direct(%a%a)@]"
+      code_id c
+      (pp_option ~prefix:"@ @@" closure_id) cl
   | C_call { alloc } ->
-    Format.fprintf ppf "@ ccall";
-    if not alloc then Format.fprintf ppf "@ noalloc"
+    pp_with ?prefix ppf "@ ccall";
+    if not alloc then Format.fprintf ppf "@ noalloc";
+    pp_with ?suffix ppf ""
 
+let inline_attribute ?prefix ?suffix () ppf (i : Inline_attribute.t) =
+  let str =
+    match i with
+    | Always_inline -> Some "inline(always)"
+    | Never_inline -> Some "inline(never)"
+    | Unroll i -> Some (Format.sprintf "unroll(%d)" i)
+    | Default_inline -> None
+  in
+  pp_option ?prefix ?suffix Format.pp_print_string ppf str
+
+let inline_attribute_opt ?prefix ?suffix () ppf i =
+  pp_option ?prefix ?suffix (inline_attribute ()) ppf i
 
 let func_name_with_optional_arities ppf (n, arities) =
   match arities with
@@ -334,7 +410,7 @@ let rec expr scope ppf = function
   | Invalid inv ->
     invalid ppf inv
   | Apply_cont ac ->
-    Format.fprintf ppf "cont %a" apply_cont ac
+    Format.fprintf ppf "@[cont %a@]" apply_cont ac
   | Let let_ ->
     parens ~if_scope_is:Where_body scope ppf (fun scope ppf ->
       let_expr scope ppf let_
@@ -371,15 +447,23 @@ let rec expr scope ppf = function
 
   | Apply {
       call_kind = kind;
+      inline = inline;
+      inlining_depth = inlining_depth;
       continuation = ret;
       exn_continuation = ek;
       args;
       func;
       arities } ->
-    Format.fprintf ppf "@[<hv 2>apply@ %a%a%a@[<hov2>->@ %a@]@ %a@]"
+    let pp_inlining_depth ppf () =
+      pp_option (fun ppf -> Format.fprintf ppf "@ inlining_depth(%d)")
+        ppf inlining_depth
+    in
+    Format.fprintf ppf "@[<hv 2>apply%a%a%a@ %a%a@ @[<hov2>->@ %a@]@ %a@]"
+      (call_kind ~prefix:"@ " ()) kind
+      (inline_attribute_opt ~prefix:"@ " ()) inline
+      pp_inlining_depth ()
       func_name_with_optional_arities (func, arities)
-      call_kind kind
-      simple_args args
+      (simple_args ~omit_if_empty:true) args
       continuation ret
       exn_continuation ek
 
@@ -444,28 +528,31 @@ and symbol_binding ppf (sb : symbol_binding) =
     symbol_bindings ppf (closure_bindings_as_symbol_bindings, soc.elements);
     Format.fprintf ppf "@]@ end@]"
 
-and code_binding ppf (cb : code) =
-  Format.fprintf ppf "code@[<h>%a@] @[<hov2>%a%a"
-    recursive cb.recursive
-    code_id cb.id
-    (pp_option ~prefix:"@ newer_version_of " code_id) cb.newer_version_of;
-  match cb.params_and_body with
+and code_binding ppf ({ recursive = rec_; inline; id; newer_version_of;
+                        param_arity; ret_arity; params_and_body } : code) =
+  Format.fprintf ppf "code@[<h>%a%a@] @[<hov2>%a%a"
+    recursive rec_
+    (inline_attribute_opt ~prefix:"@ " ()) inline
+    code_id id
+    (pp_option ~prefix:"@ newer_version_of(" ~suffix:")" code_id)
+      newer_version_of;
+  match params_and_body with
     | Deleted ->
       let pp_arity ppf =
-        match cb.param_arity with
+        match param_arity with
         | None -> Format.print_string "???" (* invalid *)
         | Some ar -> arity ppf ar
       in
       Format.fprintf ppf "@ deleted :@ %t -> %a@]"
         pp_arity
-        arity (cb.ret_arity |> Option.value ~default:[(Value : kind)])
+        arity (ret_arity |> Option.value ~default:[(Value : kind)])
     | Present { params; closure_var; ret_cont; exn_cont; body } ->
       Format.fprintf ppf "%a@ %a@ -> %a@ * %a%a@] =@ %a"
         kinded_parameters params
         variable closure_var
         continuation_id ret_cont
         continuation_id exn_cont
-        (pp_option ~prefix:"@ : " arity) cb.ret_arity
+        (pp_option ~prefix:"@ : " arity) ret_arity
         (expr Outer) body
 
 let flambda_unit ppf ({ body } : flambda_unit) =
