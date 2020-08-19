@@ -20,8 +20,8 @@ CAMLOBJS=\
   buf.cmo location_codec.cmo backtrace_codec.cmo \
   trace.cmo memprof_tracer.cmo memtrace.cmo
 
-# Memtrace depends on Unix
-EXTRACAMLFLAGS=-I $(ROOTDIR)/otherlibs/unix
+# Memtrace depends on Unix and Systhreads
+EXTRACAMLFLAGS=-w -40 -I $(ROOTDIR)/otherlibs/systhreads -I $(ROOTDIR)/otherlibs/unix
 
 include ../Makefile.otherlibs.common
 
