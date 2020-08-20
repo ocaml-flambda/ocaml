@@ -145,7 +145,7 @@ let middle_end0 ppf ~prefixname:_ ~backend ~filename ~module_ident
     check_invariants flambda;
     let new_flambda =
       Profile.record_call ~accumulate:true "simplify"
-        (fun () -> Simplify.run ~backend ~round:1 flambda)
+        (fun () -> Simplify.run ~backend ~round:0 flambda)
     in
     print_flambda "simplify" ppf new_flambda.unit;
     output_flexpect ~ml_filename:filename flambda new_flambda.unit;

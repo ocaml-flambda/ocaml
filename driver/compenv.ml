@@ -309,21 +309,39 @@ let read_one_param ppf position name v =
       inline_max_depth
 
   | "Oclassic" ->
-      set "Oclassic" [ classic_inlining ] v
+    if check_bool ppf "Oclassic" v then begin
+      Flambda.oclassic_flags ();
+      use_inlining_arguments_set classic_arguments;
+      ()
+    end
+  | "O1" ->
+    if check_bool ppf "O1" v then begin
+      Flambda.o1_flags ();
+      use_inlining_arguments_set o1_arguments;
+      ()
+    end
   | "O2" ->
     if check_bool ppf "O2" v then begin
-      default_simplify_rounds := 2;
+      Flambda.o2_flags ();
       use_inlining_arguments_set o2_arguments;
-      use_inlining_arguments_set ~round:0 o1_arguments
+      (* CR Gbury: uncomment later
+      default_simplify_rounds := 2;
+         use_inlining_arguments_set ~round:0 o1_arguments;
+      *)
+      ()
     end
-
   | "O3" ->
     if check_bool ppf "O3" v then begin
-      default_simplify_rounds := 3;
+      Flambda.o3_flags ();
       use_inlining_arguments_set o3_arguments;
+      (* CR Gbury: uncomment later
+      default_simplify_rounds := 3;
       use_inlining_arguments_set ~round:1 o2_arguments;
-      use_inlining_arguments_set ~round:0 o1_arguments
+      use_inlining_arguments_set ~round:0 o1_arguments;
+      *)
+      ()
     end
+
   | "unbox-closures" ->
       set "unbox-closures" [ unbox_closures ] v
   | "unbox-closures-factor" ->
