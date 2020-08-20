@@ -37,7 +37,7 @@ endif
 include stdlib/StdlibModules
 
 CAMLC=$(BOOT_OCAMLC) -g -nostdlib -I boot -use-prims runtime/primitives
-CAMLOPT=$(CAMLRUN) ./ocamlopt -g -nostdlib -I stdlib -I otherlibs/dynlink
+CAMLOPT=$(CAMLRUN) ./ocamlopt -g -nostdlib -I stdlib -I otherlibs/dynlink -I otherlibs/memtrace
 ARCHES=amd64 i386 arm arm64 power s390x
 INCLUDES=-I utils -I parsing -I typing -I bytecomp -I file_formats \
         -I lambda -I middle_end -I middle_end/closure \
@@ -435,6 +435,8 @@ BYTESTART=driver/main.cmo
 
 OPTSTART=driver/optmain.cmo
 
+OPTMEMTRACESTART=driver/optmain_memtrace.cmo
+
 ILAMBDASTART=driver/ilambdac.cmo
 
 TOPLEVELSTART=toplevel/topstart.cmo
@@ -578,6 +580,9 @@ opt.opt: checknative
 	  ocamltest.opt
 ifneq "$(WITH_OCAMLDOC)" ""
 	$(MAKE) manpages
+endif
+ifneq (,$(findstring memtrace,$(OTHERLIBRARIES)))
+	$(MAKE) ocamlopt-memtrace.opt
 endif
 
 # Core bootstrapping cycle
@@ -879,6 +884,8 @@ endif
 	  $(INSTALL_PROG) \
 	    flexdll/flexlink.opt "$(INSTALL_BINDIR)/flexlink$(EXE)" ; \
 	fi
+	if test -f ocamlopt-memtrace.opt ; then $(MAKE) installoptmemtrace; fi
+
 
 .PHONY: installoptopt
 installoptopt:
@@ -920,6 +927,10 @@ installoptopt:
 	fi
 	cd "$(INSTALL_COMPLIBDIR)" && \
 	   $(RANLIB) ocamlcommon.$(A) ocamlbytecomp.$(A) ocamloptcomp.$(A)
+
+.PHONY: installoptmemtrace
+installoptmemtrace:
+	$(INSTALL_PROG) ocamlopt-memtrace.opt "$(INSTALL_BINDIR)/ocamlopt-memtrace$(EXE)"
 
 # Installation of the *.ml sources of compiler-libs
 .PHONY: install-compiler-sources
@@ -1085,12 +1096,20 @@ ocamlopt.opt: compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
               $(OPTSTART:.cmo=.cmx)
 	$(CAMLOPT_CMD) $(LINKFLAGS) -o $@ $^
 
+ocamlopt-memtrace.opt: compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
+              $(OPTMEMTRACESTART:.cmo=.cmx)
+	$(CAMLOPT_CMD) $(LINKFLAGS) -I otherlibs/unix -I otherlibs/systhreads -o $@ \
+	  -cclib -lunix -cclib -lthreadsnat \
+	  otherlibs/unix/unix.cmxa otherlibs/systhreads/threads.cmxa \
+	  otherlibs/memtrace/memtrace.cmxa \
+	  $^
+
 ilambdac.opt: compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
               $(ILAMBDASTART:.cmo=.cmx)
 	$(CAMLOPT_CMD) $(LINKFLAGS) -o $@ $^
 
 partialclean::
-	rm -f ocamlopt.opt
+	rm -f ocamlopt.opt ocamlopt-memtrace.opt ilambdac.opt
 
 $(COMMON:.cmo=.cmx) $(BYTECOMP:.cmo=.cmx) $(OPTCOMP:.cmo=.cmx): ocamlopt
 

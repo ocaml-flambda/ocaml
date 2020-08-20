@@ -53,6 +53,7 @@ _build
 /ocaml
 /ocamlopt
 /ocamlopt.opt
+/ocamlopt-memtrace.opt
 /ocamlnat
 
 # specific files and patterns in sub-directories
