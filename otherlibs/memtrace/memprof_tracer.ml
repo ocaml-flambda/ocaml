@@ -32,8 +32,7 @@ let default_report_exn e =
 
 let start ?(report_exn=default_report_exn) ~sampling_rate trace =
   let s = { trace; locked = false; stopped = false; failed = false; report_exn } in
-  let tracker : (_,_) Gc.Memprof.tracker = {
-    alloc_minor = (fun info ->
+  let minor_alloc_callback = (fun (info : Gc.Memprof.allocation) ->
       if lock_tracer s then begin
         match Trace.Writer.put_alloc_with_raw_backtrace trace (Trace.Timestamp.now ())
                 ~length:info.size
@@ -43,8 +42,9 @@ let start ?(report_exn=default_report_exn) ~sampling_rate trace =
         with
         | r -> unlock_tracer s; Some r
         | exception e -> mark_failed s e; None
-      end else None);
-    alloc_major = (fun info ->
+      end else None)
+  in
+  let major_alloc_callback = (fun (info : Gc.Memprof.allocation) ->
       if lock_tracer s then begin
         match Trace.Writer.put_alloc_with_raw_backtrace trace (Trace.Timestamp.now ())
                 ~length:info.size
@@ -54,27 +54,36 @@ let start ?(report_exn=default_report_exn) ~sampling_rate trace =
         with
         | r -> unlock_tracer s; Some r
         | exception e -> mark_failed s e; None
-      end else None);
-    promote = (fun id ->
+      end else None)
+  in
+  let promote_callback = (fun id ->
       if lock_tracer s then
         match Trace.Writer.put_promote trace (Trace.Timestamp.now ()) id with
         | () -> unlock_tracer s; Some id
         | exception e -> mark_failed s e; None
-      else None);
-    dealloc_minor = (fun id ->
+      else None)
+  in
+  let minor_dealloc_callback = (fun id ->
       if lock_tracer s then
         match Trace.Writer.put_collect trace (Trace.Timestamp.now ()) id with
         | () -> unlock_tracer s
-        | exception e -> mark_failed s e);
-    dealloc_major = (fun id ->
+        | exception e -> mark_failed s e)
+  in
+  let major_dealloc_callback = (fun id ->
       if lock_tracer s then
         match Trace.Writer.put_collect trace (Trace.Timestamp.now ()) id with
         | () -> unlock_tracer s
-        | exception e -> mark_failed s e) } in
+        | exception e -> mark_failed s e)
+  in
   Gc.Memprof.start
     ~sampling_rate
     ~callstack_size:max_int
-    tracker;
+    ~minor_alloc_callback
+    ~major_alloc_callback
+    ~promote_callback
+    ~minor_dealloc_callback
+    ~major_dealloc_callback
+    ();
   s
 
 let stop s =
