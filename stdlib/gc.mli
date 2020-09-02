@@ -458,32 +458,15 @@ module Memprof :
        type of records passed to the callback triggered by the
        sampling of an allocation. *)
 
-    type ('minor, 'major) tracker = {
-      alloc_minor: allocation -> 'minor option;
-      alloc_major: allocation -> 'major option;
-      promote: 'minor -> 'major option;
-      dealloc_minor: 'minor -> unit;
-      dealloc_major: 'major -> unit;
-    }
-    (**
-       A [('minor, 'major) tracker] describes how memprof should track
-       sampled blocks over their lifetime, keeping a user-defined piece
-       of metadata for each of them: ['minor] is the type of metadata
-       to keep for minor blocks, and ['major] the type of metadata
-       for major blocks.
-
-       If an allocation-tracking or promotion-tracking function returns [None],
-       memprof stops tracking the corresponding value.
-     *)
-
-    val null_tracker: ('minor, 'major) tracker
-    (** Default callbacks simply return [None] or [()] *)
-
     val start :
       sampling_rate:float ->
       ?callstack_size:int ->
-      ('minor, 'major) tracker ->
-      unit
+      ?minor_alloc_callback:(allocation -> 'minor option) ->
+      ?major_alloc_callback:(allocation -> 'major option) ->
+      ?promote_callback:('minor -> 'major option) ->
+      ?minor_dealloc_callback:('minor -> unit) ->
+      ?major_dealloc_callback:('major -> unit) ->
+      unit -> unit
     (** Start the sampling with the given parameters. Fails if
        sampling is already active.
 
@@ -495,10 +478,14 @@ module Memprof :
        The parameter [callstack_size] is the length of the callstack
        recorded at every sample. Its default is [max_int].
 
-       The parameter [tracker] determines how to track sampled blocks
-       over their lifetime in the minor and major heap.
+       The parameters *[_callback] are functions called when an event
+       occurs on a sampled block. If such a callback returns [None],
+       then the tracking of this particular block is cancelled. If
+       they return [Some v], then the value [v] will be passed to the
+       next callback for this block. Default callbacks simply return
+       [None] or [()].
 
-       Sampling is temporarily disabled when calling a callback
+       The sampling is temporarily disabled when calling a callback
        for the current thread. So they do not need to be reentrant if
        the program is single-threaded. However, if threads are used,
        it is possible that a context switch occurs during a callback,

@@ -71,17 +71,16 @@ let allocators =
 let test alloc =
   Printf.printf "-----------\n%!";
   let callstack = ref None in
-  start ~callstack_size:10 ~sampling_rate:1.
-    { null_tracker with
-      alloc_minor = (fun info ->
-         callstack := Some info.callstack;
-         None
-      );
-      alloc_major = (fun info ->
-         callstack := Some info.callstack;
-         None
-      );
-    };
+  start ~callstack_size:10
+        ~minor_alloc_callback:(fun info ->
+           callstack := Some info.callstack;
+           None
+        )
+        ~major_alloc_callback:(fun info ->
+           callstack := Some info.callstack;
+           None
+        )
+        ~sampling_rate:1. ();
   alloc ();
   stop ();
   match !callstack with
