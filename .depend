@@ -9683,10 +9683,6 @@ driver/optmain.cmo : \
     driver/optmaindriver.cmi
 driver/optmain.cmx : \
     driver/optmaindriver.cmx
-driver/optmain_memtrace.cmo : \
-    driver/optmaindriver.cmi
-driver/optmain_memtrace.cmx : \
-    driver/optmaindriver.cmx
 driver/optmaindriver.cmo : \
     utils/warnings.cmi \
     utils/profile.cmi \

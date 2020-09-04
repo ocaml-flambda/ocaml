@@ -37,7 +37,7 @@ endif
 include stdlib/StdlibModules
 
 CAMLC=$(BOOT_OCAMLC) -g -nostdlib -I boot -use-prims runtime/primitives
-CAMLOPT=$(CAMLRUN) ./ocamlopt -g -nostdlib -I stdlib -I otherlibs/dynlink -I otherlibs/memtrace
+CAMLOPT=$(CAMLRUN) ./ocamlopt -g -nostdlib -I stdlib -I otherlibs/dynlink
 ARCHES=amd64 i386 arm arm64 power s390x
 INCLUDES=-I utils -I parsing -I typing -I bytecomp -I file_formats \
         -I lambda -I middle_end -I middle_end/closure \
@@ -436,8 +436,6 @@ BYTESTART=driver/main.cmo
 
 OPTSTART=driver/optmain.cmo
 
-OPTMEMTRACESTART=driver/optmain_memtrace.cmo
-
 ILAMBDASTART=driver/ilambdac.cmo
 
 TOPLEVELSTART=toplevel/topstart.cmo
@@ -582,7 +580,9 @@ opt.opt: checknative
 ifneq "$(WITH_OCAMLDOC)" ""
 	$(MAKE) manpages
 endif
-ifneq (,$(findstring memtrace,$(OTHERLIBRARIES)))
+# Systhreads presence implies presence of Unix, so there is
+# enough to compile memtrace and the memtrace-enabled ocamlopt
+ifneq (,$(findstring systhreads,$(OTHERLIBRARIES)))
 	$(MAKE) ocamlopt-memtrace.opt
 endif
 
@@ -1097,13 +1097,10 @@ ocamlopt.opt: compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
               $(OPTSTART:.cmo=.cmx)
 	$(CAMLOPT_CMD) $(LINKFLAGS) -o $@ $^
 
-ocamlopt-memtrace.opt: compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
-              $(OPTMEMTRACESTART:.cmo=.cmx)
-	$(CAMLOPT_CMD) $(LINKFLAGS) -I otherlibs/unix -I otherlibs/systhreads -o $@ \
-	  -cclib -lunix -cclib -lthreadsnat \
-	  otherlibs/unix/unix.cmxa otherlibs/systhreads/threads.cmxa \
-	  otherlibs/memtrace/memtrace.cmxa \
-	  $^
+ocamlopt-memtrace.opt: otherlibrariesopt
+	$(MAKE) -C memprof/memtrace allopt
+	cp memprof/memtrace/ocamlopt-memtrace.opt $@
+
 
 ilambdac.opt: compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
               $(ILAMBDASTART:.cmo=.cmx)
@@ -1190,7 +1187,7 @@ clean::
 otherlibs_all := bigarray dynlink raw_spacetime_lib \
   str systhreads unix win32unix
 subdirs := debugger lex ocamldoc ocamltest runtime stdlib tools \
-  $(addprefix otherlibs/, $(otherlibs_all)) \
+  memprof/memtrace $(addprefix otherlibs/, $(otherlibs_all)) \
 
 .PHONY: alldepend
 ifeq "$(TOOLCHAIN)" "msvc"
