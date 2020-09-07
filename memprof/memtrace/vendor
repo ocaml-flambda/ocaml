@@ -1,7 +1,9 @@
-This a vendored version of the `src` dir of:
+This directory includes a vendored version of the `src` dir of:
 git@github.com:janestreet/memtrace.git#6c7ed830b3535bcd77be698a5d556fe4a54974ba
+with a few minor modifications.
 
 Additional patches:
 - Use the 5 arguments interface of Gc.Memprof.start instead of the record one,
   + see 2805c598a94b3081f887eaf6403b8de4582cb653 for the commit that changed the contents of this directory
   + see ff6b20098f7f51758d78546af4bb8747cdc8c9f4 for the commit introducing the record representation
+- Remove dune file

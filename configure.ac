@@ -1460,11 +1460,11 @@ AS_IF([test x"$enable_systhreads" = "xno"],
   [AS_CASE([$host],
     [*-*-mingw32|*-pc-windows],
       [systhread_support=true
-      otherlibraries="$otherlibraries systhreads memtrace"
+      otherlibraries="$otherlibraries systhreads"
       AC_MSG_NOTICE([the Win32 threads library is supported])],
     [AX_PTHREAD(
       [systhread_support=true
-      otherlibraries="$otherlibraries systhreads memtrace"
+      otherlibraries="$otherlibraries systhreads"
       AS_CASE([$host],
         [*-*-solaris*], [pthread_link="-lpthread -lposix4"],
         [*-*-haiku*], [pthread_link=""],
