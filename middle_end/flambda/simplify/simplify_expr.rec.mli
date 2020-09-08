@@ -14,12 +14,11 @@
 (*                                                                        *)
 (**************************************************************************)
 
-[@@@ocaml.warning "+a-4-30-40-41-42"]
-
-type 'a k = Downwards_acc.t -> ('a * Upwards_acc.t)
+[@@@ocaml.warning "+a-30-40-41-42"]
 
 val simplify_expr
    : Downwards_acc.t
   -> Flambda.Expr.t
-  -> 'a k
-  -> Flambda.Expr.t * 'a * Upwards_acc.t
+  -> down_to_up:(Flambda.Expr.t * Upwards_acc.t,
+       Flambda.Expr.t * Upwards_acc.t) Simplify_common.down_to_up
+  -> Flambda.Expr.t * Upwards_acc.t
