@@ -845,9 +845,9 @@ and wrap_let_cont_exn_body handler extra_vars =
   ) handler extra_vars
 
 and let_cont_rec env res conts body =
-  (* Flush the env before anyhting to avoid inlining something inside of
+  (* Flush the env before anything to avoid inlining something inside of
      a recursive cont (aka a loop), as it would increase the number of times
-     the computation is performed (even if there is only one syntaxic occurrence) *)
+     the computation is performed (even if there is only one syntactic occurrence) *)
   let wrap, env = Env.flush_delayed_lets env in
   (* Compute the environment for jump ids *)
   let map = Continuation_handlers.to_map conts in
