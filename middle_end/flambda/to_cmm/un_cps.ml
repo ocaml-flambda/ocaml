@@ -845,6 +845,9 @@ and wrap_let_cont_exn_body handler extra_vars =
   ) handler extra_vars
 
 and let_cont_rec env res conts body =
+  (* Flush the env before anyhting to avoid inlining something inside of
+     a recursive cont (aka a loop), as it would increase the number of times
+     the computation is performed (even if there is only one syntaxic occurrence) *)
   let wrap, env = Env.flush_delayed_lets env in
   (* Compute the environment for jump ids *)
   let map = Continuation_handlers.to_map conts in
@@ -882,15 +885,12 @@ and continuation_handler env res h =
 
 (* Function calls: besides the function calls, there are a few things to do:
    - setup the mutable variables for the exn cont extra args if needed
-   - Flush the delayed let-bindings (this is not stricly necessary)
    - translate the call continuation (either through a jump, or inlining). *)
 and apply_expr env res e =
   let call, env, effs = apply_call env e in
   let k_exn = Apply_expr.exn_continuation e in
   let call, env = wrap_call_exn env e call k_exn in
-  let wrap, env = Env.flush_delayed_lets env in
-  let body, res = wrap_cont env res effs call e in
-  wrap body, res
+  wrap_cont env res effs call e
 
 (* Bare function calls *)
 and apply_call env e =
@@ -993,9 +993,11 @@ and wrap_call_exn env e call k_exn =
 and wrap_cont env res effs call e =
   match Apply_expr.continuation e with
   | Never_returns ->
-    call, res
+    let wrap, _ = Env.flush_delayed_lets env in
+    wrap call, res
   | Return k when Continuation.equal (Env.return_cont env) k ->
-    call, res
+    let wrap, _ = Env.flush_delayed_lets env in
+    wrap call, res
   | Return k ->
     begin match Env.get_k env k with
     | Jump { types = []; cont; } ->

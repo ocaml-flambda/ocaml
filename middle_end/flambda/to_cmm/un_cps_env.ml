@@ -465,7 +465,6 @@ let flush_delayed_lets env =
       ) order_map e
   in
   let wrap e = wrap_aux env.pures env.stages e in
-  (* Return a wrapper and a cleared env *)
   wrap, { env with stages = []; pures = Variable.Map.empty; }
 
 
