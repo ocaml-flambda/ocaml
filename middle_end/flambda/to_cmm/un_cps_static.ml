@@ -160,7 +160,7 @@ let rec static_set_of_closures env symbs set prev_update =
       (List.map fst (Var_within_closure.Map.bindings elts))
   in
   let env, l, updates, length =
-    fill_static_layout clos_symb symbs decls elts env [] prev_update 0 layout
+    fill_static_layout clos_symb symbs decls elts env [] prev_update 0 layout.slots
   in
   let block =
     match l with

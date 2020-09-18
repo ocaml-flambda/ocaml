@@ -1354,7 +1354,7 @@ and let_dynamic_set_of_closures env res body closure_vars
     Effects.Only_generative_effects Immutable, Coeffects.No_coeffects
   in
   let decl_map = decls |> Closure_id.Lmap.bindings |> Closure_id.Map.of_list in
-  let l, env, effs = fill_layout decl_map elts env effs [] 0 layout in
+  let l, env, effs = fill_layout decl_map elts env effs [] 0 layout.slots in
   let csoc = C.make_closure_block l in
   (* Create a variable to hold the set of closure *)
   let soc_var = Variable.create "*set_of_closures*" in

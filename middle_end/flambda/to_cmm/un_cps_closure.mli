@@ -51,7 +51,10 @@ type layout_slot =
     A layout slot can take up more than one word of memory (this is the case
     for closures, which can take either 2 or 3 words depending on arity). *)
 
-type layout = (int * layout_slot) list
+type layout = {
+  startenv : int;
+  slots: (int * layout_slot) list;
+}
 (** Alias for complete layouts. The list is sorted according to offsets
     (in increasing order). *)
 
