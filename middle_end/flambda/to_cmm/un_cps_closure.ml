@@ -55,7 +55,7 @@ let filter_closure_vars set ~used_closure_vars =
    | fn_block             |
    | (last closure slot)  |
    |----------------------|
-   | Env_value (slot 0)   |
+   | Env_value (slot 0)   | <- start of env
    |----------------------|
    | Env_value (slot 1)   |
    |----------------------|
@@ -65,12 +65,17 @@ let filter_closure_vars set ~used_closure_vars =
    | Env_value (last slot)|
    |----------------------|
 
-   However, that ideal layout may not be possible in certain circumstances.
-   There are two ways the actual layout of a block might differ from this ideal:
-   - there may be arbitrary holes between slots (i.e. unused words in the block)
-   - it is possible for some env slots to occur before some closure slots
+   However, that ideal layout may not be possible in certain circumstances,
+   as there may be arbitrary holes between slots (i.e. unused words in the block).
 
-   Notably, since symbols imported from other compilation units have their offset fixed.
+   Starting from ocaml 4.12, all closure slots must occur before all env var slots,
+   since the start of the environment is recorded in the arity field of each function
+   slot arity field.
+
+   This additional requirement makes more constraints impossible to satisfy (to be
+   clear, there are situations impossible to satisfy regardless of this requirement;
+   it's just that this requirement makes some situations that were previously
+   possible to satisfy be now unsatisfiable).
    For instance, it is perfectly possible to have a situation where an env_value has
    been fixed at offset 3 (because it is in a simple closure with one function of
    arity > 1 in another cmx), however it is in a closure set with more than one closure
@@ -170,6 +175,10 @@ module Greedy = struct
 
   type set_of_closures = {
     id : int;
+    (* Info about start of environment *)
+    mutable first_slot_used_by_envvar : int;
+    mutable first_slot_after_closures : int;
+    (* Slots to be allocated *)
     mutable unallocated_closure_slots : slot list;
     mutable unallocated_env_var_slots : slot list;
     mutable allocated_slots : slot Numbers.Int.Map.t;
@@ -206,6 +215,8 @@ module Greedy = struct
        incr c;
        {
          id = !c;
+         first_slot_after_closures = 0;
+         first_slot_used_by_envvar = max_int;
          unallocated_closure_slots = [];
          unallocated_env_var_slots = [];
          allocated_slots = Numbers.Int.Map.empty;
@@ -283,6 +294,26 @@ module Greedy = struct
       print_sets state.sets_of_closures
   [@@warning "-32"]
 
+
+  (* Keep the env vars offsets in sets up-to-date *)
+
+  let update_set_for_slot slot set =
+    begin match slot.pos with
+    | Unassigned -> ()
+    | Assigned i ->
+      begin match slot.desc with
+      | Env_var _ ->
+        set.first_slot_used_by_envvar <-
+          min set.first_slot_used_by_envvar i
+      | Closure _ ->
+        set.first_slot_after_closures <-
+          max set.first_slot_after_closures (i + slot.size)
+      end
+    end;
+    if set.first_slot_used_by_envvar < set.first_slot_after_closures then
+      Misc.fatal_errorf
+        "Set of closure invariant (all closures before all env vars) is broken"
+
   (* Slots *)
 
   let is_closure_slot slot =
@@ -295,6 +326,7 @@ module Greedy = struct
         false
 
   let add_slot_offset_to_set offset slot set =
+    update_set_for_slot slot set;
     let map = set.allocated_slots in
     assert (not (Numbers.Int.Map.mem offset map));
     let map = Numbers.Int.Map.add offset slot map in
@@ -323,11 +355,12 @@ module Greedy = struct
 
   let add_unallocated_slot_to_set slot set =
     slot.sets <- set :: slot.sets;
+    update_set_for_slot slot set;
     match slot.desc with
     | Closure _ ->
-        set.unallocated_closure_slots <- slot :: set.unallocated_closure_slots
+      set.unallocated_closure_slots <- slot :: set.unallocated_closure_slots
     | Env_var _ ->
-        set.unallocated_env_var_slots <- slot :: set.unallocated_env_var_slots
+      set.unallocated_env_var_slots <- slot :: set.unallocated_env_var_slots
 
   (* Accumulator state *)
 
