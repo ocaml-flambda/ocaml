@@ -316,8 +316,15 @@ module Greedy = struct
 
   let print_set fmt s =
     Format.fprintf fmt
-      "@[<v 2>%d:@ @[<v>unallocated_closures: @[<v>%a@];@ unallocated_env_vars: @[<v>%a@];@ allocated: @[<v>%a@]@]@]"
+      "@[<v 2>%d:@ @[<v>\
+       first_slot_after_closures: %d;@ \
+       first_slot_used_by_envvar: %d;@ \
+       unallocated_closures: @[<v>%a@];@ \
+       unallocated_env_vars: @[<v>%a@];@ \
+       allocated: @[<v>%a@]@]@]"
       s.id
+      s.first_slot_after_closures
+      s.first_slot_used_by_envvar
       print_slot_descs s.unallocated_closure_slots
       print_slot_descs s.unallocated_env_var_slots
       print_slots s.allocated_slots
