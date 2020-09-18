@@ -306,27 +306,30 @@ module Greedy = struct
 
   let print_slot fmt s =
     Format.fprintf fmt
-      "@[<hov>[pos: %a;@ size: %d;@ desc: %a;@ sets: %a]@]"
-      print_slot_pos s.pos s.size print_desc s.desc print_set_ids s.sets
+      "@[<h>[pos: %a;@ size: %d;@ sets: %a;@ desc: %a]@]@,"
+      print_slot_pos s.pos s.size print_set_ids s.sets print_desc s.desc
+
+  let print_slots fmt map =
+    Numbers.Int.Map.iter (fun _ slot ->
+      print_slot fmt slot
+    ) map
 
   let print_set fmt s =
     Format.fprintf fmt
-      "%d:{ @[<v>unallocated_closures: @[<hov>%a@];@ unallocated_env_vars: @[<hov>%a@];@ allocated: @[<hov>%a@]@]}@]"
+      "@[<v 2>%d:@ @[<v>unallocated_closures: @[<v>%a@];@ unallocated_env_vars: @[<v>%a@];@ allocated: @[<v>%a@]@]@]"
       s.id
       print_slot_descs s.unallocated_closure_slots
       print_slot_descs s.unallocated_env_var_slots
-      (Numbers.Int.Map.print print_slot) s.allocated_slots
+      print_slots s.allocated_slots
 
   let print_sets fmt l =
     List.iter (function s ->
-        Format.fprintf fmt "%a,@ " print_set s
+        Format.fprintf fmt "%a@ " print_set s
       ) l
 
   let print fmt state =
     Format.fprintf fmt
-      "@[<v 2>{ closures: @[<hov>%a@];@ env_vars: @[<hov>%a@];@ sets: @[<hov>%a@]@ }@]"
-      (Closure_id.Map.print print_slot) state.closures
-      (Var_within_closure.Map.print print_slot) state.env_vars
+      "@[<v 2>Sets of closures:@ %a@]"
       print_sets state.sets_of_closures
   [@@warning "-32"]
 
