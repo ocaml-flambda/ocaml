@@ -797,6 +797,9 @@ let mk_dcmm f =
   "-dcmm", Arg.Unit f, " (undocumented)"
 ;;
 
+let mk_doffset f =
+  "-doffset", Arg.Unit f, " (undocumented)"
+
 let mk_dsel f =
   "-dsel", Arg.Unit f, " (undocumented)"
 ;;
@@ -1203,6 +1206,7 @@ module type Optcommon_options = sig
   val _drawclambda : unit -> unit
   val _dclambda : unit -> unit
   val _dcmm : unit -> unit
+  val _doffset : unit -> unit
   val _dsel : unit -> unit
   val _dcombine : unit -> unit
   val _dcse : unit -> unit
@@ -1628,6 +1632,7 @@ struct
     mk_dfexpr F._dfexpr;
     mk_dflexpect F._dflexpect;
     mk_dcmm F._dcmm;
+    mk_doffset F._doffset;
     mk_dsel F._dsel;
     mk_dcombine F._dcombine;
     mk_dcse F._dcse;
@@ -1776,6 +1781,7 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_drawfexpr F._drawfexpr;
     mk_dfexpr F._dfexpr;
     mk_dcmm F._dcmm;
+    mk_doffset F._doffset;
     mk_dsel F._dsel;
     mk_dcombine F._dcombine;
     mk_dcse F._dcse;
@@ -1956,6 +1962,7 @@ module Default = struct
     let _davail () = dump_avail := true
     let _dclambda = set dump_clambda
     let _dcmm = set dump_cmm
+    let _doffset = set dump_offset
     let _dcombine = set dump_combine
     let _dcse = set dump_cse
     let _dfexpr = set dump_fexpr

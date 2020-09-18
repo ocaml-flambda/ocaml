@@ -558,46 +558,16 @@ let compute_offsets env code unit =
     state := Greedy.create_slots_for_set !state code used_closure_vars s
   in
   Flambda_unit.iter unit ~set_of_closures:aux;
-  Greedy.finalize !state
+  Misc.try_finally (fun () -> Greedy.finalize !state)
+    ~always:(fun () ->
+      if !Clflags.dump_offset then
+        Format.eprintf "%a@." Greedy.print !state
+    )
 
-
-(* Map on each function body once.
-   This is useful to avoid a global state of translated function bodies *)
-
-
-(* CR Gbury: currently closure_name and closure_id_name **must** be in sync
-             (which is manual task somewhat complex). It would be better to
-             have a unique mapping from closure_id to linkage name somewhere. *)
 let closure_name id =
   let compunit = Closure_id.get_compilation_unit id in
   let name = Compilation_unit.get_linkage_name compunit in
   Format.asprintf "%a__%s" Linkage_name.print name (Closure_id.to_string id)
 
-(* let closure_id_name o id =
- *   match o with
- *   | None -> closure_name id
- *   | Some _map -> closure_name id *)
-  (*
-      (* CR Gbury: is this part really necessary ? why not always
-                   return closure_name id ? *)
-      let s = Closure_id.Map.find id map in
-      let name = Symbol.linkage_name s in
-      Format.asprintf "%a" Linkage_name.print name
-  *)
-
 let closure_code s = Format.asprintf "%s_code" s
-
-(* let map_on_function_decl f program =
- *   let map = ref Code_id.Map.empty in
- *   let aux o s =
- *     let decls = Set_of_closures.function_decls s in
- *     let funs = Function_declarations.funs decls in
- *     Closure_id.Map.iter (fun closure_id decl ->
- *         let name = closure_code (closure_id_name o closure_id) in
- *         if not (Closure_id.Map.mem closure_id !map) then
- *           map := Closure_id.Map.add closure_id (f name closure_id decl) !map
- *       ) funs
- *   in
- *   Iter_on_sets_of_closures.program aux program;
- *   !map *)
 
