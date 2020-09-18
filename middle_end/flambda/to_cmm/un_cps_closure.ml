@@ -521,7 +521,8 @@ module Greedy = struct
 
   *)
 
-  let first_free_offset slot map start =
+  let first_free_offset slot set start =
+    let map = set.allocated_slots in
     (* space needed to fit a slot at the current offset. *)
     let needed_space curr =
       if is_closure_slot slot && curr <> 0 then slot.size + 1 else slot.size
@@ -539,15 +540,19 @@ module Greedy = struct
       | Unassigned -> assert false
       | Assigned i -> i + slot.size
     in
-    (* Adjust a starting position to not point in the middle of a block. *)
-    let adjust curr =
+    (* Adjust a starting position to not point in the middle of a block.
+       Additionally, ensure the env var slots are put after the closure slots. *)
+    let adjust (curr: int) =
+      let curr =
+        if is_closure_slot slot
+        then curr
+        else max curr set.first_slot_after_closures
+      in
       match Numbers.Int.Map.find_last (fun i -> i <= curr) map with
       | exception Not_found -> curr
       | (j, s) ->
           assert (Assigned j = s.pos);
-          let first_free_after = j + s.size in
-          (* CR mshinwell: [max] is polymorphic so this makes two C calls!! *)
-          max curr first_free_after
+          max curr (first_free_after s)
     in
     (* find the first available space for the slot. *)
     let rec loop curr =
@@ -574,15 +579,14 @@ module Greedy = struct
 
   (* Loop to find the first free offset available for a slot
      given the set of sets in which it appears. *)
-
   let rec first_available_offset slot start first_set other_sets =
     let aux ((_, offset) as acc) s =
-      let new_offset = first_free_offset slot s.allocated_slots offset in
+      let new_offset = first_free_offset slot s offset in
       assert (new_offset >= offset);
       if new_offset = offset then acc
       else (true, new_offset)
     in
-    let start = first_free_offset slot first_set.allocated_slots start in
+    let start = first_free_offset slot first_set start in
     let changed, offset = List.fold_left aux (false, start) other_sets in
     if not changed then
       assign_offset slot offset
