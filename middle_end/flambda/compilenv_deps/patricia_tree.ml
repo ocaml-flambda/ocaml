@@ -64,65 +64,91 @@ let compare_prefix prefix0 bit0 prefix1 bit1 =
 module Make_set (Elt : sig
   val print : Format.formatter -> int -> unit
 end) = struct
+
   type elt = int
 
-  type t =
-    | Empty
-    | Leaf of int
-    | Branch of int * int * t * t
+  module Repr = struct
 
-  let empty = Empty
+    type t =
+      | Empty
+      | Leaf of int
+      | Branch of int * int * t * t
+
+    let empty = Empty
+    let leaf i = Leaf i
+    let branch prefix bit t0 t1 = Branch (prefix, bit, t0, t1)
+
+    type view =
+      | Empty
+      | Leaf of int
+      | Branch of int * int * t * t
+
+    let[@inline] view (t : t) : view =
+      match (t : t) with
+      | Empty -> Empty
+      | Leaf i -> Leaf i
+      | Branch (prefix, bit, t0, t1) -> Branch (prefix, bit, t0, t1)
+
+  end
+
+  type t = Repr.t
+
+  let view = Repr.view
+
+  let empty = Repr.empty
 
   let is_empty t =
-    match t with
+    match view t with
     | Empty -> true
-    | Leaf _ -> false
+    | Leaf _
     | Branch _ -> false
 
-  let singleton i = Leaf i
+  let singleton i = Repr.leaf i
 
-  let rec mem i = function
+  let rec mem i t =
+    match view t with
     | Empty -> false
     | Leaf j -> j = i
-    | Branch(prefix, bit, t0, t1) ->
-        if not (match_prefix i prefix bit) then false
-        else if zero_bit i bit then mem i t0
-        else mem i t1
+    | Branch (prefix, bit, t0, t1) ->
+      if not (match_prefix i prefix bit) then false
+      else if zero_bit i bit then mem i t0
+      else mem i t1
 
   let branch prefix bit t0 t1 =
-    match t0, t1 with
+    match view t0, view t1 with
     | Empty, _ -> t1
     | _, Empty -> t0
-    | t0, t1 -> Branch(prefix, bit, t0, t1)
+    | _, _ -> Repr.branch prefix bit t0 t1
 
   let join prefix0 t0 prefix1 t1 =
     let bit = branching_bit prefix0 prefix1 in
     if zero_bit prefix0 bit then
-      Branch(mask prefix0 bit, bit, t0, t1)
+      Repr.branch (mask prefix0 bit) bit t0 t1
     else
-      Branch(mask prefix0 bit, bit, t1, t0)
+      Repr.branch (mask prefix0 bit) bit t1 t0
 
   (* CR mshinwell: This is now [add_or_replace] *)
-  let rec add i = function
-    | Empty -> Leaf i
-    | Leaf j as t ->
-      if i = j then Leaf i
-      else join i (Leaf i) j t
-    | Branch(prefix, bit, t0, t1) as t ->
+  let rec add i t =
+    match view t with
+    | Empty -> Repr.leaf i
+    | Leaf j ->
+      if i = j then Repr.leaf i
+      else join i (Repr.leaf i) j t
+    | Branch (prefix, bit, t0, t1) ->
       if match_prefix i prefix bit then
         if zero_bit i bit then
-          Branch(prefix, bit, add i t0, t1)
+          Repr.branch prefix bit (add i t0) t1
         else
-          Branch(prefix, bit, t0, add i t1)
+          Repr.branch prefix bit t0 (add i t1)
       else
-        join i (Leaf i) prefix t
+        join i (Repr.leaf i) prefix t
 
-  let rec remove i = function
-    | Empty -> Empty
-    | Leaf j as t ->
-      if i = j then Empty
-      else t
-    | Branch (prefix, bit, t0, t1) as t ->
+  let rec remove i t =
+    match view t with
+    | Empty -> Repr.empty
+    | Leaf j ->
+      if i = j then Repr.empty else t
+    | Branch (prefix, bit, t0, t1) ->
       if match_prefix i prefix bit then
         if zero_bit i bit then
           branch prefix bit (remove i t0) t1
@@ -132,11 +158,11 @@ end) = struct
         t
 
   let rec union t0 t1 =
-    match t0, t1 with
+    match view t0, view t1 with
     | Empty, _ -> t1
     | _, Empty -> t0
-    | Leaf i, Leaf j when i = j -> Leaf i
-    | Leaf i, Leaf j -> join i (Leaf i) j t1
+    | Leaf i, Leaf j when i = j -> Repr.leaf i
+    | Leaf i, Leaf j -> join i (Repr.leaf i) j t1
     | Leaf i, Branch (prefix, bit, t10, t11) ->
       if match_prefix i prefix bit then
         if zero_bit i bit then
@@ -144,7 +170,7 @@ end) = struct
         else
           branch prefix bit t10 (union t0 t11)
       else
-        join i (Leaf i) prefix t1
+        join i (Repr.leaf i) prefix t1
     | Branch (prefix, bit, t00, t01), Leaf i ->
       if match_prefix i prefix bit then
         if zero_bit i bit then
@@ -152,7 +178,7 @@ end) = struct
         else
           branch prefix bit t00 (union t1 t01)
       else
-        join i (Leaf i) prefix t0
+        join i (Repr.leaf i) prefix t0
     | Branch(prefix0, bit0, t00, t01), Branch(prefix1, bit1, t10, t11) ->
       if equal_prefix prefix0 bit0 prefix1 bit1 then
         branch prefix0 bit0 (union t00 t10) (union t01 t11)
@@ -170,7 +196,7 @@ end) = struct
         join prefix0 t0 prefix1 t1
 
   let rec subset t0 t1 =
-    match t0, t1 with
+    match view t0, view t1 with
     | Empty, _ -> true
     | _, Empty -> false
     | Branch _, Leaf _ -> false
@@ -187,7 +213,7 @@ end) = struct
           false
 
   let rec intersection_is_empty t0 t1 =
-    match t0, t1 with
+    match view t0, view t1 with
     | Empty, _ -> true
     | _, Empty -> true
     | Leaf i, _ -> not (mem i t1)
@@ -209,11 +235,11 @@ end) = struct
           true
 
   let rec inter t0 t1 =
-    match t0, t1 with
-    | Empty, _ -> Empty
-    | _, Empty -> Empty
-    | Leaf i, _ -> if mem i t1 then t0 else Empty
-    | _, Leaf i -> if mem i t0 then t1 else Empty
+    match view t0, view t1 with
+    | Empty, _ -> Repr.empty
+    | _, Empty -> Repr.empty
+    | Leaf i, _ -> if mem i t1 then t0 else Repr.empty
+    | _, Leaf i -> if mem i t0 then t1 else Repr.empty
     | Branch(prefix0, bit0, t00, t01), Branch(prefix1, bit1, t10, t11) ->
         if equal_prefix prefix0 bit0 prefix1 bit1 then
           branch prefix0 bit0 (inter t00 t10) (inter t01 t11)
@@ -228,13 +254,13 @@ end) = struct
           else
             inter t0 t11
         else
-          Empty
+          Repr.empty
 
   let rec diff t0 t1 =
-    match t0, t1 with
-    | Empty, _ -> Empty
+    match view t0, view t1 with
+    | Empty, _ -> Repr.empty
     | _, Empty -> t0
-    | Leaf i, _ -> if mem i t1 then Empty else t0
+    | Leaf i, _ -> if mem i t1 then Repr.empty else t0
     | _, Leaf i -> remove i t0
     | Branch(prefix0, bit0, t00, t01), Branch(prefix1, bit1, t10, t11) ->
         if equal_prefix prefix0 bit0 prefix1 bit1 then
@@ -252,42 +278,48 @@ end) = struct
         else
           t0
 
-  let rec cardinal = function
+  let rec cardinal t =
+    match view t with
     | Empty -> 0
     | Leaf _ -> 1
     | Branch(_, _, t0, t1) -> cardinal t0 + cardinal t1
 
-  let rec iter f = function
+  let rec iter f t =
+    match view t with
     | Empty -> ()
     | Leaf elt -> f elt
     | Branch(_, _, t0, t1) -> iter f t0; iter f t1
 
   let rec fold f t acc =
-    match t with
+    match view t with
     | Empty -> acc
     | Leaf elt -> f elt acc
     | Branch(_, _, t0, t1) -> fold f t0 (fold f t1 acc)
 
-  let rec for_all p = function
+  let rec for_all p t =
+    match view t with
     | Empty -> true
     | Leaf elt -> p elt
     | Branch(_, _, t0, t1) -> for_all p t0 && for_all p t1
 
-  let rec exists p = function
+  let rec exists p t =
+    match view t with
     | Empty -> false
     | Leaf elt -> p elt
     | Branch (_,_,t0,t1) -> exists p t0 || exists p t1
 
   let filter p t =
-    let rec loop p acc = function
+    let rec loop p acc t =
+      match view t with
       | Empty -> acc
       | Leaf i -> if p i then add i acc else acc
       | Branch(_, _, t0, t1) -> loop p (loop p acc t0) t1
     in
-    loop p Empty t
+    loop p Repr.empty t
 
   let filter_map f t =
-    let rec loop f acc = function
+    let rec loop f acc t =
+      match view t with
       | Empty -> acc
       | Leaf i ->
         begin match f i with
@@ -296,19 +328,21 @@ end) = struct
         end
       | Branch(_, _, t0, t1) -> loop f (loop f acc t0) t1
     in
-    loop f Empty t
+    loop f Repr.empty t
 
   let partition p t =
-    let rec loop ((true_, false_) as acc) = function
+    let rec loop ((true_, false_) as acc) t =
+      match view t with
       | Empty -> acc
       | Leaf i ->
         if p i then (add i true_, false_)
         else (true_, add i false_)
       | Branch(_, _, t0, t1) -> loop (loop acc t0) t1
     in
-    loop (Empty, Empty) t
+    loop (Repr.empty, Repr.empty) t
 
-  let rec choose = function
+  let rec choose t =
+    match view t with
     | Empty -> raise Not_found
     | Leaf key -> key
     | Branch(_, _, t0, _) -> choose t0
@@ -319,7 +353,8 @@ end) = struct
     | choice -> Some choice
 
   let elements t =
-    let rec loop acc = function
+    let rec loop acc t =
+      match view t with
       | Empty -> acc
       | Leaf i -> i :: acc
       | Branch(_, _, t0, t1) -> loop (loop acc t0) t1
@@ -327,7 +362,8 @@ end) = struct
     loop [] t
 
   let min_elt t =
-    let rec loop = function
+    let rec loop t =
+      match view t with
       | Empty -> raise Not_found
       | Leaf i -> i
       | Branch(_, _, t0, t1) ->
@@ -344,7 +380,8 @@ end) = struct
     | min -> Some min
 
   let max_elt t =
-    let rec loop = function
+    let rec loop t =
+      match view t with
       | Empty -> raise Not_found
       | Leaf i -> i
       | Branch(_, _, t0, t1) ->
@@ -361,7 +398,7 @@ end) = struct
     | max -> Some max
 
   let rec equal t0 t1 =
-    match t0, t1 with
+    match view t0, view t1 with
     | Empty, Empty -> true
     | Leaf i, Leaf j -> i = j
     | Branch(prefix0, bit0, t00, t01), Branch(prefix1, bit1, t10, t11) ->
@@ -371,7 +408,7 @@ end) = struct
     | _, _ -> false
 
   let rec compare t0 t1 =
-    match t0, t1 with
+    match view t0, view t1 with
     | Empty, Empty -> 0
     | Leaf i, Leaf j ->
       if i = j then 0
@@ -392,7 +429,8 @@ end) = struct
     | Branch _, Leaf _ -> -1
 
   let split i t =
-    let rec loop ((lt, present, gt) as acc) = function
+    let rec loop ((lt, present, gt) as acc) t =
+      match view t with
       | Empty -> acc
       | Leaf j ->
           if i = j then (lt, true, gt)
@@ -400,7 +438,7 @@ end) = struct
           else (lt, present, add j gt)
       | Branch(_, _, t0, t1) -> loop (loop acc t0) t1
     in
-    loop (Empty, false, Empty) t
+    loop (Repr.empty, false, Repr.empty) t
 
   let find_opt _ _ = Misc.fatal_error "find_opt not yet implemented"
 
@@ -413,7 +451,7 @@ end) = struct
   let find_last_opt _ _ = Misc.fatal_error "find_last_opt not yet implemented"
 
   let get_singleton t =
-    match t with
+    match view t with
     | Empty | Branch _ -> None
     | Leaf elt -> Some elt
 
