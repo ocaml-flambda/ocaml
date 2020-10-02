@@ -69,25 +69,70 @@ end) = struct
 
   module Repr = struct
 
-    type t =
-      | Empty
-      | Leaf of int
-      | Branch of int * int * t * t
+    (* See later comments *)
+    type t = Obj.t
 
-    let empty = Empty
-    let leaf i = Leaf i
-    let branch prefix bit t0 t1 = Branch (prefix, bit, t0, t1)
-
+    (* This is the type we'd like to represent. *)
     type view =
       | Empty
+      (* Empty tree *)
       | Leaf of int
+      (* Singleton node *)
       | Branch of int * int * t * t
+      (* [Branch (prefix, bit, left, right)],
+         with the following invariants, meaning:
+         - [bit] is a power of 2
+         - [prefix] is an integer strictly less then [2^bit]
+         - all integer stored in the tree share [prefix] as a prefix
+           (or rather, they are equal to [prefix] modulo [2^bit])
+         - all integers stored in the left tree additionally have their
+           [bit]-th bit equal to 0
+         - all integers stored in the right tree additionally have their
+           [bit]-th bit equal to 1 *)
+
+    (* [t] is an optimized version of [view],
+       more compact, but that cannot be expressed currently,
+       although it is valid w.r.t. the ocaml value representation.
+       It is either:
+       - a tagged integer (corresponding to the Leaf view case)
+       - a pointer to a block with the following cases:
+         + tag 70, size 0 for the representation of Empty
+         + tag [bit], size 3 for the representation of Branch,
+           with fields [prefix, left, right], in that order *)
+
+    let empty : t =
+      assert (64 > Sys.int_size);
+      Obj.new_block 64 0
+
+    let leaf (i : int) : t = Obj.repr i
+
+    let branch prefix bit t0 t1 : t =
+      (* CR gbury: this is not great in term of performances,
+         but it would require complex modifications of the rest
+         of the code to not require this part, particularly,
+         the {branching_bit} function would need to compute
+         [n] quickly *)
+      let n = Misc.log2 bit in
+      assert (n >= 0 && n <= Sys.int_size);
+      let res = Obj.new_block n 3 in
+      Obj.set_field res 0 (Obj.repr prefix);
+      Obj.set_field res 1 t0;
+      Obj.set_field res 2 t1;
+      res
 
     let[@inline] view (t : t) : view =
-      match (t : t) with
-      | Empty -> Empty
-      | Leaf i -> Leaf i
-      | Branch (prefix, bit, t0, t1) -> Branch (prefix, bit, t0, t1)
+      if Obj.is_int t then Leaf (Obj.obj t : int)
+      else begin
+        match Obj.tag t with
+        | 64 -> Empty
+        | n ->
+          assert (n >= 0 && n <= Sys.int_size);
+          let bit = 1 lsl n in
+          let prefix : int = Obj.obj (Obj.field t 0) in
+          let t0 = Obj.field t 1 in
+          let t1 = Obj.field t 2 in
+          Branch (prefix, bit, t0, t1)
+      end
 
   end
 
