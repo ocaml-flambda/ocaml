@@ -104,9 +104,9 @@ end) = struct
       assert (64 > Sys.int_size);
       Obj.new_block 64 0
 
-    let leaf (i : int) : t = Obj.repr i
+    let[@inline] leaf (i : int) : t = Obj.repr i
 
-    let branch prefix bit t0 t1 : t =
+    let[@inline] branch prefix bit t0 t1 : t =
       (* CR gbury: this is not great in term of performances,
          but it would require complex modifications of the rest
          of the code to not require this part, particularly,
@@ -120,11 +120,15 @@ end) = struct
       Obj.set_field res 2 t1;
       res
 
+    (* optimized version of is_empty *)
+    let[@inline] is_empty (t : t) = (t == empty)
+
     let[@inline] view (t : t) : view =
-      if Obj.is_int t then Leaf (Obj.obj t : int)
+      if is_empty t then Empty
+      else if Obj.is_int t then Leaf (Obj.obj t : int)
       else begin
         match Obj.tag t with
-        | 64 -> Empty
+        | 64 -> Empty (* redundant case, here just in case *)
         | n ->
           assert (n >= 0 && n <= Sys.int_size);
           let bit = 1 lsl n in
@@ -134,6 +138,7 @@ end) = struct
           Branch (prefix, bit, t0, t1)
       end
 
+
   end
 
   type t = Repr.t
@@ -142,11 +147,7 @@ end) = struct
 
   let empty = Repr.empty
 
-  let is_empty t =
-    match view t with
-    | Empty -> true
-    | Leaf _
-    | Branch _ -> false
+  let is_empty = Repr.is_empty
 
   let singleton i = Repr.leaf i
 
