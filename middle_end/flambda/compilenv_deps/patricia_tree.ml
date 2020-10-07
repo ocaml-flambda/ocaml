@@ -96,47 +96,52 @@ end) = struct
        It is either:
        - a tagged integer (corresponding to the Leaf view case)
        - a pointer to a block with the following cases:
-         + tag 70, size 0 for the representation of Empty
-         + tag [bit], size 3 for the representation of Branch,
-           with fields [prefix, left, right], in that order *)
+         + tag 0, size 1 for the representation of Empty
+         + tag 1, size 4 for the representation of Branch,
+           with fields [prefix, bit, left, right], in that order *)
+    type repr =
+      (* | int *)
+      | Empty of unit
+      | Branch of int * int * t * t
 
     let empty : t =
-      assert (64 > Sys.int_size);
-      Obj.new_block 64 0
+      Obj.repr (Empty ())
 
-    let[@inline] leaf (i : int) : t = Obj.repr i
+    let[@inline] leaf (i : int) : t =
+      Obj.repr i
 
     let[@inline] branch prefix bit t0 t1 : t =
+      Obj.repr (Branch (prefix, bit, t0, t1))
+
+    (* Version with [bit] stored inside the tag
       (* CR gbury: this is not great in term of performances,
          but it would require complex modifications of the rest
          of the code to not require this part, particularly,
          the {branching_bit} function would need to compute
-         [n] quickly *)
+         [n] quickly, for instance with a popcount-like
+         primitive. *)
       let n = Misc.log2 bit in
       assert (n >= 0 && n <= Sys.int_size);
-      let res = Obj.new_block n 3 in
-      Obj.set_field res 0 (Obj.repr prefix);
-      Obj.set_field res 1 t0;
-      Obj.set_field res 2 t1;
-      res
-
-    (* optimized version of is_empty *)
-    let[@inline] is_empty (t : t) = (t == empty)
+      let tmp : repr = Branch (prefix, t0, t1) in
+      Obj.with_tag (n + 1) (Obj.repr tmp)
+    *)
 
     let[@inline] view (t : t) : view =
-      if is_empty t then Empty
-      else if Obj.is_int t then Leaf (Obj.obj t : int)
+      if Obj.is_int t then Leaf (Obj.obj t : int)
       else begin
-        match Obj.tag t with
-        | 64 -> Empty (* redundant case, here just in case *)
-        | n ->
-          assert (n >= 0 && n <= Sys.int_size);
-          let bit = 1 lsl n in
-          let prefix : int = Obj.obj (Obj.field t 0) in
-          let t0 = Obj.field t 1 in
-          let t1 = Obj.field t 2 in
-          Branch (prefix, bit, t0, t1)
+        match (Obj.obj t : repr) with
+        | Empty () -> Empty
+        | Branch (prefix, bit, t0, t1) -> Branch (prefix, bit, t0, t1)
       end
+      (* Version with [bit] stored inside the tag
+         match Obj.tag t with
+         | 0 -> Empty
+         | n ->
+         assert (n >= 0 && n <= Sys.int_size);
+         let bit = 1 lsl n in
+         let prefix, t0, t1 = Obj.obj t in
+         Branch (prefix, bit, t0, t1)
+      *)
 
 
   end
@@ -147,7 +152,11 @@ end) = struct
 
   let empty = Repr.empty
 
-  let is_empty = Repr.is_empty
+  let is_empty t =
+    match view t with
+    | Empty -> true
+    | Leaf _
+    | Branch _ -> false
 
   let singleton i = Repr.leaf i
 
