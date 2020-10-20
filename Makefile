@@ -734,8 +734,7 @@ ocamlopt.opt: compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
               $(OPTSTART:.cmo=.cmx)
 	$(CAMLOPT_CMD) $(LINKFLAGS) -o $@ $^
 
-ocamlopt-memtrace.opt: compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
-                       otherlibrariesopt libraryopt memprof/memtrace
+ocamlopt-memtrace.opt: ocamlopt.opt otherlibrariesopt memprof/memtrace
 	$(MAKE) -C memprof/memtrace allopt
 	cp memprof/memtrace/ocamlopt-memtrace.opt $@
 

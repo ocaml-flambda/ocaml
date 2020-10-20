@@ -73,17 +73,21 @@ ocamlopt :=  $(BEST_OCAMLOPT) $(flags)
 
 ocamldep := $(BEST_OCAMLDEP)
 depflags := -slash
-depincludes :=
+depincludes := -I $(ROOTDIR)/driver
 
 .PHONY: all allopt opt.opt # all, allopt and opt.opt are synonyms
 all: ocamlopt-memtrace.opt
 allopt: all
 opt.opt: allopt
 
-ocamlopt-memtrace.opt: $(native_modules)
+ocamlopt-memtrace.opt: $(ROOTDIR)/compilerlibs/ocamlcommon.cmxa \
+                       $(ROOTDIR)/compilerlibs/ocamloptcomp.cmxa \
+                       $(ROOTDIR)/otherlibs/systhreads/threads.cmxa \
+                       $(ROOTDIR)/otherlibs/unix/unix.cmxa \
+                       $(native_modules)
 	$(ocamlopt_cmd) -o $@ -cclib -lunix -cclib -lthreadsnat \
 	  unix.cmxa threads.cmxa ocamlcommon.cmxa ocamloptcomp.cmxa \
-	  $^
+	  $(native_modules)
 
 %.cmx: %.ml
 	$(ocamlopt) -c $<
@@ -103,7 +107,7 @@ ifneq "$(TOOLCHAIN)" "msvc"
 .PHONY: depend
 depend: $(dependencies_generated_prereqs)
 	$(ocamldep) $(depflags) $(depincludes) $(mli_files) $(ml_files) \
-	  >> .depend
+	  > .depend
 endif
 
 -include .depend

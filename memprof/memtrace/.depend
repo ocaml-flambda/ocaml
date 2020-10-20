@@ -20,106 +20,10 @@ location_codec.cmx : \
 location_codec.cmi : \
     buf.cmi
 main.cmo : \
+    ../../driver/optmaindriver.cmi \
     memtrace.cmi
 main.cmx : \
-    memtrace.cmx
-memprof_tracer.cmi : \
-    trace.cmi
-memtrace.cmo : \
-    trace.cmi \
-    memprof_tracer.cmi \
-    memtrace.cmi
-memtrace.cmx : \
-    trace.cmx \
-    memprof_tracer.cmx \
-    memtrace.cmi
-memtrace.cmi : \
-    trace.cmi \
-    memprof_tracer.cmi
-trace.cmo : \
-    location_codec.cmi \
-    buf.cmi \
-    backtrace_codec.cmi \
-    trace.cmi
-trace.cmx : \
-    location_codec.cmx \
-    buf.cmx \
-    backtrace_codec.cmx \
-    trace.cmi
-trace.cmi :
-backtrace_codec.cmo : \
-    buf.cmi \
-    backtrace_codec.cmi
-backtrace_codec.cmx : \
-    buf.cmx \
-    backtrace_codec.cmi
-backtrace_codec.cmi : \
-    buf.cmi
-buf.cmo : \
-    buf.cmi
-buf.cmx : \
-    buf.cmi
-buf.cmi :
-location_codec.cmo : \
-    buf.cmi \
-    location_codec.cmi
-location_codec.cmx : \
-    buf.cmx \
-    location_codec.cmi
-location_codec.cmi : \
-    buf.cmi
-main.cmo : \
-    memtrace.cmi
-main.cmx : \
-    memtrace.cmx
-memprof_tracer.cmi : \
-    trace.cmi
-memtrace.cmo : \
-    trace.cmi \
-    memprof_tracer.cmi \
-    memtrace.cmi
-memtrace.cmx : \
-    trace.cmx \
-    memprof_tracer.cmx \
-    memtrace.cmi
-memtrace.cmi : \
-    trace.cmi \
-    memprof_tracer.cmi
-trace.cmo : \
-    location_codec.cmi \
-    buf.cmi \
-    backtrace_codec.cmi \
-    trace.cmi
-trace.cmx : \
-    location_codec.cmx \
-    buf.cmx \
-    backtrace_codec.cmx \
-    trace.cmi
-trace.cmi :
-backtrace_codec.cmo : \
-    buf.cmi \
-    backtrace_codec.cmi
-backtrace_codec.cmx : \
-    buf.cmx \
-    backtrace_codec.cmi
-backtrace_codec.cmi : \
-    buf.cmi
-buf.cmo : \
-    buf.cmi
-buf.cmx : \
-    buf.cmi
-buf.cmi :
-location_codec.cmo : \
-    buf.cmi \
-    location_codec.cmi
-location_codec.cmx : \
-    buf.cmx \
-    location_codec.cmi
-location_codec.cmi : \
-    buf.cmi
-main.cmo : \
-    memtrace.cmi
-main.cmx : \
+    ../../driver/optmaindriver.cmx \
     memtrace.cmx
 memprof_tracer.cmo : \
     trace.cmi \
