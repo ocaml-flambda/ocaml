@@ -109,7 +109,7 @@ let output_flexpect ~ml_filename old_unit new_unit =
       Format.pp_print_flush ppf ())
   end
 
-let middle_end0 ppf ~prefixname:_ ~backend ~filename ~module_ident
+let middle_end0 ppf ~prefixname ~backend ~filename ~module_ident
       ~module_block_size_in_words ~module_initializer =
   Misc.Color.setup !Clflags.color;
   Profile.record_call "flambda.0" (fun () ->
@@ -143,10 +143,15 @@ let middle_end0 ppf ~prefixname:_ ~backend ~filename ~module_ident
     in
     print_rawflambda ppf flambda;
     check_invariants flambda;
+    let round = 0 in
     let new_flambda =
       Profile.record_call ~accumulate:true "simplify"
-        (fun () -> Simplify.run ~backend ~round:0 flambda)
+        (fun () -> Simplify.run ~backend ~round flambda)
     in
+    if !Clflags.inlining_report then begin
+      let output_prefix = Printf.sprintf "%s.%d" prefixname round in
+      Inlining_report.output_then_forget_decisions ~output_prefix
+    end;
     print_flambda "simplify" ppf new_flambda.unit;
     output_flexpect ~ml_filename:filename flambda new_flambda.unit;
     new_flambda)

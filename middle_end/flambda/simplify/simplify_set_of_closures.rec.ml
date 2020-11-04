@@ -26,12 +26,14 @@ open! Simplify_import
    file tail recursive, although it probably isn't necessary, as
    excessive levels of nesting of functions seems unlikely. *)
 
-let function_decl_type denv function_decl ?code_id ?params_and_body rec_info =
+let function_decl_type ~pass denv function_decl ?code_id ?params_and_body rec_info =
   let decision =
     Inlining_decision.make_decision_for_function_declaration
       denv ?params_and_body function_decl
   in
   let code_id = Option.value code_id ~default:(FD.code_id function_decl) in
+  Inlining_report.record_decision (At_function_declaration { code_id; pass; decision; })
+    ~dbg:(DE.add_inlined_debuginfo' denv (FD.dbg function_decl));
   if Inlining_decision.Function_declaration_decision.can_inline decision then
     T.create_inlinable_function_declaration
       ~code_id
@@ -146,7 +148,9 @@ end = struct
                   Code_id.Map.find (FD.code_id function_decl)
                     old_to_new_code_ids_all_sets
                 in
-                function_decl_type denv function_decl
+                function_decl_type
+                  ~pass:Before_simplify
+                  denv function_decl
                   ~code_id:new_code_id
                   (Rec_info.create ~depth:1 ~unroll_to:None))
               (Function_declarations.funs function_decls)
@@ -424,7 +428,9 @@ let simplify_function context ~used_closure_vars ~shareable_constants
     let function_type =
       (* We need to use [dacc_after_body] to ensure that all [code_ids] in
          [params_and_body] are available for the inlining decision code. *)
-      function_decl_type (DA.denv dacc_after_body) function_decl
+      function_decl_type
+        ~pass:After_simplify
+        (DA.denv dacc_after_body) function_decl
         ~params_and_body Rec_info.initial
     in
     { function_decl;

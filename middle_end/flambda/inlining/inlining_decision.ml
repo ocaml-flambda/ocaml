@@ -33,16 +33,53 @@ module DE = Simplify_envs.Downwards_env
 module Function_declaration_decision = struct
   type t =
     | Never_inline_attribute
-    | Function_body_too_large
+    | Function_body_too_large of Inlining_cost.Threshold.t
     | Stub
-    | Inline
+    | Inline of (int * Inlining_cost.Threshold.t) option
 
   let can_inline t =
     match t with
     | Never_inline_attribute
-    | Function_body_too_large -> false
+    | Function_body_too_large _ -> false
     | Stub
-    | Inline -> true
+    | Inline _ -> true
+
+  let print fmt = function
+    | Never_inline_attribute ->
+      Format.fprintf fmt "Never_inline_attribute"
+    | Function_body_too_large threshold ->
+      Format.fprintf fmt "Function_body_too_large(%a)"
+        Inlining_cost.Threshold.print threshold
+    | Stub ->
+      Format.fprintf fmt "Stub"
+    | Inline None ->
+      Format.fprintf fmt "Inline_no_cost_computed"
+    | Inline Some (size, threshold) ->
+      Format.fprintf fmt "Inline(size=%d, %a)" size
+        Inlining_cost.Threshold.print threshold
+
+  let report_reason fmt = function
+    | Never_inline_attribute ->
+      Format.fprintf fmt "%a"
+        Format.pp_print_text "the function has an attribute preventing its inlining"
+    | Function_body_too_large threshold ->
+      Format.fprintf fmt "the@ function's@ body@ is@ too@ large,@ \
+                          more@ specifically,@ it@ is@ larger@ than@ the@ threshold:@ %a"
+        Inlining_cost.Threshold.print threshold
+    | Stub ->
+      Format.fprintf fmt "the@ function@ is@ a@ stub"
+    | Inline None ->
+      Format.fprintf fmt "the@ function@ has@ an@ attribute@ forcing@ its@ inlining"
+    | Inline Some (size, threshold) ->
+      Format.fprintf fmt "the@ function's@ body@ is@ smaller@ \
+                          than@ the@ threshold:@ size=%d < threshold=%a"
+        size Inlining_cost.Threshold.print threshold
+
+  let report fmt t =
+    Format.fprintf fmt "@[<v>The function %s be inlined at its use-sites@ \
+                        because @[<hov>%a@]@]"
+      (if can_inline t then "can" else "cannot") report_reason t
+
 end
 
 let make_decision_for_function_declaration denv ?params_and_body function_decl
@@ -53,7 +90,7 @@ let make_decision_for_function_declaration denv ?params_and_body function_decl
   let code = DE.find_code denv code_id in
   match Code.inline code with
   | Never_inline -> Never_inline_attribute
-  | Always_inline -> Inline
+  | Always_inline -> Inline None
   | Default_inline | Unroll _ ->
     if Code.stub code then Stub
     else
@@ -80,9 +117,9 @@ let make_decision_for_function_declaration denv ?params_and_body function_decl
                 (unscaled *.
                   (float_of_int Inlining_cost.scale_inline_threshold_by)))
           in
-          if Inlining_cost.can_inline denv body inlining_threshold ~bonus:0
-          then Inline
-          else Function_body_too_large)
+          match Inlining_cost.can_inline denv body inlining_threshold ~bonus:0 with
+          | Can_inline size -> Inline (Some (size, inlining_threshold))
+          | Cannot_inline -> Function_body_too_large inlining_threshold)
 
 module Call_site_decision = struct
   type attribute_causing_inlining =
@@ -137,6 +174,41 @@ module Call_site_decision = struct
     | Recursion_depth_exceeded
     | Never_inline_attribute -> Do_not_inline
     | Inline { attribute = _; unroll_to; } -> Inline { unroll_to; }
+
+
+  let report_reason fmt t =
+    match (t : t) with
+    | Environment_says_never_inline ->
+      Format.fprintf fmt "the@ environment@ says@ never@ to@ inline"
+    | Unrolling_depth_exceeded ->
+      Format.fprintf fmt "the@ maximum@ unrolling@ depth@ has@ been@ exceeded"
+    | Max_inlining_depth_exceeded ->
+      Format.fprintf fmt "the@ maximum@ inlining@ depth@ has@ been@ exceeded"
+    | Recursion_depth_exceeded ->
+      Format.fprintf fmt "the@ maximum@ recursion@ depth@ has@ been@ exceeded"
+    | Never_inline_attribute ->
+      Format.fprintf fmt "the@ call@ has@ an@ attribute@ forbidding@ inlining"
+    | Inline { attribute = None; unroll_to = None; } ->
+      Format.fprintf fmt "the@ decision@ at@ the@ function@ declaration"
+    | Inline { attribute = Some Always; unroll_to = _; } ->
+      Format.fprintf fmt "the@ [@inline always]@ attribute@ on@ the@ call"
+    | Inline { attribute = Some Unroll; unroll_to = Some n; } ->
+      Format.fprintf fmt "the@ [@unroll %d]@ attribute@ on@ the@ call" n
+
+    (* this should not happen *)
+    | Inline { attribute = None; unroll_to = Some _; }
+    | Inline { attribute = Some Unroll; unroll_to = None; }
+      ->
+      Misc.fatal_errorf "This should not happen (Inlining_decision.report is not in sync\
+                         with Inlining_decision.make_decision_for_call_site)"
+
+  let report fmt t =
+    Format.fprintf fmt "@[<v>The function call %s been inlined@ because of @[<hov>%a@]@]"
+      (match can_inline t with
+       | Inline _ -> "has"
+       | Do_not_inline -> "has not")
+      report_reason t
+
 end
 
 (* CR mshinwell: Overhaul handling of the inlining depth tracking so that

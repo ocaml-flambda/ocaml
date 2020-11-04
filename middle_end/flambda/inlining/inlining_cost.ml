@@ -479,6 +479,12 @@ module Threshold = struct
     | Never_inline
     | Can_inline_if_no_larger_than of int
 
+  let print fmt = function
+    | Never_inline ->
+      Format.fprintf fmt "Never_inline"
+    | Can_inline_if_no_larger_than max_size ->
+      Format.fprintf fmt "Can_inline_if_no_larger_than %d" max_size
+
   let add t1 t2 =
     match t1, t2 with
     | Never_inline, t -> t
@@ -502,16 +508,24 @@ module Threshold = struct
       Can_inline_if_no_larger_than (min i1 i2)
 end
 
-let smaller denv lam ~than =
-  smaller' denv lam ~than <> None
+module Inline_res = struct
 
-let can_inline denv lam inlining_threshold ~bonus =
+  type t =
+    | Cannot_inline
+    | Can_inline of int
+    (* size of the inlinable expression, used in inlining reports *)
+
+end
+
+let can_inline denv lam inlining_threshold ~bonus : Inline_res.t =
   match inlining_threshold with
-  | Threshold.Never_inline -> false
+  | Threshold.Never_inline -> Cannot_inline
   | Threshold.Can_inline_if_no_larger_than inlining_threshold ->
-     smaller denv
-       lam
-       ~than:(inlining_threshold + bonus)
+    begin match smaller' denv lam
+                  ~than:(inlining_threshold + bonus) with
+    | None -> Cannot_inline
+    | Some size -> Can_inline size
+    end
 
 let cost (flag : Clflags.Int_arg_helper.parsed) ~round =
   Clflags.Int_arg_helper.get ~key:round flag

@@ -313,6 +313,7 @@ MIDDLE_END_FLAMBDA_SIMPLIFY=\
   middle_end/flambda/simplify/env/upwards_acc.cmo \
   middle_end/flambda/inlining/inlining_cost.cmo \
   middle_end/flambda/inlining/inlining_decision.cmo \
+  middle_end/flambda/inlining/inlining_report.cmo \
   middle_end/flambda/inlining/inlining_transforms.cmo \
   middle_end/flambda/simplify/simplify_simple.cmo \
   middle_end/flambda/simplify/simplify_import.cmo \

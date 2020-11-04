@@ -21,9 +21,13 @@ open! Flambda.Import
 module Function_declaration_decision : sig
   type t = private
     | Never_inline_attribute
-    | Function_body_too_large
+    | Function_body_too_large of Inlining_cost.Threshold.t
     | Stub
-    | Inline
+    | Inline of (int * Inlining_cost.Threshold.t) option
+
+  val print : Format.formatter -> t -> unit
+
+  val report : Format.formatter -> t -> unit
 
   val can_inline : t -> bool
 end
@@ -51,6 +55,8 @@ module Call_site_decision : sig
       }
 
   val print : Format.formatter -> t -> unit
+
+  val report : Format.formatter -> t -> unit
 
   type can_inline = private
     | Do_not_inline

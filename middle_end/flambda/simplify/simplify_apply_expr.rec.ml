@@ -78,12 +78,16 @@ let rebuild_non_inlined_direct_full_application apply ~use_id ~exn_cont_use_id
   after_rebuild expr uacc
 
 let simplify_direct_full_application dacc apply function_decl_opt
-      ~result_arity ~down_to_up =
+      ~callee's_code_id ~result_arity ~down_to_up =
   let callee = Apply.callee apply in
   let args = Apply.args apply in
   let inlined =
     match function_decl_opt with
-    | None -> None
+    | None ->
+      Inlining_report.record_decision
+        (At_call_site (Non_inlinable_function { code_id = callee's_code_id; }))
+        ~dbg:(DE.add_inlined_debuginfo' (DA.denv dacc) (Apply.dbg apply));
+      None
     | Some (function_decl, function_decl_rec_info) ->
       let apply_inlining_depth = Apply.inlining_depth apply in
       let decision =
@@ -92,6 +96,10 @@ let simplify_direct_full_application dacc apply function_decl_opt
           ~apply_inlining_depth
           (Apply.inline apply)
       in
+      let code_id = T.Function_declaration_type.Inlinable.code_id function_decl in
+      Inlining_report.record_decision
+        (At_call_site (Inlinable_function { code_id; decision; }))
+        ~dbg:(DE.add_inlined_debuginfo' (DA.denv dacc) (Apply.dbg apply));
       match Inlining_decision.Call_site_decision.can_inline decision with
       | Do_not_inline ->
         None
@@ -368,7 +376,7 @@ let simplify_direct_function_call dacc apply ~callee's_code_id_from_type
       let num_params = List.length param_arity in
       if provided_num_args = num_params then
         simplify_direct_full_application dacc apply function_decl_opt
-          ~result_arity ~down_to_up
+          ~callee's_code_id ~result_arity ~down_to_up
       else if provided_num_args > num_params then
         simplify_direct_over_application dacc apply ~param_arity ~result_arity
           ~down_to_up
@@ -405,6 +413,8 @@ let simplify_function_call_where_callee's_type_unavailable dacc apply
     | Return continuation -> continuation
   in
   let denv = DA.denv dacc in
+  Inlining_report.record_decision (At_call_site Unknown_function)
+    ~dbg:(DE.add_inlined_debuginfo' denv (Apply.dbg apply));
   let env_at_use = denv in
   let dacc, exn_cont_use_id =
     DA.record_continuation_use dacc
@@ -744,8 +754,12 @@ let simplify_apply dacc apply ~down_to_up =
     | Function call ->
       simplify_function_call dacc apply ~callee_ty call ~arg_types ~down_to_up
     | Method { kind; obj; } ->
+      Inlining_report.record_decision (At_call_site Method)
+        ~dbg:(DE.add_inlined_debuginfo' (DA.denv dacc) (Apply.dbg apply));
       simplify_method_call dacc apply ~callee_ty ~kind ~obj ~arg_types
         ~down_to_up
     | C_call { alloc = _; param_arity; return_arity; } ->
+      Inlining_report.record_decision (At_call_site C_call)
+        ~dbg:(DE.add_inlined_debuginfo' (DA.denv dacc) (Apply.dbg apply));
       simplify_c_call dacc apply ~callee_ty ~param_arity ~return_arity
         ~arg_types ~down_to_up
