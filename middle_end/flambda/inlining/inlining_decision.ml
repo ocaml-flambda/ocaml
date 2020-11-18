@@ -189,11 +189,11 @@ module Call_site_decision = struct
     | Never_inline_attribute ->
       Format.fprintf fmt "the@ call@ has@ an@ attribute@ forbidding@ inlining"
     | Inline { attribute = None; unroll_to = None; } ->
-      Format.fprintf fmt "the@ decision@ at@ the@ function@ declaration"
+      Format.fprintf fmt "the@ function@ was@ deemed@ inlinable@ from@ its@ declaration"
     | Inline { attribute = Some Always; unroll_to = _; } ->
-      Format.fprintf fmt "the@ [@inline always]@ attribute@ on@ the@ call"
+      Format.fprintf fmt "the@ call@ has@ an@ [@@inline always]@ attribute"
     | Inline { attribute = Some Unroll; unroll_to = Some n; } ->
-      Format.fprintf fmt "the@ [@unroll %d]@ attribute@ on@ the@ call" n
+      Format.fprintf fmt "the@ call@ has@ an@ [@@unroll %d]@ attribute" n
 
     (* this should not happen *)
     | Inline { attribute = None; unroll_to = Some _; }
@@ -203,7 +203,7 @@ module Call_site_decision = struct
                          with Inlining_decision.make_decision_for_call_site)"
 
   let report fmt t =
-    Format.fprintf fmt "@[<v>The function call %s been inlined@ because of @[<hov>%a@]@]"
+    Format.fprintf fmt "@[<v>The function call %s been inlined@ because @[<hov>%a@]@]"
       (match can_inline t with
        | Inline _ -> "has"
        | Do_not_inline -> "has not")
