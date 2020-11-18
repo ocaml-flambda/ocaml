@@ -149,7 +149,7 @@ end = struct
                     old_to_new_code_ids_all_sets
                 in
                 function_decl_type
-                  ~pass:Before_simplify
+                  ~pass:Inlining_report.Before_simplify
                   denv function_decl
                   ~code_id:new_code_id
                   (Rec_info.create ~depth:1 ~unroll_to:None))
@@ -429,7 +429,7 @@ let simplify_function context ~used_closure_vars ~shareable_constants
       (* We need to use [dacc_after_body] to ensure that all [code_ids] in
          [params_and_body] are available for the inlining decision code. *)
       function_decl_type
-        ~pass:After_simplify
+        ~pass:Inlining_report.After_simplify
         (DA.denv dacc_after_body) function_decl
         ~params_and_body Rec_info.initial
     in

@@ -18,43 +18,30 @@
    (e.g. method, c-calls, or function with no precise enough type to
    inline). *)
 
-module Decision = struct
-
-  module At_call_site = struct
-
-    type t =
-      | C_call
-      | Method
-      | Unknown_function
-      | Non_inlinable_function of {
-          code_id : Code_id.t;
-        }
-      | Inlinable_function of {
-          code_id : Code_id.t;
-          decision : Inlining_decision.Call_site_decision.t;
-        }
-
-  end
-
-  module At_function_declaration = struct
-
-    type pass =
-      | Before_simplify
-      | After_simplify
-
-    type t = {
-      pass : pass;
+type at_call_site =
+  | Unknown_function
+  | Non_inlinable_function of {
       code_id : Code_id.t;
-      decision : Inlining_decision.Function_declaration_decision.t;
+    }
+  | Inlinable_function of {
+      code_id : Code_id.t;
+      decision : Inlining_decision.Call_site_decision.t;
     }
 
-  end
+type fundecl_pass =
+  | Before_simplify
+  | After_simplify
 
-  type t =
-    | At_call_site of At_call_site.t
-    | At_function_declaration of At_function_declaration.t
+type at_function_declaration = {
+  pass : fundecl_pass;
+  code_id : Code_id.t;
+  decision : Inlining_decision.Function_declaration_decision.t;
+}
 
-end
+type decision =
+  | At_call_site of at_call_site
+  | At_function_declaration of at_function_declaration
+
 
 (* Log for a whole round
 
@@ -76,7 +63,7 @@ end
 (* Individual decisions, with debuginfo *)
 type t = {
   dbg : Debuginfo.t;
-  decision : Decision.t;
+  decision : decision;
 }
 
 (* Actual log storage. During simplification, in order to be more efficient,
@@ -104,23 +91,15 @@ let rec print ~depth fmt = function
       Inlining_decision.Function_declaration_decision.report decision;
     print ~depth:(depth + 1) fmt r
 
+  (* Exiting a function_declaration (possibly nested) *)
+  | { dbg ; decision = At_function_declaration {
+      pass = After_simplify; code_id; decision; } } :: r ->
+    Format.fprintf fmt "%a @[<v>After simplification of %s{%a}:@ @ %a@]@\n@\n@\n"
+      stars depth (Code_id.name code_id) Debuginfo.print dbg
+      Inlining_decision.Function_declaration_decision.report decision;
+    print ~depth:(depth - 1) fmt r
+
   (* Function call *)
-  | { decision = At_call_site C_call; dbg; } :: r ->
-    Format.fprintf fmt "%a @[<v>%s of %s{%a}@ @ %s@ %s@]@\n@\n"
-      stars depth
-      (if depth = 0 then "Toplevel application" else "Application")
-      "<unknown function>" Debuginfo.print dbg
-      "The C function call has not been inlined"
-      "because the optimizer cannot inline C calls";
-    print ~depth fmt r
-  | { decision = At_call_site Method; dbg; } :: r ->
-    Format.fprintf fmt "%a @[<v>%s of %s{%a}@ @ %s@ %s@]@\n@\n"
-      stars depth
-      (if depth = 0 then "Toplevel application" else "Application")
-      "<unknown function>" Debuginfo.print dbg
-      "The method call has not been inlined"
-      "because the optimizer cannot inline method calls";
-    print ~depth fmt r
   | { decision = At_call_site Unknown_function; dbg; } :: r ->
     Format.fprintf fmt "%a @[<v>%s of %s{%a}@ @ %s@ %s@]@\n@\n"
       stars depth
@@ -146,14 +125,6 @@ let rec print ~depth fmt = function
       (Code_id.name code_id) Debuginfo.print dbg
       Inlining_decision.Call_site_decision.report decision;
     print ~depth fmt r
-
-  (* Exiting a function_declaration (possibly nested) *)
-  | { dbg ; decision = At_function_declaration {
-      pass = After_simplify; code_id; decision; } } :: r ->
-    Format.fprintf fmt "%a @[<v>After simplification of %s{%a}:@ @ %a@]@\n@\n@\n"
-      stars depth (Code_id.name code_id) Debuginfo.print dbg
-      Inlining_decision.Function_declaration_decision.report decision;
-    print ~depth:(depth - 1) fmt r
 
 
 

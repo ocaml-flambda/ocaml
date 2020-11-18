@@ -754,12 +754,8 @@ let simplify_apply dacc apply ~down_to_up =
     | Function call ->
       simplify_function_call dacc apply ~callee_ty call ~arg_types ~down_to_up
     | Method { kind; obj; } ->
-      Inlining_report.record_decision (At_call_site Method)
-        ~dbg:(DE.add_inlined_debuginfo' (DA.denv dacc) (Apply.dbg apply));
       simplify_method_call dacc apply ~callee_ty ~kind ~obj ~arg_types
         ~down_to_up
     | C_call { alloc = _; param_arity; return_arity; } ->
-      Inlining_report.record_decision (At_call_site C_call)
-        ~dbg:(DE.add_inlined_debuginfo' (DA.denv dacc) (Apply.dbg apply));
       simplify_c_call dacc apply ~callee_ty ~param_arity ~return_arity
         ~arg_types ~down_to_up
