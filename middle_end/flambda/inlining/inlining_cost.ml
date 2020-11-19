@@ -508,16 +508,12 @@ module Threshold = struct
       Can_inline_if_no_larger_than (min i1 i2)
 end
 
-module Inline_res = struct
+type inline_res =
+  | Cannot_inline
+  | Can_inline of int
+  (* size of the inlinable expression, used in inlining reports *)
 
-  type t =
-    | Cannot_inline
-    | Can_inline of int
-    (* size of the inlinable expression, used in inlining reports *)
-
-end
-
-let can_inline denv lam inlining_threshold ~bonus : Inline_res.t =
+let can_inline denv lam inlining_threshold ~bonus : inline_res =
   match inlining_threshold with
   | Threshold.Never_inline -> Cannot_inline
   | Threshold.Can_inline_if_no_larger_than inlining_threshold ->
