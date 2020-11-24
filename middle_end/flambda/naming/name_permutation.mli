@@ -34,6 +34,8 @@ val is_empty : t -> bool
     [first] then subsequently like [second]. *)
 val compose : second:t -> first:t -> t
 
+
+(** Variable bindings *)
 val add_variable : t -> Variable.t -> Variable.t -> t
 
 val add_fresh_variable : t -> Variable.t -> guaranteed_fresh:Variable.t -> t
@@ -42,8 +44,22 @@ val apply_variable : t -> Variable.t -> Variable.t
 
 val apply_variable_set : t -> Variable.Set.t -> Variable.Set.t
 
+
+(** Symbol bindings *)
+val add_symbol : t -> Symbol.t -> Symbol.t -> t
+
+val add_fresh_symbol : t -> Symbol.t -> guaranteed_fresh:Symbol.t -> t
+
+val apply_symbol : t -> Symbol.t -> Symbol.t
+
+val apply_symbol_set : t -> Symbol.Set.t -> Symbol.Set.t
+
+
+(** Application to {Name.t} *)
 val apply_name : t -> Name.t -> Name.t
 
+
+(** Continuation bindings *)
 val add_continuation : t -> Continuation.t -> Continuation.t -> t
 
 val add_fresh_continuation
@@ -53,3 +69,16 @@ val add_fresh_continuation
   -> t
 
 val apply_continuation : t -> Continuation.t -> Continuation.t
+
+
+(** Code_id bindings *)
+val add_code_id : t -> Code_id.t -> Code_id.t -> t
+
+val add_fresh_code_id
+   : t
+  -> Code_id.t
+  -> guaranteed_fresh:Code_id.t
+  -> t
+
+val apply_code_id : t -> Code_id.t -> Code_id.t
+
