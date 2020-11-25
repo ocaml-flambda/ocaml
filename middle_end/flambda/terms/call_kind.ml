@@ -167,7 +167,10 @@ let free_names t =
 
 let apply_name_permutation t perm =
   match t with
-  | Function (Direct { code_id = _; closure_id = _; return_arity = _; })
+  | Function (Direct { code_id; closure_id; return_arity; }) ->
+    let code_id' = Name_permutation.apply_code_id perm code_id in
+    if code_id == code_id' then t
+    else Function (Direct { code_id = code_id'; closure_id; return_arity; })
   | Function Indirect_unknown_arity
   | Function (Indirect_known_arity { param_arity = _; return_arity = _; })
   | C_call { alloc = _; param_arity = _; return_arity = _; } -> t

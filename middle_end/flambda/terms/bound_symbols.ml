@@ -36,6 +36,15 @@ module Pattern = struct
     | Block_like symbol ->
       Format.fprintf ppf "@[<hov 1>(Block_like@ %a)@]" Symbol.print symbol
 
+  let apply_name_permutation t perm =
+    match t with
+    | Code code_id ->
+      Code (Name_permutation.apply_code_id perm code_id)
+    | Set_of_closures map ->
+      Set_of_closures (Closure_id.Lmap.map (Name_permutation.apply_symbol perm) map)
+    | Block_like symbol ->
+      Block_like (Name_permutation.apply_symbol perm symbol)
+
   let free_names t =
     match t with
     | Code code_id ->
@@ -144,7 +153,8 @@ let everything_being_defined t =
   List.map Pattern.everything_being_defined t
   |> Code_id_or_symbol.Set.union_list
 
-let apply_name_permutation t _perm = t
+let apply_name_permutation t perm =
+  List.map (fun pattern -> Pattern.apply_name_permutation pattern perm) t
 
 let free_names t =
   List.map Pattern.free_names t

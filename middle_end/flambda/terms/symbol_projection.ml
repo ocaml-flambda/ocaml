@@ -92,7 +92,10 @@ let equal t1 t2 =
 let hash { symbol; projection; } =
   Hashtbl.hash (Symbol.hash symbol, Projection.hash projection)
 
-let apply_name_permutation ({ symbol = _; projection = _; } as t) _perm = t
+let apply_name_permutation ({ symbol; projection = _; } as t) perm =
+  let symbol' = Name_permutation.apply_symbol perm symbol in
+  if symbol == symbol' then t
+  else { t with symbol = symbol'; }
 
 let free_names { symbol; projection = _; } =
   Name_occurrences.singleton_symbol symbol Name_mode.normal

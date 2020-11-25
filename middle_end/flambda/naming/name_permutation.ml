@@ -81,6 +81,7 @@ let compose ~second ~first =
   else if is_empty first then second
   else compose0 ~second ~first
 
+
 (* variables *)
 
 let add_variable t var1 var2 =
@@ -127,12 +128,14 @@ let apply_symbol_set t symbols =
     symbols
     Symbol.Set.empty
 
+
 (* application of permutations *)
 
 let apply_name t name =
   Name.pattern_match name
     ~var:(fun var -> Name.var (apply_variable t var))
     ~symbol:(fun symbol -> Name.symbol (apply_symbol t symbol))
+
 
 (* continuations *)
 
@@ -149,6 +152,7 @@ let add_fresh_continuation t k1 ~guaranteed_fresh:k2 =
 
 let apply_continuation t k =
   Continuations.apply t.continuations k
+
 
 (* Code ids *)
 

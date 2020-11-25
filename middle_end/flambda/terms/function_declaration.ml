@@ -62,7 +62,10 @@ let free_names
       } =
   Name_occurrences.add_code_id Name_occurrences.empty code_id Name_mode.normal
 
-let apply_name_permutation t _perm = t
+let apply_name_permutation ({ code_id; dbg = _; is_tupled = _; } as t) perm =
+  let code_id' = Name_permutation.apply_code_id perm code_id in
+  if code_id == code_id' then t
+  else { t with code_id = code_id'; }
 
 let all_ids_for_export
       { code_id;
