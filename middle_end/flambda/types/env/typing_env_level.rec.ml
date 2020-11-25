@@ -130,17 +130,46 @@ let apply_name_permutation
       equations
       Name.Map.empty
   in
-  (* CR mshinwell: Maybe we should call
-     [Symbol_projection.apply_name_permutation] even though it currently
-     does nothing? *)
+  let cse_changed = ref false in
+  let cse' =
+    Flambda_primitive.Eligible_for_cse.Map.fold (fun prim simple cse' ->
+        let simple' = Simple.apply_name_permutation simple perm in
+        let prim' =
+          Flambda_primitive.Eligible_for_cse.apply_name_permutation prim perm
+        in
+        if (not (simple == simple')) || (not (prim == prim')) then begin
+          cse_changed := true
+        end;
+        Flambda_primitive.Eligible_for_cse.Map.add prim' simple' cse')
+      cse
+      Flambda_primitive.Eligible_for_cse.Map.empty
+  in
+  let symbol_projections_changed = ref false in
+  let symbol_projections' =
+    Variable.Map.fold (fun var projection symbol_projections ->
+        let var' = Name_permutation.apply_variable perm var in
+        let projection' =
+          Symbol_projection.apply_name_permutation projection perm
+        in
+        if not (var == var') ||
+           not (projection == projection') then begin
+          symbol_projections_changed := true
+        end;
+        Variable.Map.add var' projection' symbol_projections)
+      symbol_projections
+      Variable.Map.empty
+  in
   if (not !defined_vars_changed)
     && (not !equations_changed)
+    && (not !cse_changed)
+    && (not !symbol_projections_changed)
   then t
   else
     { defined_vars = defined_vars';
       binding_times = binding_times';
       equations = equations';
-      symbol_projections;
+      cse = cse';
+      symbol_projections = symbol_projections';
     }
 
 let free_names

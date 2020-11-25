@@ -51,6 +51,13 @@ module Inlinable = struct
   let dbg t = t.dbg
   let rec_info t = t.rec_info
   let is_tupled t = t.is_tupled
+
+  let apply_name_permutation
+        ({ code_id; dbg = _; rec_info = _; is_tupled = _; } as t) perm =
+    let code_id' = Name_permutation.apply_code_id perm code_id in
+    if code_id == code_id' then t
+    else { t with code_id = code_id'; }
+
 end
 
 module Non_inlinable = struct
@@ -75,6 +82,11 @@ module Non_inlinable = struct
 
   let code_id t = t.code_id
   let is_tupled t = t.is_tupled
+
+  let apply_name_permutation ({ code_id; is_tupled = _; } as t) perm =
+    let code_id' = Name_permutation.apply_code_id perm code_id in
+    if code_id == code_id' then t
+    else { t with code_id = code_id'; }
 end
 
 type t0 =
@@ -119,7 +131,13 @@ let import import_map (t : t) : t =
     let code_id = Ids_for_export.Import_map.code_id import_map code_id in
     Ok (Non_inlinable { code_id; is_tupled; })
 
-let apply_name_permutation t _perm = t
+let apply_name_permutation (t : t) perm : t =
+  match t with
+  | Bottom | Unknown -> t
+  | Ok (Inlinable inlinable) ->
+    Ok (Inlinable (Inlinable.apply_name_permutation inlinable perm))
+  | Ok (Non_inlinable non_inlinable) ->
+    Ok (Non_inlinable (Non_inlinable.apply_name_permutation non_inlinable perm))
 
 module Make_meet_or_join
   (E : Lattice_ops_intf.S

@@ -57,6 +57,10 @@ let free_names { funs; _ } =
     funs
     (Name_occurrences.empty)
 
+(* Note: the call to {create} at the end already takes into account the
+   permutation applied to the function_declarations in {in_order}, so
+   there is no need to apply_name_permutation the func_decls in the {funs}
+   field. *)
 let apply_name_permutation ({ in_order; _ } as t) perm =
   let in_order' =
     Closure_id.Lmap.map_sharing (fun func_decl ->

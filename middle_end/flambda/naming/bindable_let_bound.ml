@@ -93,7 +93,12 @@ let apply_name_permutation t perm =
     in
     if closure_vars == closure_vars' then t
     else Set_of_closures { name_mode; closure_vars = closure_vars'; }
-  | Symbols _ -> t
+  | Symbols ({ bound_symbols; scoping_rule = _; } as symbols) ->
+    let bound_symbols' =
+      Bound_symbols.apply_name_permutation bound_symbols perm
+    in
+    if bound_symbols == bound_symbols' then t
+    else Symbols { symbols with bound_symbols = bound_symbols'; }
 
 let all_ids_for_export t =
   match t with

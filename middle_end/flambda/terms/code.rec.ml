@@ -213,10 +213,21 @@ let free_names t =
   Name_occurrences.union from_newer_version_of t.free_names_of_params_and_body
 
 let apply_name_permutation
-      ({ code_id = _; params_and_body; newer_version_of = _; params_arity = _;
+      ({ code_id; params_and_body; newer_version_of; params_arity = _;
          result_arity = _; stub = _; inline = _; is_a_functor = _;
-         recursive = _; free_names_of_params_and_body = _; } as t)
+         recursive = _; free_names_of_params_and_body } as t)
       perm =
+  (* inlined and modified version of Option.map to preserve sharing *)
+  let newer_version_of' =
+    match newer_version_of with
+    | None -> newer_version_of
+    | Some code_id ->
+      let code_id' = Name_permutation.apply_code_id perm code_id in
+      if code_id == code_id'
+      then newer_version_of
+      else Some code_id'
+  in
+  let code_id' = Name_permutation.apply_code_id perm code_id in
   let params_and_body' : Function_params_and_body.t Or_deleted.t =
     match params_and_body with
     | Deleted -> Deleted
@@ -230,12 +241,19 @@ let apply_name_permutation
       else
         Present params_and_body_inner'
   in
-  (* N.B. At present we don't need to apply the permutation to
-     [free_names_of_params_and_body] since we never permute symbols or
-     code IDs. *)
-  if params_and_body == params_and_body' then t
-  else
-    { t with params_and_body = params_and_body'; }
+  if params_and_body == params_and_body' &&
+     code_id == code_id' &&
+     newer_version_of == newer_version_of' then t
+  else begin
+    let free_names_of_params_and_body' =
+      Name_occurrences.apply_name_permutation free_name_sof_params_and_body
+    in
+    { t with code_id = code_id';
+             params_and_body = params_and_body';
+             newer_version_of = newer_version_of';
+             free_names_of_params_and_body = free_names_of_params_and_body;
+    }
+  end
 
 let all_ids_for_export { code_id; params_and_body; newer_version_of;
                          params_arity = _; result_arity = _; stub = _;

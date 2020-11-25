@@ -65,7 +65,11 @@ module Field_of_block = struct
 
   let apply_name_permutation t perm =
     match t with
-    | Symbol _ | Tagged_immediate _ -> t
+    | Tagged_immediate _ -> t
+    | Symbol symbol ->
+      let symbol' = Name_permutation.apply_symbol perm symbol in
+      if symbol == symbol' then t
+      else Symbol symbol'
     | Dynamically_computed var ->
       let var' = Name_permutation.apply_variable perm var in
       if var == var' then t
