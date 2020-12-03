@@ -42,6 +42,8 @@ module rec Expr : sig
   (** Printing, invariant checks, name manipulation, etc. *)
   include Expr_std.S with type t := t
 
+  val all_ids_for_export : t -> Ids_for_export.t
+
   type descr = private
     | Let of Let_expr.t
     (** Bind variable(s) or symbol(s).  There can be no effect on control flow

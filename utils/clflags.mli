@@ -261,6 +261,7 @@ module Flambda : sig
   end
 
   module Debug : sig
+    val permute_every_name : bool ref
     val concrete_types_only_on_canonicals : bool ref
   end
 

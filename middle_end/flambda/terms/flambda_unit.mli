@@ -46,6 +46,8 @@ val used_closure_vars : t -> Var_within_closure.Set.t Or_unknown.t
 
 val body : t -> Flambda.Expr.t
 
+val permute_everything : t -> t
+
 val iter
    : ?code:(id:Code_id.t
      -> Flambda.Code.t

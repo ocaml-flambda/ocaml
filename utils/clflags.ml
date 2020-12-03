@@ -441,6 +441,7 @@ module Flambda = struct
   end
 
   module Debug = struct
+    let permute_every_name = ref false
     let concrete_types_only_on_canonicals = ref false
   end
 

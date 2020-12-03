@@ -39,6 +39,7 @@ let return_continuation t = t.return_continuation
 let exn_continuation t = t.exn_continuation
 let body t = t.body
 let module_symbol t = t.module_symbol
+let used_closure_vars t = t.used_closure_vars
 
 let print ppf
       { return_continuation; exn_continuation; body; module_symbol;
@@ -59,7 +60,56 @@ let print ppf
 
 let invariant _t = ()
 
-let used_closure_vars t = t.used_closure_vars
+let apply_name_permutation { return_continuation; exn_continuation;
+                             body; module_symbol; used_closure_vars; } perm =
+  let body = Expr.apply_name_permutation body perm in
+  let module_symbol = Name_permutation.apply_symbol perm module_symbol in
+  let return_continuation = Name_permutation.apply_continuation perm return_continuation in
+  let exn_continuation = Name_permutation.apply_continuation perm exn_continuation in
+  let used_closure_vars = Or_unknown.map used_closure_vars ~f:(fun set ->
+    Var_within_closure.Set.map (fun var ->
+      let comp_unit = Var_within_closure.get_compilation_unit var in
+      let v = Var_within_closure.unwrap var in
+      let v' = Name_permutation.apply_variable perm v in
+      Var_within_closure.wrap comp_unit v'
+    ) set)
+  in
+  create ~return_continuation ~exn_continuation ~body ~module_symbol ~used_closure_vars
+
+let permute_everything t =
+  (* Only symbols (and code_ids) from the current compilation unit, and
+     that are not the module symbol can be safely permuted *)
+  let current_comp_unit = Compilation_unit.get_current_exn () in
+  let ids = Expr.all_ids_for_export t.body in
+  let perm = Name_permutation.empty in
+  let perm = Symbol.Set.fold (fun symbol perm ->
+    if Symbol.in_compilation_unit symbol current_comp_unit
+       && not (Symbol.equal t.module_symbol symbol) then begin
+      let guaranteed_fresh = Symbol.rename symbol in
+      Name_permutation.add_fresh_symbol perm symbol ~guaranteed_fresh
+    end else
+      perm
+  ) ids.symbols perm
+  in
+  let perm = Code_id.Set.fold (fun code_id perm ->
+    if Code_id.in_compilation_unit code_id current_comp_unit then begin
+      let guaranteed_fresh = Code_id.rename code_id in
+      Name_permutation.add_fresh_code_id perm code_id ~guaranteed_fresh
+    end else
+      perm
+  ) ids.code_ids perm
+  in
+  let perm = Variable.Set.fold (fun variable perm ->
+    let guaranteed_fresh = Variable.rename variable in
+    Name_permutation.add_fresh_variable perm variable ~guaranteed_fresh
+  ) ids.variables perm
+  in
+  let perm = Continuation.Set.fold (fun k perm ->
+    let guaranteed_fresh = Continuation.rename k in
+    Name_permutation.add_fresh_continuation perm k ~guaranteed_fresh
+  ) ids.continuations perm
+  in
+  apply_name_permutation t perm
 
 (* Iter on all sets of closures of a given program. *)
 (* CR mshinwell: These functions should be pushed directly into [Flambda] *)
