@@ -143,6 +143,11 @@ let middle_end0 ppf ~prefixname ~backend ~filename ~module_ident
     in
     print_rawflambda ppf flambda;
     check_invariants flambda;
+    let flambda =
+      if !Clflags.Flambda.Debug.permute_every_name
+      then Flambda_unit.permute_everything flambda
+      else flambda
+    in
     let round = 0 in
     let new_flambda =
       Profile.record_call ~accumulate:true "simplify"
