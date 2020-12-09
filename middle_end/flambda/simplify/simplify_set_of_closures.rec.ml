@@ -32,7 +32,8 @@ let function_decl_type ~pass denv function_decl ?code_id ?params_and_body rec_in
       denv ?params_and_body function_decl
   in
   let code_id = Option.value code_id ~default:(FD.code_id function_decl) in
-  Inlining_report.record_decision (At_function_declaration { code_id; pass; decision; })
+  Inlining_report.record_decision (
+    At_function_declaration { code_id = Code_id.export code_id; pass; decision; })
     ~dbg:(DE.add_inlined_debuginfo' denv (FD.dbg function_decl));
   if Inlining_decision.Function_declaration_decision.can_inline decision then
     T.create_inlinable_function_declaration

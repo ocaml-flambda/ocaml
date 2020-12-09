@@ -18,12 +18,12 @@ type at_call_site =
   | Unknown_function
   (** Function call where the function's type is unknown. *)
   | Non_inlinable_function of {
-      code_id : Code_id.t; (** code id of the callee *)
+      code_id : Code_id.exported; (** code id of the callee *)
     }
   (** Function call where the function's type is known,
       but was marked as non-inlinable. *)
   | Inlinable_function of {
-      code_id : Code_id.t; (** code id of the callee *)
+      code_id : Code_id.exported; (** code id of the callee *)
       decision : Inlining_decision.Call_site_decision.t;
     }
   (** Function call where the function's type is known,
@@ -38,7 +38,7 @@ type fundecl_pass =
 
 type at_function_declaration = {
   pass : fundecl_pass;
-  code_id : Code_id.t; (** code id of the function being declared *)
+  code_id : Code_id.exported; (** code id of the function being declared *)
   decision : Inlining_decision.Function_declaration_decision.t;
 }
 

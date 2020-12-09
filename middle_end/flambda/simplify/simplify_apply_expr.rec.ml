@@ -92,7 +92,8 @@ let simplify_direct_full_application dacc apply function_decl_opt
     match function_decl_opt with
     | None ->
       Inlining_report.record_decision
-        (At_call_site (Non_inlinable_function { code_id = callee's_code_id; }))
+        (At_call_site (Non_inlinable_function
+                         { code_id = Code_id.export callee's_code_id; }))
         ~dbg:(DE.add_inlined_debuginfo' (DA.denv dacc) (Apply.dbg apply));
       warn_not_inlined_if_needed apply
         "[@inlined] attribute was not used on this function application \
@@ -108,7 +109,7 @@ let simplify_direct_full_application dacc apply function_decl_opt
       in
       let code_id = T.Function_declaration_type.Inlinable.code_id function_decl in
       Inlining_report.record_decision
-        (At_call_site (Inlinable_function { code_id; decision; }))
+        (At_call_site (Inlinable_function { code_id = Code_id.export code_id; decision; }))
         ~dbg:(DE.add_inlined_debuginfo' (DA.denv dacc) (Apply.dbg apply));
       match Inlining_decision.Call_site_decision.can_inline decision with
       | Do_not_inline ->

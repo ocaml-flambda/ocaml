@@ -21,10 +21,10 @@
 type at_call_site =
   | Unknown_function
   | Non_inlinable_function of {
-      code_id : Code_id.t;
+      code_id : Code_id.exported;
     }
   | Inlinable_function of {
-      code_id : Code_id.t;
+      code_id : Code_id.exported;
       decision : Inlining_decision.Call_site_decision.t;
     }
 
@@ -34,7 +34,7 @@ type fundecl_pass =
 
 type at_function_declaration = {
   pass : fundecl_pass;
-  code_id : Code_id.t;
+  code_id : Code_id.exported;
   decision : Inlining_decision.Function_declaration_decision.t;
 }
 
@@ -66,6 +66,12 @@ type t = {
   decision : decision;
 }
 
+type metadata = {
+  compilation_unit : Compilation_unit.t;
+}
+
+type report = [ `Flambda2_1_0_0 of metadata * t list ]
+
 (* Actual log storage. During simplification, in order to be more efficient,
    decisions are stored from the most recent one (in the head of the list),
    to the oldest one (at the end of the list).
@@ -85,7 +91,7 @@ let rec print ~depth fmt = function
   | { dbg; decision = At_function_declaration {
       pass = Before_simplify; code_id; decision; } } :: r ->
     Format.fprintf fmt "%a Definition of %s{%a}@\n"
-      stars depth (Code_id.name code_id) Debuginfo.print dbg;
+      stars depth Code_id.(name (import code_id)) Debuginfo.print dbg;
     Format.fprintf fmt "%a @[<v>Before simplification:@ @ %a@]@\n@\n"
       stars (depth + 1)
       Inlining_decision.Function_declaration_decision.report decision;
@@ -95,7 +101,7 @@ let rec print ~depth fmt = function
   | { dbg ; decision = At_function_declaration {
       pass = After_simplify; code_id; decision; } } :: r ->
     Format.fprintf fmt "%a @[<v>After simplification of %s{%a}:@ @ %a@]@\n@\n@\n"
-      stars depth (Code_id.name code_id) Debuginfo.print dbg
+      stars depth Code_id.(name (import code_id)) Debuginfo.print dbg
       Inlining_decision.Function_declaration_decision.report decision;
     print ~depth:(depth - 1) fmt r
 
@@ -113,7 +119,7 @@ let rec print ~depth fmt = function
     Format.fprintf fmt "%a @[<v>%s of %s{%a}@ @ %s@ %s@]@\n@\n"
       stars depth
       (if depth = 0 then "Toplevel application" else "Application")
-      (Code_id.name code_id) Debuginfo.print dbg
+      Code_id.(name (import code_id)) Debuginfo.print dbg
       "The function call has not been inlined"
       "because its definition was deemed not inlinable";
     print ~depth fmt r
@@ -122,7 +128,7 @@ let rec print ~depth fmt = function
     Format.fprintf fmt "%a @[<v>%s of %s{%a}@ @ %a@]@\n@\n"
       stars depth
       (if depth = 0 then "Toplevel application" else "Application")
-      (Code_id.name code_id) Debuginfo.print dbg
+      Code_id.(name (import code_id)) Debuginfo.print dbg
       Inlining_decision.Call_site_decision.report decision;
     print ~depth fmt r
 
@@ -136,12 +142,22 @@ let record_decision ~dbg decision =
   end
 
 let output_then_forget_decisions ~output_prefix =
+  let l = lazy (List.rev !log) in
   if !Clflags.inlining_report then begin
     let out_channel = open_out (output_prefix ^ ".inlining.org") in
     let fmt = Format.formatter_of_out_channel out_channel in
-    Format.fprintf fmt "%a@." (print ~depth:0) (List.rev !log);
+    Format.fprintf fmt "%a@." (print ~depth:0) (Lazy.force l);
     close_out out_channel;
-    log := [];
-  end
+  end;
+  if !Clflags.inlining_report_mr then begin
+    let ch = open_out_bin (output_prefix ^ ".inlining.obj.magic") in
+    let metadata = {
+      compilation_unit = Compilation_unit.get_current_exn ();
+    } in
+    let report : report = `Flambda2_1_0_0 (metadata, Lazy.force l) in
+    Marshal.to_channel ch report [];
+    close_out ch
+  end;
+  log := [];
 
 

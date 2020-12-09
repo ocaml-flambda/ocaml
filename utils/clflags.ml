@@ -181,6 +181,7 @@ let unsafe_string =
                                    (* -safe-string / -unsafe-string *)
 
 let inlining_report = ref false    (* -inlining-report *)
+let inlining_report_mr = ref false (* -inlining-report-mr *)
 
 let afl_instrument = ref Config.afl_instrument (* -afl-instrument *)
 let afl_inst_ratio = ref 100           (* -afl-inst-ratio *)
