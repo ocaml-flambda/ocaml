@@ -170,9 +170,10 @@ let mk_inlining_report f =
       round) showing the inliner's decisions, in a human readable format"
 ;;
 
-let mk_inlining_report_mr f =
-  "-inlining-report-mr", Arg.Unit f, " Emit `.<round>.inlining' file(s) (one per \
-      round) showing the inliner's decisions in a machine readable format"
+let mk_inlining_report_serialized f =
+  "-inlining-report-serialized", Arg.Unit f, " Emit `.<round>.inlining' \
+      file(s) (one per round) showing the inliner's decisions in a serialized \
+      format"
 ;;
 
 
@@ -1170,7 +1171,7 @@ module type Optcommon_options = sig
   val _inline : string -> unit
   val _inline_toplevel : string -> unit
   val _inlining_report : unit -> unit
-  val _inlining_report_mr : unit -> unit
+  val _inlining_report_serialized : unit -> unit
   val _dump_pass : string -> unit
   val _inline_max_depth : string -> unit
   val _rounds : int -> unit
@@ -1502,7 +1503,7 @@ struct
     mk_inline_indirect_cost F._inline_indirect_cost;
     mk_inline_lifting_benefit F._inline_lifting_benefit;
     mk_inlining_report F._inlining_report;
-    mk_inlining_report_mr F._inlining_report_mr;
+    mk_inlining_report_serialized F._inlining_report_serialized;
     mk_insn_sched F._insn_sched;
     mk_intf F._intf;
     mk_intf_suffix F._intf_suffix;
@@ -1675,7 +1676,7 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_inline F._inline;
     mk_inline_toplevel F._inline_toplevel;
     mk_inlining_report F._inlining_report;
-    mk_inlining_report_mr F._inlining_report_mr;
+    mk_inlining_report_serialized F._inlining_report_serialized;
     mk_rounds F._rounds;
     mk_inline_max_unroll F._inline_max_unroll;
     mk_inline_call_cost F._inline_call_cost;
@@ -2032,7 +2033,7 @@ module Default = struct
         "Syntax: -inline-toplevel <n> | <round>=<n>[,...]"
         inline_toplevel_threshold
     let _inlining_report () = inlining_report := true
-    let _inlining_report_mr () = inlining_report_mr := true
+    let _inlining_report_serialized () = inlining_report_serialized := true
     let _insn_sched = set insn_sched
     let _no_insn_sched = clear insn_sched
     let _linscan = set use_linscan
