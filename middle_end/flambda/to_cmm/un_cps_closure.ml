@@ -119,8 +119,8 @@ let layout_aux j slot (startenv, acc_slots) =
      slots. The algorithms in this file should thus only generate slot
      assignments that respect this invariant. If that is not the case, this
      is a fatal error given that the start of the environment (i.e. the
-     offset of the first en var slot, with the added property the all slots
-     after that are env vars slots (or at least scannable by the CG), is needed
+     offset of the first env var slot, with the added property that all slots
+     after that are env vars slots (or at least scannable by the GC)), is needed
      by the GC when scanning the block. Thus, if we see a closure slot, we
      check that then the environment has not started yet (i.e. we have not
      seen any env var slots). *)
