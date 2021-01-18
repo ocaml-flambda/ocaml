@@ -246,12 +246,12 @@ let apply_name_permutation
      newer_version_of == newer_version_of' then t
   else begin
     let free_names_of_params_and_body' =
-      Name_occurrences.apply_name_permutation free_name_sof_params_and_body
+      Name_occurrences.apply_name_permutation free_names_of_params_and_body perm
     in
     { t with code_id = code_id';
              params_and_body = params_and_body';
              newer_version_of = newer_version_of';
-             free_names_of_params_and_body = free_names_of_params_and_body;
+             free_names_of_params_and_body = free_names_of_params_and_body';
     }
   end
 
