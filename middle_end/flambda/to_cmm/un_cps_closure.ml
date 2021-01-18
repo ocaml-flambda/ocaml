@@ -155,7 +155,7 @@ let layout env closures env_vars =
       begin match EO.closure_offset env closure with
       | Some { size; _ } -> j + size
       | None ->
-        (* the closure was found earlier durint the call to order_closures *)
+        (* the closure was found earlier during the call to order_closures *)
         assert false
       end
     | None, (_, Infix_header) :: _ ->
@@ -653,4 +653,3 @@ let closure_name id =
   Format.asprintf "%a__%s" Linkage_name.print name (Closure_id.to_string id)
 
 let closure_code s = Format.asprintf "%s_code" s
-
