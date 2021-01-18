@@ -66,14 +66,6 @@ let apply_name_permutation { return_continuation; exn_continuation;
   let module_symbol = Name_permutation.apply_symbol perm module_symbol in
   let return_continuation = Name_permutation.apply_continuation perm return_continuation in
   let exn_continuation = Name_permutation.apply_continuation perm exn_continuation in
-  let used_closure_vars = Or_unknown.map used_closure_vars ~f:(fun set ->
-    Var_within_closure.Set.map (fun var ->
-      let comp_unit = Var_within_closure.get_compilation_unit var in
-      let v = Var_within_closure.unwrap var in
-      let v' = Name_permutation.apply_variable perm v in
-      Var_within_closure.wrap comp_unit v'
-    ) set)
-  in
   create ~return_continuation ~exn_continuation ~body ~module_symbol ~used_closure_vars
 
 let permute_everything t =
