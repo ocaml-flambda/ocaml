@@ -115,13 +115,22 @@ let order_env_vars env l acc =
 
 let layout_aux j slot (startenv, acc_slots) =
   match slot with
+  (* Starting from ocaml 4.12, all closure slots *must* precede all env var
+     slots. The algorithms in this file should thus only generate slot
+     assignments that respect this invariant. If that is not the case, this
+     is a fatal error given that the start of the environment (i.e. the
+     offset of the first en var slot, with the added property the all slots
+     after that are env vars slots (or at least scannable by the CG), is needed
+     by the GC when scanning the block. Thus, if we see a closure slot, we
+     check that then the environment has not started yet (i.e. we have not
+     seen any env var slots). *)
   | Closure _ when j = 0 ->
     assert (acc_slots = []);
-    assert (startenv = None);
+    assert (startenv = None); (* see comment above *)
     let acc_slots = [(0, slot)] in
     startenv, acc_slots
   | Closure _ ->
-    assert (startenv = None);
+    assert (startenv = None); (* see comment above *)
     let acc_slots = (j, slot) :: (j - 1, Infix_header) :: acc_slots in
     startenv, acc_slots
   | Env_var _ ->
@@ -138,9 +147,11 @@ let layout_aux j slot (startenv, acc_slots) =
       assert false
 
 let layout env closures env_vars =
-  let map = Numbers.Int.Map.empty in
-  let map = order_env_vars env env_vars map in
-  let map = order_closures env closures map in
+  let map =
+    Numbers.Int.Map.empty
+    |> order_env_vars env env_vars
+    |> order_closures env closures map
+  in
   let startenv_opt, acc_slots =
     Numbers.Int.Map.fold layout_aux map (None, [])
   in
