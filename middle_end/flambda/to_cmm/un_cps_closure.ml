@@ -150,7 +150,7 @@ let layout env closures env_vars =
   let map =
     Numbers.Int.Map.empty
     |> order_env_vars env env_vars
-    |> order_closures env closures map
+    |> order_closures env closures
   in
   let startenv_opt, acc_slots =
     Numbers.Int.Map.fold layout_aux map (None, [])
