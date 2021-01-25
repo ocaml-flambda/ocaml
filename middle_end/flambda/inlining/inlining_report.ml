@@ -137,7 +137,7 @@ let rec print ~depth fmt = function
 (* Exposed interface *)
 
 let record_decision ~dbg decision =
-  if !Clflags.inlining_report then begin
+  if !Clflags.inlining_report || !Clflags.inlining_report_bin then begin
     log := { dbg; decision; } :: !log
   end
 

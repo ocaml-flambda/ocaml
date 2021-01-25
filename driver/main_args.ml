@@ -171,7 +171,7 @@ let mk_inlining_report f =
 ;;
 
 let mk_inlining_report_bin f =
-  "-inlining-report-serialized", Arg.Unit f, " Emit `.<round>.inlining' \
+  "-inlining-report-bin", Arg.Unit f, " Emit `.<round>.inlining' \
       file(s) (one per round) recording the inliner's decisions in a bianry \
       format"
 ;;
