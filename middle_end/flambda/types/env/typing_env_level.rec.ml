@@ -130,20 +130,6 @@ let apply_name_permutation
       equations
       Name.Map.empty
   in
-  let cse_changed = ref false in
-  let cse' =
-    Flambda_primitive.Eligible_for_cse.Map.fold (fun prim simple cse' ->
-        let simple' = Simple.apply_name_permutation simple perm in
-        let prim' =
-          Flambda_primitive.Eligible_for_cse.apply_name_permutation prim perm
-        in
-        if (not (simple == simple')) || (not (prim == prim')) then begin
-          cse_changed := true
-        end;
-        Flambda_primitive.Eligible_for_cse.Map.add prim' simple' cse')
-      cse
-      Flambda_primitive.Eligible_for_cse.Map.empty
-  in
   let symbol_projections_changed = ref false in
   let symbol_projections' =
     Variable.Map.fold (fun var projection symbol_projections ->
@@ -161,14 +147,12 @@ let apply_name_permutation
   in
   if (not !defined_vars_changed)
     && (not !equations_changed)
-    && (not !cse_changed)
     && (not !symbol_projections_changed)
   then t
   else
     { defined_vars = defined_vars';
       binding_times = binding_times';
       equations = equations';
-      cse = cse';
       symbol_projections = symbol_projections';
     }
 
