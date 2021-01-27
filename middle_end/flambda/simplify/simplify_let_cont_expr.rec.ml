@@ -335,7 +335,8 @@ let simplify_non_recursive_let_cont dacc non_rec ~down_to_up =
                since it will be replaced by the one from the surrounding
                context). *)
             ~down_to_up:(fun dacc ~continuation_has_zero_uses
-                    ~rebuild:rebuild_handler ->
+                          ~rebuild:rebuild_handler ->
+              Format.eprintf "WUUT...@.";
               down_to_up dacc ~rebuild:(fun uacc ~after_rebuild ->
                 let uenv_without_cont = UA.uenv uacc in
                 (* Now, on the upwards traversal, the handler is rebuilt.

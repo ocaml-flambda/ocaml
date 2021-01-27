@@ -23,29 +23,69 @@ module TE = Flambda_type.Typing_env
 
 module Static_const = Flambda.Static_const
 
+type aux = {
+  continuation : Continuation.t;
+  vars_used_in_expr : Name_occurrences.t;
+}
+
+type var_uses = {
+  vars_used_in_expr : Name_occurrences.t Continuation.Map.t;
+  (* except for uses as continuation arguments *)
+  (* vars_as_k_arg : Name_occurrences.t Continuation.Map.t; *)
+}
+
 type t = {
   denv : DE.t;
   continuation_uses_env : CUE.t;
   shareable_constants : Symbol.t Static_const.Map.t;
   used_closure_vars : Name_occurrences.t;
   lifted_constants : LCS.t;
+
+  var_uses : var_uses;
+  var_stack : aux List.t;
 }
+
+let print_var_uses ppf { vars_used_in_expr; (* vars_as_k_arg; *) } =
+  Format.fprintf ppf "@[<hov 1>(\
+                      @[<hov>(vars_used_in_expr %a)@]@ \
+                      )@]"
+    (Continuation.Map.print Name_occurrences.print) vars_used_in_expr
+    (* (Continuation.Map.print Name_occurrences.print) vars_as_k_arg *)
+
+let print_aux ppf { continuation; vars_used_in_expr; } =
+  Format.fprintf ppf "@[<hov 1>(\
+                      @[<hov 1>(continuation %a)@]@ \
+                      @[<hov 1>(vars_used_in_expr %a)@]@ \
+                      )@]"
+    Continuation.print continuation
+    Name_occurrences.print vars_used_in_expr
 
 let print ppf
       { denv; continuation_uses_env; shareable_constants; used_closure_vars;
-        lifted_constants; } =
+        lifted_constants; var_uses; var_stack } =
   Format.fprintf ppf "@[<hov 1>(\
       @[<hov 1>(denv@ %a)@]@ \
       @[<hov 1>(continuation_uses_env@ %a)@]@ \
       @[<hov 1>(shareable_constants@ %a)@]@ \
       @[<hov 1>(used_closure_vars@ %a)@]@ \
       @[<hov 1>(lifted_constant_state@ %a)@]\
+      @[<hov 1>(var_uses %a)@]@ \
+      @[<hov 1>(var_stack (%a))@]\
       )@]"
     DE.print denv
     CUE.print continuation_uses_env
     (Static_const.Map.print Symbol.print) shareable_constants
     Name_occurrences.print used_closure_vars
     LCS.print lifted_constants
+    print_var_uses var_uses
+    (Format.pp_print_list
+       ~pp_sep:(fun fmt () -> Format.fprintf fmt "@ ")
+       print_aux) var_stack
+
+let empty_var_uses = {
+  vars_used_in_expr = Continuation.Map.empty;
+  (* vars_as_k_arg = Continuation.Map.empty; *)
+}
 
 let create denv continuation_uses_env =
   { denv;
@@ -53,9 +93,13 @@ let create denv continuation_uses_env =
     shareable_constants = Static_const.Map.empty;
     used_closure_vars = Name_occurrences.empty;
     lifted_constants = LCS.empty;
+    var_uses = empty_var_uses;
+    var_stack = [];
   }
 
 let denv t = t.denv
+
+let var_uses t = t.var_uses
 
 let [@inline always] map_denv t ~f =
   { t with
@@ -184,3 +228,48 @@ let all_continuations_used t =
 
 let with_used_closure_vars t ~used_closure_vars =
   { t with used_closure_vars = used_closure_vars; }
+
+
+let add_new_cont_for_used_vars t continuation =
+  let elt = {
+    continuation;
+    vars_used_in_expr = Name_occurrences.empty;
+  } in
+  { t with var_stack = elt :: t.var_stack; }
+
+let add_var_used_in_expr t cont name_occurrences =
+  match t.var_stack with
+  | [] -> Misc.fatal_errorf "empty stack of variable uses in flambda2"
+  | elt :: stack ->
+    let elt' = {
+      elt with vars_used_in_expr =
+                 Name_occurrences.union elt.vars_used_in_epxr name_occurrences;
+    } in
+    { t with var_stack = elt' :: stack; }
+
+let end_cont_for_used_vars t =
+  match t.var_stack with
+  | [] -> Misc.fatal_errorf "empty stack of variable uses in flambda2"
+  | { continuation; vars_used_in_expr; } :: stack ->
+    let vars_used_in_expr =
+      Continuation.Map.add
+        continuation
+        vars_used_in_expr
+        t.var_uses.vars_used_in_expr
+    in
+    { t with
+      var_stack = stack;
+      var_uses = { (* t.var_uses with *) vars_used_in_expr; };
+    }
+(*
+let add_var_as_k_arg t cont name_occurrences =
+  let set =
+    match Continuation.Map.find cont t.var_uses.vars_as_k_arg with
+    | res -> Name_occurrences.union res name_occurrences
+    | exception Not_found -> name_occurrences
+  in
+  { t with
+    var_uses = { t.var_uses with
+                 vars_as_k_arg =
+                   Continuation.Map.add cont set t.var_uses.vars_as_k_arg; } }
+*)
