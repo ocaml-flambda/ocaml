@@ -761,13 +761,13 @@ end = struct
     if Continuation.Map.mem cont t.apply_cont_rewrites then begin
       Misc.fatal_errorf "Cannot redefine [Apply_cont_rewrite] for %a"
         Continuation.print cont
-    end;
-    let apply_cont_rewrites =
-      Continuation.Map.add cont rewrite t.apply_cont_rewrites
-    in
-    { t with
-      apply_cont_rewrites;
-    }
+    end else
+      let apply_cont_rewrites =
+        Continuation.Map.add cont rewrite t.apply_cont_rewrites
+      in
+      { t with
+        apply_cont_rewrites;
+      }
 
   let find_apply_cont_rewrite t cont =
     match Continuation.Map.find cont t.apply_cont_rewrites with

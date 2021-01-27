@@ -91,6 +91,27 @@ let simplify_let dacc let_expr ~down_to_up =
       Simplify_named.simplify_named dacc bindable_let_bound
         (L.defining_expr let_expr)
     in
+    (* Accumulate uses about variables
+       CR gbury/pchambart : in the case of an invalid, we currently over-approximate
+       the uses. In case of an invalid, we might want to instead flush the uses
+       of the current continuation (but this would require using a stack of uses). *)
+    let name_occurrences_in_bindings = List.filter_map (fun (_, simplified) ->
+      match (simplified : Simplified_named.t) with
+      | Reachable { free_names; _ } -> Some free_names
+      | Invalid _ -> None
+      ) bindings_outermost_first
+    in
+    let name_occurrences_in_bindings_and_lifted_constants =
+      Simplify_envs.Lifted_constant_state.fold (DA.get_lifted_constants dacc)
+        ~init:name_occurrences_in_bindings
+        ~f:(fun acc lifted_constant ->
+          Simplify_envs.Lifted_constant.free_names_of_defining_exprs lifted_constant :: acc
+        )
+    in
+    let dacc = DA.map_rec_uses dacc ~f:(
+      Rec_uses.add_used_in_current_handler
+        (Name_occurrences.union_list name_occurrences_in_bindings_and_lifted_constants)
+    ) in
     (* First remember any lifted constants that were generated during the
        simplification of the defining expression and sort them, since they
        may be mutually recursive.  Then add back in to [dacc]

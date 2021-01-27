@@ -280,6 +280,10 @@ let unop ppf u =
     str "%Tag_imm"
   | Untag_imm ->
     str "%untag_imm"
+  | Box_float ->
+    str "%Box_float"
+  | Unbox_float ->
+    str "%unbox_float"
   | Project_var { project_from; var } ->
     Format.fprintf ppf "@[<2>%%project_var@ %a.%a@]"
       closure_id project_from

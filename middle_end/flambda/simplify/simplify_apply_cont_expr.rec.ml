@@ -41,14 +41,32 @@ let inline_linearly_used_continuation uacc ~create_apply_cont ~params ~handler
         Apply_cont.print apply_cont
         Expr.print handler
     end;
-    let bindings_outermost_first =
-      ListLabels.map2 params args
-        ~f:(fun param arg ->
-          let bound =
-            Var_in_binding_pos.create (KP.var param) Name_mode.normal
-            |> Bindable_let_bound.singleton
-          in
-          bound, Simplified_named.reachable (Named.create_simple arg))
+    let bindings_outermost_first = List.rev (
+      ListLabels.fold_left2 params args ~init:[]
+        ~f:(fun acc param arg ->
+          (* In the case of a pair (param, arg), 'param' might be an unused
+             continuation parameter. The recursive uses analysis being global,
+             it will sometimes cause removals that will render the right-hand side
+             of the binding (i.e. 'arg') invalid because it will refer to another
+             variable that has been eliminated. The recursive use anlaysis rely on
+             the fact that bindings where 'param' is unused will be removed.
+
+             However, without the explicit check below, such bindings can sometime
+             be kept by the code because the parameter variable is user-visible;
+             in those cases, the new bound variable becomes phantom, but the right
+             hand side of the binding refers to non-existing variables, which
+             yield compilation errors. *)
+            let used_continuation_params = UA.used_continuation_params uacc in
+            if not (Variable.Set.mem (KP.var param) used_continuation_params) then
+              acc
+            else begin
+              let bound =
+                Var_in_binding_pos.create (KP.var param) Name_mode.normal
+                |> Bindable_let_bound.singleton
+              in
+              (bound, Simplified_named.reachable (Named.create_simple arg)) :: acc
+            end)
+    )
     in
     let expr, uacc =
       let uacc =
@@ -118,6 +136,11 @@ let simplify_apply_cont dacc apply_cont ~down_to_up =
     down_to_up dacc ~rebuild:Simplify_common.rebuild_invalid
   | _changed, Ok args_with_types ->
     let args, arg_types = List.split args_with_types in
+    let dacc = DA.map_rec_uses dacc ~f:(
+      Rec_uses.add_apply_cont_args
+        (AC.continuation apply_cont)
+        (List.map Simple.free_names args)
+    ) in
     let use_kind : Continuation_use_kind.t =
       (* CR mshinwell: Is [Continuation.sort] reliable enough to detect
          the toplevel continuation?  Probably not -- we should store it in

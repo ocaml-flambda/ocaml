@@ -40,20 +40,46 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
         ~critical_deps_of_bindings:(KP.List.free_names params)
   in
   let free_names = UA.name_occurrences uacc in
-  let used_params =
+  let used_extra_params =
+    if is_single_inlinable_use then extra_params_and_args.extra_params
+    else
+      List.filter (fun extra_param ->
+          Name_occurrences.mem_var free_names (KP.var extra_param))
+        extra_params_and_args.extra_params
+  in
+  let uacc, used_params =
     (* Removal of unused parameters of recursive continuations is not
        currently supported. *)
     match recursive with
-    | Recursive -> params
+    | Recursive ->
+      (* In the recursive case, we have already added an apply_cont_rewrite
+         for the recursive continuation to eliminate unused parameters in its
+         handler.
+         We thus check here that the apply_cont_rewrite that we would have
+         added does not contain any extra args. *)
+      if not (EPA.is_empty extra_params_and_args) then
+        Misc.fatal_errorf "Recursive continuation should not have extra params";
+      begin match UE.find_apply_cont_rewrite (UA.uenv uacc) cont with
+      | None ->
+        Misc.fatal_errorf "An apply cont rewrite for the recursive continuation \
+                          %a should have already been added" Continuation.print cont
+      | Some rewrite ->
+        let used_params_set = Apply_cont_rewrite.used_params rewrite in
+        let used_params =
+          List.filter (fun param -> KP.Set.mem param used_params_set) params
+        in
+        uacc, used_params
+      end
     | Non_recursive ->
       (* If the continuation is going to be inlined out, we don't need to
          spend time here calculating unused parameters, since the creation of
          [Let]-expressions around the continuation's handler will do that
          anyway. *)
-      if is_single_inlinable_use then params
-      else
-        let first = ref true in
-        List.filter (fun param ->
+      let used_params =
+        if is_single_inlinable_use then params
+        else
+          let first = ref true in
+          List.filter (fun param ->
             (* CR mshinwell: We should have a robust means of propagating which
                parameter is the exception bucket.  Then this hack can be
                removed. *)
@@ -62,32 +88,32 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
               true
             end else begin
               first := false;
-              Name_occurrences.mem_var free_names (KP.var param)
+              let tmp = Variable.Set.mem (KP.var param) (UA.used_continuation_params uacc) in
+              let occ = Name_occurrences.mem_var free_names (KP.var param) in
+              if not tmp && occ then
+                  Format.eprintf "(non-rec) rec-unused: %a in %a@."
+                    KP.print param Continuation.print cont;
+              occ && tmp
             end)
-          params
-  in
-  let used_extra_params =
-    if is_single_inlinable_use then extra_params_and_args.extra_params
-    else
-      List.filter (fun extra_param ->
-          Name_occurrences.mem_var free_names (KP.var extra_param))
-        extra_params_and_args.extra_params
+            params
+      in
+      let rewrite =
+        Apply_cont_rewrite.create ~original_params:params
+          ~used_params:(KP.Set.of_list used_params)
+          ~extra_params:extra_params_and_args.extra_params
+          ~extra_args:extra_params_and_args.extra_args
+          ~used_extra_params:(KP.Set.of_list used_extra_params)
+      in
+      let uacc =
+        UA.map_uenv uacc ~f:(fun uenv ->
+          UE.add_apply_cont_rewrite uenv cont rewrite)
+      in
+      uacc, used_params
   in
   let params' = used_params @ used_extra_params in
   let cont_handler =
     CH.create params' ~handler ~free_names_of_handler:(Known free_names)
       ~is_exn_handler:(CH.is_exn_handler cont_handler)
-  in
-  let rewrite =
-    Apply_cont_rewrite.create ~original_params:params
-      ~used_params:(KP.Set.of_list used_params)
-      ~extra_params:extra_params_and_args.extra_params
-      ~extra_args:extra_params_and_args.extra_args
-      ~used_extra_params:(KP.Set.of_list used_extra_params)
-  in
-  let uacc =
-    UA.map_uenv uacc ~f:(fun uenv ->
-      UE.add_apply_cont_rewrite uenv cont rewrite)
   in
   after_rebuild cont_handler ~params:params' ~handler
     ~free_names_of_handler:free_names uacc
@@ -317,6 +343,11 @@ let simplify_non_recursive_let_cont dacc non_rec ~down_to_up =
       (* First the downwards traversal is done on the body. *)
       Simplify_expr.simplify_expr dacc_for_body body
         ~down_to_up:(fun dacc_after_body ~rebuild:rebuild_body ->
+          let dacc_after_body =
+            DA.map_rec_uses dacc_after_body ~f:(
+              Rec_uses.stack_cont cont (Kinded_parameter.List.vars params)
+            )
+          in
           (* Then, before the upwards traversal of the body, we do the
              downwards traversal of the handler. *)
           simplify_non_recursive_let_cont_handler ~denv_before_body
@@ -332,7 +363,8 @@ let simplify_non_recursive_let_cont dacc non_rec ~down_to_up =
                since it will be replaced by the one from the surrounding
                context). *)
             ~down_to_up:(fun dacc ~continuation_has_zero_uses
-                    ~rebuild:rebuild_handler ->
+                          ~rebuild:rebuild_handler ->
+              let dacc = DA.map_rec_uses dacc ~f:(Rec_uses.unstack_cont cont) in
               down_to_up dacc ~rebuild:(fun uacc ~after_rebuild ->
                 let uenv_without_cont = UA.uenv uacc in
                 (* Now, on the upwards traversal, the handler is rebuilt.
@@ -464,6 +496,11 @@ let rebuild_recursive_let_cont_handlers cont arity ~original_cont_scope_level
 let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
       cont params ~handler cont_handler ~prior_lifted_constants arity
       ~original_cont_scope_level ~down_to_up =
+  let dacc_after_body =
+    DA.map_rec_uses dacc_after_body ~f:(
+      Rec_uses.stack_cont cont (Kinded_parameter.List.vars params)
+    )
+  in
   let denv, _arg_types =
     (* XXX These don't have the same scope level as the
         non-recursive case *)
@@ -491,9 +528,28 @@ let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
     ~extra_params_and_args:Continuation_extra_params_and_args.empty
     ~is_single_inlinable_use:false
     ~down_to_up:(fun dacc ~rebuild:rebuild_handler ->
+      let dacc = DA.map_rec_uses dacc ~f:(Rec_uses.unstack_cont cont) in
       let cont_uses_env = CUE.remove (DA.continuation_uses_env dacc) cont in
       let dacc = DA.with_continuation_uses_env dacc ~cont_uses_env in
       down_to_up dacc ~rebuild:(fun uacc ~after_rebuild ->
+        let used_continuation_params = UA.used_continuation_params uacc in
+        let used_params =
+          List.filter (fun param ->
+            let b = Variable.Set.mem (KP.var param) used_continuation_params in
+            if not b then Format.eprintf "(rec) unused : %a@." KP.print param;
+            b
+          ) params
+          |> KP.Set.of_list
+        in
+        let rewrite =
+          Apply_cont_rewrite.create ~original_params:params ~used_params
+            ~extra_params:[] ~extra_args:Apply_cont_rewrite_id.Map.empty
+            ~used_extra_params:KP.Set.empty
+        in
+        let uacc =
+          UA.map_uenv uacc ~f:(fun uenv ->
+            UE.add_apply_cont_rewrite uenv cont rewrite)
+        in
         let uacc =
           UA.map_uenv uacc ~f:(fun uenv ->
             UE.add_continuation uenv cont original_cont_scope_level arity)

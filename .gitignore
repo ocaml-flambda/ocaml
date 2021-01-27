@@ -228,6 +228,7 @@ middle_end/flambda/types/flambda_type.ml
 /testsuite/tools/expect_test
 /testsuite/tools/fldiff
 /testsuite/tools/flexpect
+/testsuite/tools/flcompile
 /testsuite/tools/lexcmm.ml
 /testsuite/tools/parsecmm.ml
 /testsuite/tools/parsecmm.mli
