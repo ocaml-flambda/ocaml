@@ -17,11 +17,12 @@
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
 type var_uses
-
+type aux
 type t
 
 (** Print a downwards accumulator to a formatter. *)
 val print : Format.formatter -> t -> unit
+val print_stack : Format.formatter -> aux list -> unit
 val print_var_uses : Format.formatter -> var_uses -> unit
 
 (** Create a downwards accumulator. *)
@@ -34,6 +35,8 @@ val create
 val denv : t -> Simplify_envs.Downwards_env.t
 
 val var_uses : t -> var_uses
+
+val stack : t -> aux list
 
 (** Map the environment component of the given downwards accumulator. *)
 val map_denv
@@ -116,7 +119,11 @@ val used_closure_vars : t -> Name_occurrences.t
 
 val with_used_closure_vars : t -> used_closure_vars:Name_occurrences.t -> t
 
-val add_var_used_in_expr : t -> Continuation.t -> Name_occurrences.t -> t
+val add_new_cont_for_used_vars : t -> Continuation.t -> t
 
-(* val add_var_as_k_arg : t -> Continuation.t -> Name_occurrences.t -> t *)
+val add_var_used_in_expr : t -> Name_occurrences.t -> t
+
+val end_cont_for_used_vars : t -> t
+
+val add_vars_as_k_arg : t -> Continuation.t -> Name_occurrences.t list -> t
 

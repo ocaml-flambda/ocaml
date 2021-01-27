@@ -279,12 +279,24 @@ let simplify_switch dacc switch ~down_to_up =
                 in
                 let arity = List.map T.kind arg_types in
                 let action = Apply_cont.update_args action ~args in
+                let dacc =
+                  DA.add_vars_as_k_arg dacc
+                    (Apply_cont.continuation action)
+                    (List.map Simple.free_names args)
+                in
                 let arms =
                   Target_imm.Map.add arm (action, rewrite_id, arity) arms
                 in
                 arms, dacc)
         (Switch.arms switch)
         (Target_imm.Map.empty, dacc)
+    in
+    let dacc =
+      if Target_imm.Map.cardinal arms <= 1 then dacc
+      else begin
+        let name_occurrences = Simple.free_names scrutinee in
+        DA.add_var_used_in_expr dacc name_occurrences
+      end
     in
     down_to_up dacc
       ~rebuild:(rebuild_switch dacc ~arms ~scrutinee ~scrutinee_ty)

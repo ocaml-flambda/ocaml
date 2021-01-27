@@ -118,6 +118,11 @@ let simplify_apply_cont dacc apply_cont ~down_to_up =
     down_to_up dacc ~rebuild:Simplify_common.rebuild_invalid
   | _changed, Ok args_with_types ->
     let args, arg_types = List.split args_with_types in
+    let dacc =
+      DA.add_vars_as_k_arg dacc
+        (AC.continuation apply_cont)
+        (List.map Simple.free_names args)
+    in
     let use_kind : Continuation_use_kind.t =
       (* CR mshinwell: Is [Continuation.sort] reliable enough to detect
          the toplevel continuation?  Probably not -- we should store it in

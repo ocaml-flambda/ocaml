@@ -95,15 +95,15 @@ let simplify_let dacc let_expr ~down_to_up =
        CR gbury/pchambart : in the case of an invalid, we currently over-approximate
        the uses. In case of an invalid, we might want to instead flush the uses
        of the current continuation (but this would require using a stack of uses). *)
-    (*
     let name_occurrences_l = List.filter_map (fun (_, simplified) ->
-      match simplified with
+      match (simplified : Simplified_named.t) with
       | Reachable { free_names; _ } -> Some free_names
       | Invalid _ -> None
       ) bindings_outermost_first
     in
-       let dacc = DA.add_var_use_in_expr dacc 
-    *)
+    let dacc =
+      DA.add_var_used_in_expr dacc (Name_occurrences.union_list name_occurrences_l)
+    in
     (* First remember any lifted constants that were generated during the
        simplification of the defining expression and sort them, since they
        may be mutually recursive.  Then add back in to [dacc]

@@ -18,10 +18,14 @@
 
 open! Simplify_import
 
+
 let simplify_toplevel dacc expr ~return_continuation ~return_arity
       exn_continuation ~return_cont_scope ~exn_cont_scope =
+  let toplevel_cont = Continuation.create ~name:"toplevel" () in
+  let dacc = DA.add_new_cont_for_used_vars dacc toplevel_cont in
   let expr, uacc =
     Simplify_expr.simplify_expr dacc expr ~down_to_up:(fun dacc ~rebuild ->
+      let dacc = DA.end_cont_for_used_vars dacc in
       Format.printf "@.@.SAUCISSE:@\n%a@.@." DA.print_var_uses (DA.var_uses dacc);
       let uenv =
         UE.add_continuation UE.empty return_continuation

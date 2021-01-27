@@ -320,6 +320,9 @@ let simplify_non_recursive_let_cont dacc non_rec ~down_to_up =
       (* First the downwards traversal is done on the body. *)
       Simplify_expr.simplify_expr dacc_for_body body
         ~down_to_up:(fun dacc_after_body ~rebuild:rebuild_body ->
+          let dacc_after_body =
+            DA.add_new_cont_for_used_vars dacc_after_body cont
+          in
           (* Then, before the upwards traversal of the body, we do the
              downwards traversal of the handler. *)
           simplify_non_recursive_let_cont_handler ~denv_before_body
@@ -336,7 +339,7 @@ let simplify_non_recursive_let_cont dacc non_rec ~down_to_up =
                context). *)
             ~down_to_up:(fun dacc ~continuation_has_zero_uses
                           ~rebuild:rebuild_handler ->
-              Format.eprintf "WUUT...@.";
+              let dacc = DA.end_cont_for_used_vars dacc in
               down_to_up dacc ~rebuild:(fun uacc ~after_rebuild ->
                 let uenv_without_cont = UA.uenv uacc in
                 (* Now, on the upwards traversal, the handler is rebuilt.
@@ -468,6 +471,7 @@ let rebuild_recursive_let_cont_handlers cont arity ~original_cont_scope_level
 let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
       cont params ~handler cont_handler ~prior_lifted_constants arity
       ~original_cont_scope_level ~down_to_up =
+  let dacc_after_body = DA.add_new_cont_for_used_vars dacc_after_body cont in
   let denv, _arg_types =
     (* XXX These don't have the same scope level as the
         non-recursive case *)
@@ -495,6 +499,7 @@ let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
     ~extra_params_and_args:Continuation_extra_params_and_args.empty
     ~is_single_inlinable_use:false
     ~down_to_up:(fun dacc ~rebuild:rebuild_handler ->
+      let dacc = DA.end_cont_for_used_vars dacc in
       let cont_uses_env = CUE.remove (DA.continuation_uses_env dacc) cont in
       let dacc = DA.with_continuation_uses_env dacc ~cont_uses_env in
       down_to_up dacc ~rebuild:(fun uacc ~after_rebuild ->

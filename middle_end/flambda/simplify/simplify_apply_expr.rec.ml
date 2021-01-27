@@ -781,6 +781,9 @@ let simplify_c_call dacc apply ~callee_ty ~param_arity ~return_arity
     ~rebuild:(rebuild_c_call apply ~use_id ~exn_cont_use_id ~return_arity)
 
 let simplify_apply dacc apply ~down_to_up =
+  (* This is an over-approximation. It should be replaced with adequate
+     calls after the potential simplifications in the future. *)
+  let dacc = DA.add_var_used_in_expr dacc (Apply.free_names apply) in
   match simplify_apply_shared dacc apply with
   | Bottom -> down_to_up dacc ~rebuild:Simplify_common.rebuild_invalid
   | Ok (callee_ty, apply, arg_types) ->
