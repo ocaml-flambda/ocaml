@@ -99,6 +99,8 @@ let prim_table =
     "select_closure", PRIM_SELECT_CLOSURE;
     "Tag_imm", PRIM_TAG_IMM;
     "untag_imm", PRIM_UNTAG_IMM;
+    "Box_float", PRIM_BOX_FLOAT;
+    "unbox_float", PRIM_UNBOX_FLOAT;
 ]
 
 let prim ~lexbuf str =

@@ -136,6 +136,8 @@ let make_const_int (i, m) : const =
 %token PRIM_SELECT_CLOSURE [@symbol "%select_closure"]
 %token PRIM_TAG_IMM [@symbol "%Tag_imm"]
 %token PRIM_UNTAG_IMM [@symbol "%untag_imm"]
+%token PRIM_BOX_FLOAT [@symbol "%Box_float"]
+%token PRIM_UNBOX_FLOAT [@symbol "%unbox_float"]
 
 %start flambda_unit expect_test_spec
 %type <Fexpr.block_access_field_kind> block_access_field_kind
@@ -249,6 +251,8 @@ unop:
   | PRIM_OPAQUE { Opaque_identity }
   | PRIM_TAG_IMM { Tag_imm }
   | PRIM_UNTAG_IMM { Untag_imm }
+  | PRIM_BOX_FLOAT { Box_float }
+  | PRIM_UNBOX_FLOAT { Unbox_float }
   | PRIM_PROJECT_VAR; project_from = closure_id; DOT; var = var_within_closure
     { Project_var { project_from; var } }
   | PRIM_SELECT_CLOSURE; LPAREN; move_from = closure_id; MINUSGREATER;

@@ -123,7 +123,7 @@ val add_new_cont_for_used_vars : t -> Continuation.t -> t
 
 val add_var_used_in_expr : t -> Name_occurrences.t -> t
 
-val end_cont_for_used_vars : t -> t
+val end_cont_for_used_vars : t -> Continuation.t -> Variable.t list -> t
 
 val add_vars_as_k_arg : t -> Continuation.t -> Name_occurrences.t list -> t
 

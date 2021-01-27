@@ -34,6 +34,7 @@ type var_uses = {
   (* except for uses as continuation arguments *)
   vars_as_k_arg :
     Name_occurrences.t Numbers.Int.Map.t Continuation.Map.t Continuation.Map.t;
+  k_arg_vars : Variable.t list Continuation.Map.t;
 }
 
 type t = {
@@ -47,15 +48,18 @@ type t = {
   var_stack : aux List.t;
 }
 
-let print_var_uses ppf { vars_used_in_expr; vars_as_k_arg; } =
+
+let print_var_uses ppf { vars_used_in_expr; vars_as_k_arg; k_arg_vars } =
   Format.fprintf ppf "@[<hov 1>(\
                       @[<hov 1>(vars_used_in_expr %a)@]@ \
-                      @[<hov 1>(vars_as_k_arg %a)@]\
+                      @[<hov 1>(vars_as_k_arg %a)@]@ \
+                      @[<hov 1>(k_arg_vars %a)@]\
                       )@]"
     (Continuation.Map.print Name_occurrences.print) vars_used_in_expr
     (Continuation.Map.print (
        Continuation.Map.print (Numbers.Int.Map.print Name_occurrences.print)))
     vars_as_k_arg
+    (Continuation.Map.print Variable.print_list) k_arg_vars
 
 let print_aux ppf { continuation; vars_used_in_expr; vars_as_k_arg } =
   Format.fprintf ppf "@[<hov 1>(\
@@ -98,6 +102,7 @@ let print ppf
 let empty_var_uses = {
   vars_used_in_expr = Continuation.Map.empty;
   vars_as_k_arg = Continuation.Map.empty;
+  k_arg_vars = Continuation.Map.empty;
 }
 
 let create denv continuation_uses_env =
@@ -263,10 +268,11 @@ let add_var_used_in_expr t name_occurrences =
     } in
     { t with var_stack = elt' :: stack; }
 
-let end_cont_for_used_vars t =
+let end_cont_for_used_vars t cont arg_vars =
   match t.var_stack with
   | [] -> Misc.fatal_errorf "empty stack of variable uses in flambda2"
   | { continuation; vars_used_in_expr; vars_as_k_arg } :: stack ->
+    assert (Continuation.equal cont continuation);
     let vars_used_in_expr =
       Continuation.Map.add
         continuation
@@ -279,9 +285,15 @@ let end_cont_for_used_vars t =
         vars_as_k_arg
         t.var_uses.vars_as_k_arg
     in
+    let k_arg_vars =
+      Continuation.Map.add
+        continuation
+        arg_vars
+        t.var_uses.k_arg_vars
+    in
     { t with
       var_stack = stack;
-      var_uses = { vars_used_in_expr; vars_as_k_arg; };
+      var_uses = { vars_used_in_expr; vars_as_k_arg; k_arg_vars; };
     }
 
 let find_nth_arg i map =
@@ -309,16 +321,3 @@ let add_vars_as_k_arg t cont names_occurrences =
     let elt' = { elt with vars_as_k_arg; } in
     { t with var_stack = elt' :: stack; }
 
-
-(*
-let add_var_as_k_arg t cont name_occurrences =
-  let set =
-    match Continuation.Map.find cont t.var_uses.vars_as_k_arg with
-    | res -> Name_occurrences.union res name_occurrences
-    | exception Not_found -> name_occurrences
-  in
-  { t with
-    var_uses = { t.var_uses with
-                 vars_as_k_arg =
-                   Continuation.Map.add cont set t.var_uses.vars_as_k_arg; } }
-*)

@@ -21,6 +21,7 @@ type token =
   | REC
   | RBRACE
   | PRIM_UNTAG_IMM
+  | PRIM_UNBOX_FLOAT
   | PRIM_TAG_IMM
   | PRIM_SELECT_CLOSURE
   | PRIM_PROJECT_VAR
@@ -30,6 +31,7 @@ type token =
   | PRIM_IS_INT
   | PRIM_INT_COMP
   | PRIM_GET_TAG
+  | PRIM_BOX_FLOAT
   | PRIM_BLOCK_LOAD
   | PRIM_BLOCK
   | PLUSDOT
@@ -60,6 +62,7 @@ type token =
   | IMMUTABLE_UNIQUE
   | IMM
   | IDENT of (string)
+  | HINT
   | HCF
   | GREATEREQUALDOT
   | GREATEREQUAL

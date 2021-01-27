@@ -93,6 +93,8 @@ type unop =
   | Opaque_identity
   | Tag_imm
   | Untag_imm
+  | Box_float
+  | Unbox_float
   | Project_var of {
       project_from : closure_id;
       var : var_within_closure;

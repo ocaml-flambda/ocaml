@@ -271,6 +271,8 @@ let unop env (unop:Fexpr.unop) : Flambda_primitive.unary_primitive =
   | Opaque_identity -> Opaque_identity
   | Tag_imm -> Box_number Untagged_immediate
   | Untag_imm -> Unbox_number Untagged_immediate
+  | Box_float -> Box_number Naked_float
+  | Unbox_float -> Unbox_number Naked_float
   | Project_var { project_from; var } ->
     let var = fresh_or_existing_var_within_closure env var in
     let project_from = fresh_or_existing_closure_id env project_from in
@@ -289,8 +291,8 @@ let infix_binop (binop:Fexpr.infix_binop) : Flambda_primitive.binary_primitive =
   | Gt -> int_comp Gt
   | Le -> int_comp Le
   | Ge -> int_comp Ge
-  | Plusdot
-  | Minusdot -> failwith "TODO binop"
+  | Plusdot -> Float_arith Add
+  | Minusdot -> Float_arith Sub
   | Eqdot -> Float_comp (Yielding_bool Eq)
   | Neqdot -> Float_comp (Yielding_bool Neq)
   | Ltdot -> Float_comp (Yielding_bool Lt)
