@@ -101,9 +101,10 @@ let simplify_let dacc let_expr ~down_to_up =
       | Invalid _ -> None
       ) bindings_outermost_first
     in
-    let dacc =
-      DA.add_var_used_in_expr dacc (Name_occurrences.union_list name_occurrences_l)
-    in
+    let dacc = DA.map_rec_uses dacc ~f:(
+      Rec_uses.add_used_in_current_handler
+        (Name_occurrences.union_list name_occurrences_l)
+    ) in
     (* First remember any lifted constants that were generated during the
        simplification of the defining expression and sort them, since they
        may be mutually recursive.  Then add back in to [dacc]

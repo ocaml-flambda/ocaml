@@ -16,14 +16,10 @@
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
-type var_uses
-type aux
 type t
 
 (** Print a downwards accumulator to a formatter. *)
 val print : Format.formatter -> t -> unit
-val print_stack : Format.formatter -> aux list -> unit
-val print_var_uses : Format.formatter -> var_uses -> unit
 
 (** Create a downwards accumulator. *)
 val create
@@ -34,10 +30,6 @@ val create
 (** Extract the environment component of the given downwards accumulator. *)
 val denv : t -> Simplify_envs.Downwards_env.t
 
-val var_uses : t -> var_uses
-
-val stack : t -> aux list
-
 (** Map the environment component of the given downwards accumulator. *)
 val map_denv
    : t
@@ -47,6 +39,12 @@ val map_denv
 
 (** Replace the environment component of the given downwards accumulator. *)
 val with_denv : t -> Simplify_envs.Downwards_env.t -> t
+
+(** Extract the rec usage accumulator *)
+val rec_uses : t -> Rec_uses.t
+
+(** Map the rec_uses of the gicen downwards accumulator. *)
+val map_rec_uses : t -> f:(Rec_uses.t -> Rec_uses.t) -> t
 
 (* CR mshinwell: Why do these take scope arguments when [DE] knows the
    current scope level? *)
@@ -118,12 +116,4 @@ val add_use_of_closure_var : t -> Var_within_closure.t -> t
 val used_closure_vars : t -> Name_occurrences.t
 
 val with_used_closure_vars : t -> used_closure_vars:Name_occurrences.t -> t
-
-val add_new_cont_for_used_vars : t -> Continuation.t -> t
-
-val add_var_used_in_expr : t -> Name_occurrences.t -> t
-
-val end_cont_for_used_vars : t -> Continuation.t -> Variable.t list -> t
-
-val add_vars_as_k_arg : t -> Continuation.t -> Name_occurrences.t list -> t
 
