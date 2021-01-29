@@ -57,7 +57,10 @@ val add_apply_cont_args : Continuation.t -> Name_occurrences.t list -> t -> t
 
 (* {2 Analysis} *)
 
-val analyze : t -> unit
+val analyze :
+  return_continuation:Continuation.t ->
+  exn_continuation:Continuation.t ->
+  t -> unit
 (** Analyze the rec uses.
     TODO: have a more useful return type. *)
 

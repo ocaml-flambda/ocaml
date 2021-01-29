@@ -1,6 +1,6 @@
-let b = %untag_imm 0 in
-let fb = %Box_float 0. in
-cont loop (b, 0., fb)
+let b0 = %untag_imm 0 in
+let fb0 = %Box_float 0. in
+cont loop (b0, 0., fb0)
 where rec loop (b : imm, f : float, fb : val) = (
   switch b
   | 0 -> r
@@ -10,9 +10,9 @@ where rec loop (b : imm, f : float, fb : val) = (
     let fb' = %Box_float f' in
     cont loop (b, f', fb')
 )
-where ret (f : float) =
-  let fb = %Box_float f in
-  let $camlRec = Block 0 (fb) in
+where ret (f1 : float) =
+  let fb1 = %Box_float f1 in
+  let $camlRec = Block 0 (fb1) in
   cont done ($camlRec)
 
 

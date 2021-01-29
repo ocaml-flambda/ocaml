@@ -27,7 +27,10 @@ let simplify_toplevel dacc expr ~return_continuation ~return_arity
       let dacc = DA.map_rec_uses dacc ~f:(Rec_uses.unstack_cont toplevel_cont) in
       let rec_uses = DA.rec_uses dacc in
       Format.printf "@.@.REC_USES:@\n%a@.@." Rec_uses.print rec_uses;
-      let () = Rec_uses.analyze rec_uses in
+      let () =
+        Rec_uses.analyze rec_uses ~return_continuation
+          ~exn_continuation:(Exn_continuation.exn_handler exn_continuation)
+      in
       let uenv =
         UE.add_continuation UE.empty return_continuation
           return_cont_scope return_arity

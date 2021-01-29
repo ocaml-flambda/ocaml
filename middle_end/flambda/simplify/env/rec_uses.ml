@@ -34,7 +34,7 @@ type t = {
 let print_elt ppf { continuation; params; used_in_handler; apply_cont_args; } =
   Format.fprintf ppf "@[<hov 1>(\
                       @[<hov 1>(continuation %a)@]@ \
-                      @(<hov 1>(params %a)@]@ \
+                      @[<hov 1>(params %a)@]@ \
                       @[<hov 1>(used_in_handler %a)@]@ \
                       @[<hov 1>(apply_cont_args %a)@]\
                       )@]"
@@ -158,6 +158,9 @@ module Var_graph = struct
 
   type t = Variable.Set.t Variable.Map.t
 
+  let print ppf t =
+    Variable.Map.print Variable.Set.print ppf t
+
   let empty : t = Variable.Map.empty
 
   let add_edge ~src ~dst t =
@@ -199,42 +202,65 @@ end
 (* Analysis *)
 (* ******** *)
 
-let used_variables map =
+
+let used_variables ~return_continuation ~exn_continuation map =
+  (* Some auxiliary functions *)
+  let add_used name_occurrences set =
+    Name_occurrences.fold_variables name_occurrences ~init:set
+      ~f:(fun set var -> Variable.Set.add var set)
+  in
   (* Build the reversed graph of dependencies *)
-  let graph =
-    Continuation.Map.fold (fun _ { apply_cont_args; _ } graph ->
-      Continuation.Map.fold (fun k args graph ->
-        let params =
-          match Continuation.Map.find k map with
-          | params -> Array.of_list params
-          | exception Not_found ->
-            Misc.fatal_errorf "Continuation not found: %a@."
-              Continuation.print k
-        in
-        Numbers.Int.Map.fold (fun i name_occurrence graph ->
-          (* CR: is that the correct direction ? *)
-          let dst = params.(i) in
-          Name_occurrences.fold_variables name_occurrence ~init:graph
-            ~f:(fun g src -> Var_graph.add_edge ~src ~dst g)
-        ) args graph
-      ) apply_cont_args graph
-    ) map Var_graph.empty
+  let graph, used =
+    Continuation.Map.fold (fun _ { apply_cont_args; used_in_handler; _ } (graph, used) ->
+      let used = add_used used_in_handler used in
+      Continuation.Map.fold (fun k args (graph, used) ->
+        if Continuation.equal return_continuation k ||
+           Continuation.equal exn_continuation k then begin
+          let used =
+            Numbers.Int.Map.fold (fun _ name_occurrences used ->
+              add_used name_occurrences used
+            ) args used
+          in
+          graph, used
+        end else begin
+          let params =
+            match Continuation.Map.find k map with
+            | elt -> Array.of_list elt.params
+            | exception Not_found ->
+              Misc.fatal_errorf "Continuation not found: %a@."
+                Continuation.print k
+          in
+          let graph =
+            Numbers.Int.Map.fold (fun i name_occurrence graph ->
+              (* Note on the direction of the edge:
+                 We later do a reachability analysis to compute the
+                 transitive cloture of the used variables.
+                 Therefore an edge from src to dst means: if src is used, then
+                 dst is also used.
+                 Aplied here, this means : if the param of a continuation is used,
+                 then any argument provided for that param is also used.
+                 The other way wouldn't make much sense. *)
+              let src = params.(i) in
+              Name_occurrences.fold_variables name_occurrence ~init:graph
+                ~f:(fun g dst -> Var_graph.add_edge ~src ~dst g)
+            ) args graph
+          in
+          graph, used
+        end
+      ) apply_cont_args (graph, used)
+    ) map (Var_graph.empty, Variable.Set.empty)
   in
-  let used =
-    Continuation.Map.fold (fun _ { used_in_handler; _ } set ->
-      Name_occurrences.fold_variables used_in_handler ~init:set
-        ~f:(fun set var -> Variable.Set.add var set)
-    ) map Variable.Set.empty
-  in
+  Format.eprintf "@.@\nGRAPH:@\n%a@\n@." Var_graph.print graph;
+  Format.eprintf "@.@\nUSED:@\n%a@\n@." Variable.Set.print used;
   let transitively_used =
     Var_graph.reachable graph Variable.Set.empty
       (Variable.Set.fold Queue.add used Queue.empty)
   in
   transitively_used
 
-let analyze { stack; map; } =
+let analyze ~return_continuation ~exn_continuation { stack; map; } =
   assert (stack = []);
-  let used = used_variables map in
+  let used = used_variables ~return_continuation ~exn_continuation map in
   Format.eprintf "@.@\nUSED VARIABLES:@\n%a@\n@." Variable.Set.print used;
   ()
 
