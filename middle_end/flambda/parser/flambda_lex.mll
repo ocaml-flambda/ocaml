@@ -30,53 +30,54 @@ let create_hashtable init =
 
 let keyword_table =
   create_hashtable [
-    "always", ALWAYS;
-    "and", AND;
-    "andwhere", ANDWHERE;
-    "apply", APPLY;
-    "Block", BLOCK;
-    "ccall", CCALL;
-    "closure", CLOSURE;
-    "code", CODE;
-    "cont", CONT;
-    "default", DEFAULT;
-    "deleted", DELETED;
-    "direct", DIRECT;
-    "done", DONE;
-    "end", END;
-    "error", ERROR;
-    "exn", EXN;
-    "fabricated", FABRICATED;
-    "float", FLOAT_KIND;
-    "halt_and_catch_fire", HCF;
-    "hint", HINT;
-    "imm", IMM;
-    "immutable_unique", IMMUTABLE_UNIQUE;
-    "in", IN;
-    "inline", INLINE;
-    "inlining_state", INLINING_STATE;
-    "depth", INLINING_STATE_DEPTH;
-    "int32", INT32;
-    "int64", INT64;
-    "let", LET;
-    "mutable", MUTABLE;
-    "nativeint", NATIVEINT;
-    "never", NEVER;
-    "newer_version_of", NEWER_VERSION_OF;
-    "noalloc", NOALLOC;
-    "rec", REC;
-    "set_of_closures", SET_OF_CLOSURES;
-    "size", SIZE;
-    "stub", STUB;
-    "switch", SWITCH;
-    "tupled", TUPLED;
-    "unit", UNIT;
-    "unreachable", UNREACHABLE;
-    "unroll", UNROLL;
-    "unsigned", UNSIGNED;
-    "val", VAL;
-    "where", WHERE;
-    "with", WITH;
+    "always", KWD_ALWAYS;
+    "and", KWD_AND;
+    "andwhere", KWD_ANDWHERE;
+    "apply", KWD_APPLY;
+    "Block", KWD_BLOCK;
+    "ccall", KWD_CCALL;
+    "closure", KWD_CLOSURE;
+    "code", KWD_CODE;
+    "cont", KWD_CONT;
+    "default", KWD_DEFAULT;
+    "deleted", KWD_DELETED;
+    "depth", KWD_DEPTH;
+    "direct", KWD_DIRECT;
+    "done", KWD_DONE;
+    "dynamic", KWD_DYNAMIC;
+    "end", KWD_END;
+    "error", KWD_ERROR;
+    "exn", KWD_EXN;
+    "fabricated", KWD_FABRICATED;
+    "float", KWD_FLOAT;
+    "halt_and_catch_fire", KWD_HCF;
+    "hint", KWD_HINT;
+    "imm", KWD_IMM;
+    "immutable_unique", KWD_IMMUTABLE_UNIQUE;
+    "in", KWD_IN;
+    "inline", KWD_INLINE;
+    "inlining_state", KWD_INLINING_STATE;
+    "int32", KWD_INT32;
+    "int64", KWD_INT64;
+    "let", KWD_LET;
+    "mutable", KWD_MUTABLE;
+    "nativeint", KWD_NATIVEINT;
+    "never", KWD_NEVER;
+    "newer_version_of", KWD_NEWER_VERSION_OF;
+    "noalloc", KWD_NOALLOC;
+    "rec", KWD_REC;
+    "set_of_closures", KWD_SET_OF_CLOSURES;
+    "size", KWD_SIZE;
+    "stub", KWD_STUB;
+    "switch", KWD_SWITCH;
+    "tupled", KWD_TUPLED;
+    "unit", KWD_UNIT;
+    "unreachable", KWD_UNREACHABLE;
+    "unroll", KWD_UNROLL;
+    "unsigned", KWD_UNSIGNED;
+    "val", KWD_VAL;
+    "where", KWD_WHERE;
+    "with", KWD_WITH;
 ]
 
 let ident_or_keyword str =
@@ -88,6 +89,9 @@ let is_keyword str =
 
 let prim_table =
   create_hashtable [
+    "array_length", PRIM_ARRAY_LENGTH;
+    "array_load", PRIM_ARRAY_LOAD;
+    "array_set", PRIM_ARRAY_SET;
     "Block", PRIM_BLOCK;
     "block_load", PRIM_BLOCK_LOAD;
     "get_tag", PRIM_GET_TAG;
@@ -106,6 +110,25 @@ let prim ~lexbuf str =
   try Hashtbl.find prim_table str
   with Not_found -> error ~lexbuf (No_such_primitive str)
 
+let unquote_ident str =
+  match str with
+  | "" -> ""
+  | _ ->
+    begin
+      match String.get str 0 with
+      | '`' -> String.sub str 1 (String.length str - 2)
+      | _ -> str
+    end
+
+let symbol cunit_ident cunit_linkage_name ident =
+  let cunit =
+    Option.map (fun cunit_ident ->
+      { Fexpr.ident = unquote_ident cunit_ident;
+        linkage_name = Option.map unquote_ident cunit_linkage_name }
+    ) cunit_ident
+  in
+  SYMBOL (cunit, unquote_ident ident)
+
 }
 
 let blank = [' ' '\009' '\012']
@@ -113,6 +136,7 @@ let lowercase = ['a'-'z' '_']
 let uppercase = ['A'-'Z']
 let identstart = lowercase | uppercase
 let identchar = ['A'-'Z' 'a'-'z' '_' '\'' '0'-'9']
+let quoted_ident = '`' [^ '`' '\n']* '`'
 let decimal_literal =
   ['0'-'9'] ['0'-'9' '_']*
 let hex_digit =
@@ -144,8 +168,6 @@ rule token = parse
   | "(*"
       { comment 1 lexbuf;
         token lexbuf }
-  | "let"
-      { LET }
   | ":"
       { COLON }
   | ","
@@ -177,16 +199,21 @@ rule token = parse
   | "!=." { NOTEQUALDOT }
   | "<." { LESSDOT }
   | "<=." { LESSEQUALDOT }
+  | "<-" { LESSMINUS }
   | "->" { MINUSGREATER }
   | "@" { AT }
   | "|"  { PIPE }
   | "===>" { BIGARROW }
   | identstart identchar* as ident
          { ident_or_keyword ident }
-  | '`' ([^ '`' '\n']* as ident) '`'
-         { IDENT ident }
-  | '$' ((identchar* as ident) | '`' ([^ '`' '\n']* as ident) '`')
-         { SYMBOL ident }
+  | quoted_ident as ident
+         { IDENT (unquote_ident ident) }
+  | '$'
+    (((identchar* | quoted_ident) as cunit_ident)
+     ('/' ((identchar* | quoted_ident) as cunit_linkage_name))?
+     '.')?
+    ((identchar* | quoted_ident) as ident)
+         { symbol cunit_ident cunit_linkage_name ident }
   | '%' (identchar* as p)
          { prim ~lexbuf p }
   | (int_literal as lit) (int_modifier as modif)?

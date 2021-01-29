@@ -139,12 +139,14 @@ end = struct
 
   module Symbol_name_map = Name_map(struct
     include Symbol
-    type fexpr_id = Fexpr.symbol
+    (* We don't need the name map for non-local symbols, so only bother with
+     * the ident part of the symbol here *)
+    type fexpr_id = string
 
     let desc = "symbol"
     let name v = linkage_name v |> Linkage_name.to_string
     let add_tag = default_add_tag
-    let mk_fexpr_id name = name |> nowhere
+    let mk_fexpr_id name = name
   end)
 
   module Code_id_name_map = Name_map(struct
@@ -216,8 +218,15 @@ end = struct
     bind_var t (v |> Var_in_binding_pos.var)
 
   let bind_symbol t s =
+    let is_local =
+      Compilation_unit.equal
+        (Symbol.compilation_unit s)
+        (Compilation_unit.get_current_exn ())
+    in
+    if not is_local
+      then Misc.fatal_errorf "Cannot bind non-local symbol %a" Symbol.print s;
     let s, symbols = Symbol_name_map.bind t.symbols s in
-    s, { t with symbols }
+    (None, s) |> nowhere, { t with symbols }
 
   let bind_code_id t c =
     let c, code_ids = Code_id_name_map.bind t.code_ids c in
@@ -240,7 +249,51 @@ end = struct
 
   let find_var_exn t v = Variable_name_map.find_exn t.variables v
 
-  let find_symbol_exn t s = Symbol_name_map.find_exn t.symbols s
+  let find_symbol_exn t s =
+    let cunit = Symbol.compilation_unit s in
+    let is_local =
+      Compilation_unit.equal cunit (Compilation_unit.get_current_exn ())
+    in
+    if is_local
+      then (None, Symbol_name_map.find_exn t.symbols s) |> nowhere
+      else 
+        let cunit =
+          let ident =
+            Compilation_unit.get_persistent_ident cunit |> Ident.name
+          in
+          let linkage_name =
+            Compilation_unit.get_linkage_name cunit |> Linkage_name.to_string
+          in
+          let linkage_name =
+            if String.equal ident linkage_name then None else Some linkage_name
+          in
+          { Fexpr.ident; linkage_name }
+        in
+        let linkage_name = Symbol.linkage_name s |> Linkage_name.to_string in
+        (* CR-soon lmaurer: This is putrid *)
+        let symbol_cunit_linkage_name, symbol_name =
+          let rec find_double_underscore str ix =
+            match String.index_from_opt str ix '_' with
+            | Some ix when ix + 1 < String.length str ->
+              begin
+                match String.get str (ix+1) with
+                | '_' -> ix
+                | _ -> find_double_underscore str (ix+1)
+              end
+            | _ ->
+              Misc.fatal_errorf
+                "Cant find double underscore in symbol linkage name: %s"
+                str
+          in
+          let ix = find_double_underscore linkage_name 0 in
+          String.sub linkage_name 0 ix,
+          String.sub linkage_name (ix+2) (String.length linkage_name - (ix+2))
+        in
+        assert
+          (String.equal
+            symbol_cunit_linkage_name
+            (cunit.linkage_name |> Option.value ~default:cunit.ident));
+        (Some cunit, symbol_name) |> nowhere
 
   let find_code_id_exn t c = Code_id_name_map.find_exn t.code_ids c
 
@@ -282,20 +335,11 @@ let simple env s =
     )
     ~const:(fun c -> Fexpr.Const (const c))
 
-let naked_number_kind (nnk : Flambda_kind.Naked_number_kind.t)
-      : Fexpr.Naked_number_kind.t =
-  match nnk with
-  | Naked_immediate -> Naked_immediate
-  | Naked_float -> Naked_float
-  | Naked_int32 -> Naked_int32
-  | Naked_int64 -> Naked_int64
-  | Naked_nativeint -> Naked_nativeint
-
 let kind (k : Flambda_kind.t) : Fexpr.kind =
   match k with
   | Value -> Value
   | Fabricated -> Fabricated
-  | Naked_number nnk -> Naked_number (naked_number_kind nnk)
+  | Naked_number nnk -> Naked_number nnk
 
 let arity (a : Flambda_arity.With_subkinds.t) : Fexpr.flambda_arity =
   List.map kind (Flambda_arity.With_subkinds.to_arity a)
@@ -322,6 +366,8 @@ let recursive_flag (r : Recursive.t) : Fexpr.is_recursive =
 
 let unop env (op : Flambda_primitive.unary_primitive) : Fexpr.unop =
   match op with
+  | Array_length ak ->
+    Array_length ak
   | Box_number Untagged_immediate ->
     Tag_imm
   | Get_tag ->
@@ -347,6 +393,8 @@ let unop env (op : Flambda_primitive.unary_primitive) : Fexpr.unop =
 
 let binop (op : Flambda_primitive.binary_primitive) : Fexpr.binop =
   match op with
+  | Array_load (ak, mut) ->
+    Array_load (ak, mut)
   | Block_load (Values { field_kind;
                          size;
                          tag }, mutability) ->
@@ -396,6 +444,14 @@ let binop (op : Flambda_primitive.binary_primitive) : Fexpr.binop =
       Flambda_primitive.Without_args.print
       (Flambda_primitive.Without_args.Binary op)
 
+let ternop (op : Flambda_primitive.ternary_primitive) : Fexpr.ternop =
+  match op with
+  | Array_set (ak, ia) -> Array_set (ak, ia)
+  | _ ->
+    Misc.fatal_errorf "TODO: Ternary primitive: %a"
+      Flambda_primitive.Without_args.print
+      (Flambda_primitive.Without_args.Ternary op)
+
 let varop (op : Flambda_primitive.variadic_primitive) : Fexpr.varop =
   match op with
   | Make_block (Values (tag, _), mutability) ->
@@ -411,10 +467,8 @@ let prim env (p : Flambda_primitive.t) : Fexpr.prim =
     Unary (unop env op, simple env arg)
   | Binary (op, arg1, arg2) ->
     Binary (binop op, simple env arg1, simple env arg2)
-  | Ternary (op, _, _, _) ->
-    Misc.fatal_errorf "TODO: Ternary primitive:"
-      Flambda_primitive.Without_args.print
-      (Flambda_primitive.Without_args.Ternary op)
+  | Ternary (op, arg1, arg2, arg3) ->
+    Ternary (ternop op, simple env arg1, simple env arg2, simple env arg3)
   | Variadic (op, args) ->
     Variadic (varop op, List.map (simple env) args)
 
@@ -735,10 +789,10 @@ and apply_expr env (app : Apply_expr.t) : Fexpr.expr =
           Reg_width_things.Const.print c
       )
   in
-  let continuation =
+  let continuation : Fexpr.result_continuation =
     match Apply_expr.continuation app with
-    | Return c -> Env.find_continuation_exn env c
-    | Never_returns -> Misc.fatal_error "TODO: Never_returns"
+    | Return c -> Return (Env.find_continuation_exn env c)
+    | Never_returns -> Never_returns
   in
   let exn_continuation =
     let ec = Apply_expr.exn_continuation app in

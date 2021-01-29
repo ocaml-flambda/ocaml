@@ -55,10 +55,21 @@ let is_unquoted_ident s =
   && is_identstart s.[0]
   && Misc.Stdlib.String.for_all is_identchar s
 
-let symbol ppf { txt = s; loc = _ } =
+let symbol_part ppf s =
   if is_unquoted_symbol s
-    then Format.fprintf ppf "$%s" s
-    else Format.fprintf ppf "$`%s`" s
+    then Format.pp_print_string ppf s
+    else Format.fprintf ppf "`%s`" s
+
+let symbol ppf { txt = cunit, s; loc = _ } =
+  Format.pp_print_char ppf '$';
+  cunit |> Option.iter (fun { ident; linkage_name } ->
+    symbol_part ppf ident;
+    linkage_name |> Option.iter (fun linkage_name ->
+      Format.fprintf ppf "/%a" symbol_part linkage_name
+    );
+    Format.pp_print_char ppf '.'
+  );
+  symbol_part ppf s
 
 let ident ppf s =
   if is_unquoted_ident s && not (Flambda_lex.is_keyword s)
@@ -89,6 +100,11 @@ let continuation ppf cont =
   match cont with
   | Named id -> continuation_id ppf id
   | Special special_cont -> special_continuation ppf special_cont
+
+let result_continuation ppf rcont =
+  match rcont with
+  | Return c -> continuation ppf c
+  | Never_returns -> Format.fprintf ppf "never"
 
 let exn_continuation ppf c =
   Format.fprintf ppf "* %a" continuation c
@@ -174,6 +190,24 @@ let mutability ?prefix ?suffix () ppf mut =
   in
   pp_option ?prefix ?suffix Format.pp_print_string ppf str
 
+let array_kind ?prefix ?suffix () ppf (ak : array_kind) =
+  let str =
+    match ak with
+    | Immediates -> None
+    | Values -> Some "val"
+    | Naked_floats -> Some "float"
+    | Float_array_opt_dynamic -> Some "dynamic"
+  in
+  pp_option ?prefix ?suffix Format.pp_print_string ppf str
+
+let init_or_assign ppf ia =
+  let str =
+    match ia with
+    | Initialization -> "="
+    | Assignment -> "<-"
+  in
+  Format.fprintf ppf "%s" str
+
 let static_part ppf : static_part -> _ = function
   | Block { tag; mutability = mut; elements = elts } ->
     Format.fprintf ppf "Block %a%i (@[<hv>%a@])"
@@ -221,6 +255,12 @@ let infix_binop ppf b =
 
 let binop ppf binop a b =
   match binop with
+  | Array_load (ak, mut) ->
+    Format.fprintf ppf "@[<2>%%array_load%a%a@ %a.(%a)@]"
+      (array_kind ~prefix:"@ " ()) ak
+      (mutability ~prefix:"@ " ()) mut
+      simple a
+      simple b
   | Block_load (Values { field_kind; tag; size; }, mut) ->
     let pp_size ppf (size : Int64.t option) =
       match size with
@@ -232,11 +272,11 @@ let binop ppf binop a b =
       | Any_value -> ()
       | Immediate -> Format.fprintf ppf "@ imm"
     in
-    Format.fprintf ppf "@[<2>%%block_load %a%i%a%a@ (%a,@ %a)@]"
+    Format.fprintf ppf "@[<2>%%block_load %a%a%i%a@ (%a,@ %a)@]"
+      pp_field_kind field_kind
       (mutability ~suffix:"@ " ()) mut
       tag
       pp_size size
-      pp_field_kind field_kind
       simple a simple b
   | Phys_equal (k, comp) ->
     let name =
@@ -254,22 +294,28 @@ let binop ppf binop a b =
       simple b
   | Int_comp (i, s, c) ->
     begin
-      Format.fprintf ppf "@[<2>%%int_comp %a%a"
-        (standard_int ~suffix:"@ " ()) i
-        (signed_or_unsigned ~suffix:"@ " ()) s;
-      let str =
+      let rel =
         match c with
         | Lt -> "<"
         | Gt -> ">"
         | Le -> "<="
         | Ge -> ">="
       in
-      Format.fprintf ppf "%s@]" str
+      Format.fprintf ppf "@[<2>%%int_comp %a%a%a@ %s@ %a@]"
+        (standard_int ~suffix:"@ " ()) i
+        (signed_or_unsigned ~suffix:"@ " ()) s
+        simple a
+        rel
+        simple b
+        ;
     end
 
 let unop ppf u =
   let str s = Format.pp_print_string ppf s in
   match u with
+  | Array_length ak ->
+    Format.fprintf ppf "@[<2>%%array_length%a@]"
+      (array_kind ~prefix:"@ " ()) ak
   | Get_tag ->
     str "%get_tag"
   | Is_int ->
@@ -289,6 +335,16 @@ let unop ppf u =
       closure_id move_from
       closure_id move_to
 
+let ternop ppf t a1 a2 a3 =
+  match t with
+  | Array_set (ak, ia) ->
+    Format.fprintf ppf "@[<2>%%array_set%a@ %a.(%a) %a %a@]"
+      (array_kind ~prefix:"@ " ()) ak
+      simple a1
+      simple a2
+      init_or_assign ia
+      simple a3
+
 let prim ppf = function
   | Unary (u, a) ->
     Format.fprintf ppf "%a %a"
@@ -296,10 +352,8 @@ let prim ppf = function
       simple a
   | Binary (b, a1, a2) ->
     binop ppf b a1 a2
-    (* Format.fprintf ppf "%a %a %a"
-     *   binop b a b
-     *   simple a1
-     *   simple a2 *)
+  | Ternary (t, a1, a2, a3) ->
+    ternop ppf t a1 a2 a3
   | Variadic (Make_block (tag, mut), elts) ->
     Format.fprintf ppf "@[<2>%%Block %a%i%a@]"
       (mutability ~suffix:"@ " ()) mut
@@ -367,7 +421,7 @@ let call_kind ?prefix ?suffix () ppf ck =
       code_id c
       (pp_option ~prefix:"@ @@" closure_id) cl
   | C_call { alloc } ->
-    pp_with ?prefix ppf "@ ccall";
+    pp_with ?prefix ppf "ccall";
     if not alloc then Format.fprintf ppf "@ noalloc";
     pp_with ?suffix ppf ""
 
@@ -459,13 +513,14 @@ let rec expr scope ppf = function
       pp_option (fun ppf -> Format.fprintf ppf "@ inlining_state %a" Inlining_state.print)
         ppf inlining_state
     in
-    Format.fprintf ppf "@[<hv 2>apply%a%a%a@ %a%a@ @[<hov2>->@ %a@]@ %a@]"
+    Format.fprintf ppf
+      "@[<hv 2>apply@[<2>%a%a%a@]@ %a%a@ @[<hov2>->@ %a@]@ %a@]"
       (call_kind ~prefix:"@ " ()) kind
       (inline_attribute_opt ~prefix:"@ " ()) inline
       pp_inlining_state ()
       func_name_with_optional_arities (func, arities)
       (simple_args ~omit_if_empty:true) args
-      continuation ret
+      result_continuation ret
       exn_continuation ek
 
 

@@ -12,7 +12,11 @@ type code_id = string located
 type closure_id = string located
 type var_within_closure = string located
 
-type symbol = string located
+type compilation_unit = {
+  ident : string;
+  linkage_name : string option; (* defaults to same as ident *)
+}
+type symbol = (compilation_unit option * string) located
 
 type immediate = string
 type targetint = int64
@@ -48,18 +52,16 @@ type static_part =
       elements : of_kind_value list;
     }
 
-module Naked_number_kind = struct
-  type t =
-    | Naked_immediate
-    | Naked_float
-    | Naked_int32
-    | Naked_int64
-    | Naked_nativeint
-end
+type naked_number_kind = Flambda_kind.Naked_number_kind.t =
+  | Naked_immediate
+  | Naked_float
+  | Naked_int32
+  | Naked_int64
+  | Naked_nativeint
 
-type kind =
+type kind = (* can't alias because Flambda_kind.t is private *)
   | Value
-  | Naked_number of Naked_number_kind.t
+  | Naked_number of naked_number_kind
   | Fabricated
 
 type static_structure = {
@@ -87,7 +89,14 @@ type simple =
   | Symbol of symbol
   | Const of const
 
+type array_kind = Flambda_primitive.Array_kind.t =
+  | Immediates
+  | Values
+  | Naked_floats
+  | Float_array_opt_dynamic
+
 type unop =
+  | Array_length of array_kind
   | Get_tag
   | Is_int
   | Opaque_identity
@@ -126,6 +135,10 @@ type standard_int = Flambda_kind.Standard_int.t =
   | Naked_int64
   | Naked_nativeint
 
+type init_or_assign = Flambda_primitive.Init_or_assign.t =
+  | Initialization
+  | Assignment
+
 type ordered_comparison = Flambda_primitive.ordered_comparison =
   | Lt | Gt
   | Le | Ge
@@ -147,10 +160,14 @@ type infix_binop =
   | Ge | Gedot
 
 type binop =
+  | Array_load of array_kind * mutability
   | Block_load of block_access_kind * mutability
   | Phys_equal of kind option * equality_comparison
   | Int_comp of standard_int * signed_or_unsigned * ordered_comparison
   | Infix of infix_binop
+
+type ternop =
+  | Array_set of array_kind * init_or_assign
 
 type varop =
   | Make_block of tag_scannable * mutability
@@ -158,10 +175,8 @@ type varop =
 type prim =
   | Unary of unop * simple
   | Binary of binop * simple * simple
+  | Ternary of ternop * simple * simple * simple
   | Variadic of varop * simple list
-
-type is_fabricated =
-  | Value | Fabricated
 
 type flambda_arity = kind list
 
@@ -191,6 +206,10 @@ type continuation =
   | Named of continuation_id
   | Special of special_continuation
 
+type result_continuation =
+  | Return of continuation
+  | Never_returns
+
 type function_arities = {
   params_arity : flambda_arity;
   ret_arity : flambda_arity;
@@ -205,7 +224,7 @@ type inline_attribute = Inline_attribute.t =
 
 type apply = {
     func : name;
-    continuation : continuation;
+    continuation : result_continuation;
     exn_continuation : continuation;
     args : simple list;
     call_kind : call_kind;

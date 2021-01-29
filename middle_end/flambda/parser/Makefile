@@ -4,17 +4,13 @@ OCAMLLEX=ocamllex
 flambda_lex.ml: flambda_lex.mll
 	${OCAMLLEX} flambda_lex.mll
 
-# Avoid creating intermediate files with .ml or .mli extensions so Dune
-# doesn't complain
-flambda_parser.ml.in flambda_parser.mli.in: flambda_parser.mly
-	${MENHIR} --table flambda_parser.mly --base flambda_parser-in
-	mv -f flambda_parser-in.ml flambda_parser.ml.in
-	mv -f flambda_parser-in.mli flambda_parser.mli.in
+flambda_parser_in.ml flambda_parser_in.mli: flambda_parser.mly
+	${MENHIR} --table flambda_parser.mly --base flambda_parser_in
 
-flambda_parser.ml: flambda_parser.ml.in
+flambda_parser.ml: flambda_parser_in.ml
 	sed "s/MenhirLib/CamlinternalMenhirLib/g" $< > $@
 
-flambda_parser.mli: flambda_parser.mli.in
+flambda_parser.mli: flambda_parser_in.mli
 	sed "s/MenhirLib/CamlinternalMenhirLib/g" $< > $@
 
 flambda_parser_messages.ml: flambda_parser.mly flambda_parser.messages

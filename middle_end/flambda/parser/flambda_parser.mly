@@ -44,87 +44,93 @@ let make_const_int (i, m) : const =
 
 /* Tokens */
 
-%token ALWAYS [@symbol "always"]
-%token AND   [@symbol "and"]
-%token ANDWHERE [@symbol "andwhere"]
 %token AT    [@symbol "@"]
-%token APPLY [@symbol "apply"]
 %token BIGARROW [@symbol "===>"]
-%token BLOCK [@symbol "Block"]
-%token CCALL  [@symbol "ccall"]
-%token CLOSURE  [@symbol "closure"]
-%token CODE  [@symbol "code"]
-%token COMMA [@symbol "comma"]
 %token COLON  [@symbol ":"]
-%token CONT  [@symbol "cont"]
-%token DEFAULT [@symbol "default"]
-%token DELETED [@symbol "deleted"]
-%token DIRECT [@symbol "direct"]
-%token DONE  [@symbol "done"]
+%token COMMA [@symbol ","]
 %token DOT   [@symbol "."]
-%token END   [@symbol "end"]
 %token EQUAL [@symbol "="]
 %token EQUALDOT [@symbol "=."]
-%token ERROR [@symbol "error"]
-%token EXN   [@symbol "exn"]
-%token FABRICATED [@symbol "fabricated"]
 %token <float> FLOAT
-%token FLOAT_KIND [@symbol "float"]
 %token GREATER [@symbol ">"]
 %token GREATEREQUAL [@symbol ">="]
 %token GREATERDOT [@symbol ">."]
 %token GREATEREQUALDOT [@symbol ">"]
-%token HCF   [@symbol "HCF"]
-%token HINT  [@symbol "hint"]
 %token <string> IDENT
-%token IMM   [@symbol "imm" ]
-%token IMMUTABLE_UNIQUE [@symbol "immutable_unique"]
-%token IN    [@symbol "in"]
-%token INLINE [@symbol "inline"]
-%token INLINING_STATE [@symbol "inlining_state"]
-%token INLINING_STATE_DEPTH [@symbol "depth"]
-%token INT32 [@symbol "int32"]
-%token INT64 [@symbol "int64"]
 %token <string * char option> INT
 %token LBRACE [@symbol "{"]
 %token LESS   [@symbol "<"]
 %token LESSDOT [@symbol "<."]
 %token LESSEQUAL [@symbol "<="]
 %token LESSEQUALDOT [@symbol "<=."]
-%token LET    [@symbol "let"]
+%token LESSMINUS [@symbol "<-"]
 %token LPAREN [@symbol "("]
 %token MINUS    [@symbol "-"]
 %token MINUSDOT [@symbol "-."]
 %token MINUSGREATER [@symbol "->"]
-%token MUTABLE [@symbol "mutable"]
-%token NATIVEINT [@symbol "nativeint"]
-%token NEVER  [@symbol "never"]
-%token NEWER_VERSION_OF [@symbol "newer_version_of"]
-%token NOALLOC [@symbol "noalloc"]
 %token NOTEQUALDOT [@symbol "!=."]
 %token PIPE [@symbol "|"]
 %token PLUS     [@symbol "+"]
 %token PLUSDOT  [@symbol "+."]
 %token RBRACE [@symbol "}"]
-%token REC    [@symbol "rec"]
 %token RPAREN [@symbol ")"]
 %token SEMICOLON [@symbol ";"]
-%token SET_OF_CLOSURES [@symbol "set_of_closures"]
-%token SIZE   [@symbol "size"]
-%token STUB   [@symbol "stub"]
 %token STAR   [@symbol "*"]
-%token SWITCH [@symbol "switch"]
-%token<string> SYMBOL
-%token TUPLED [@symbol "tupled"]
-%token UNIT   [@symbol "unit"]
-%token UNREACHABLE [@symbol "Unreachable"]
-%token UNROLL [@symbol "unroll"]
-%token UNSIGNED [@symbol "unsigned"]
-%token VAL    [@symbol "val"]
-%token WHERE  [@symbol "where"]
-%token WITH   [@symbol "with"]
+%token<Fexpr.compilation_unit option * string> SYMBOL
 %token EOF
 
+%token KWD_ALWAYS [@symbol "always"]
+%token KWD_AND   [@symbol "and"]
+%token KWD_ANDWHERE [@symbol "andwhere"]
+%token KWD_APPLY [@symbol "apply"]
+%token KWD_BLOCK [@symbol "Block"]
+%token KWD_CCALL  [@symbol "ccall"]
+%token KWD_CLOSURE  [@symbol "closure"]
+%token KWD_CODE  [@symbol "code"]
+%token KWD_CONT  [@symbol "cont"]
+%token KWD_DEFAULT [@symbol "default"]
+%token KWD_DELETED [@symbol "deleted"]
+%token KWD_DEPTH [@symbol "depth"]
+%token KWD_DIRECT [@symbol "direct"]
+%token KWD_DONE  [@symbol "done"]
+%token KWD_DYNAMIC [@symbol "dynamic"]
+%token KWD_END   [@symbol "end"]
+%token KWD_ERROR [@symbol "error"]
+%token KWD_EXN   [@symbol "exn"]
+%token KWD_FABRICATED [@symbol "fabricated"]
+%token KWD_FLOAT [@symbol "float"]
+%token KWD_HCF   [@symbol "halt_and_catch_fire"]
+%token KWD_HINT  [@symbol "hint"]
+%token KWD_IMM   [@symbol "imm" ]
+%token KWD_IMMUTABLE_UNIQUE [@symbol "immutable_unique"]
+%token KWD_IN    [@symbol "in"]
+%token KWD_INLINE [@symbol "inline"]
+%token KWD_INLINING_STATE [@symbol "inlining_state"]
+%token KWD_INT32 [@symbol "int32"]
+%token KWD_INT64 [@symbol "int64"]
+%token KWD_LET    [@symbol "let"]
+%token KWD_MUTABLE [@symbol "mutable"]
+%token KWD_NATIVEINT [@symbol "nativeint"]
+%token KWD_NEVER  [@symbol "never"]
+%token KWD_NEWER_VERSION_OF [@symbol "newer_version_of"]
+%token KWD_NOALLOC [@symbol "noalloc"]
+%token KWD_REC    [@symbol "rec"]
+%token KWD_SET_OF_CLOSURES [@symbol "set_of_closures"]
+%token KWD_SIZE   [@symbol "size"]
+%token KWD_STUB   [@symbol "stub"]
+%token KWD_SWITCH [@symbol "switch"]
+%token KWD_TUPLED [@symbol "tupled"]
+%token KWD_UNIT   [@symbol "unit"]
+%token KWD_UNREACHABLE [@symbol "unreachable"]
+%token KWD_UNROLL [@symbol "unroll"]
+%token KWD_UNSIGNED [@symbol "unsigned"]
+%token KWD_VAL    [@symbol "val"]
+%token KWD_WHERE  [@symbol "where"]
+%token KWD_WITH   [@symbol "with"]
+
+%token PRIM_ARRAY_LENGTH [@symbol "%array_length"]
+%token PRIM_ARRAY_LOAD [@symbol "%array_load"]
+%token PRIM_ARRAY_SET [@symbol "%array_set"]
 %token PRIM_BLOCK [@symbol "%Block"]
 %token PRIM_BLOCK_LOAD [@symbol "%block_load"]
 %token PRIM_GET_TAG [@symbol "%get_tag"]
@@ -139,17 +145,24 @@ let make_const_int (i, m) : const =
 %token PRIM_UNTAG_IMM [@symbol "%untag_imm"]
 
 %start flambda_unit expect_test_spec
+%type <Fexpr.array_kind> array_kind
 %type <Fexpr.block_access_field_kind> block_access_field_kind
-%type <Fexpr.flambda_unit> flambda_unit
+%type <Fexpr.const> const
 %type <Fexpr.expect_test_spec> expect_test_spec
-%type <Fexpr.static_structure> static_structure
+%type <Fexpr.flambda_unit> flambda_unit
 %type <Fexpr.kind> kind
-%type <Fexpr.ordered_comparison> int_comp
 %type <Fexpr.mutability> mutability
+%type <Fexpr.name> name
 %type <Fexpr.named> named
 %type <Fexpr.of_kind_value> of_kind_value
+%type <Fexpr.ordered_comparison> int_comp
+%type <Fexpr.special_continuation> special_continuation
 %type <Fexpr.standard_int> standard_int
+%type <Fexpr.static_structure> static_structure
+%type <Fexpr.symbol_binding> symbol_binding
 %%
+
+(* CR-someday lmaurer: Modularize and generally clean up *)
 
 flambda_unit:
   | body = module_
@@ -179,9 +192,9 @@ exn_continuation_id:
 ;
 
 let_symbol(body):
-  | LET; bindings = separated_nonempty_list(AND, symbol_binding);
+  | KWD_LET; bindings = separated_nonempty_list(KWD_AND, symbol_binding);
     closure_elements = with_closure_elements_opt;
-    IN; body = body; { { bindings; closure_elements; body } }
+    KWD_IN; body = body; { { bindings; closure_elements; body } }
 ;
 
 symbol_binding:
@@ -204,7 +217,7 @@ code:
         params_and_body = Present { params; closure_var; ret_cont; exn_cont;
                                     body } } }
   | header = code_header;
-    DELETED;
+    KWD_DELETED;
     COLON;
     param_arity = kinds;
     MINUSGREATER;
@@ -216,7 +229,7 @@ code:
 ;
 
 code_header:
-  | CODE;
+  | KWD_CODE;
     recursive = recursive;
     inline = option(inline);
     id = code_id;
@@ -225,7 +238,7 @@ code_header:
 ;
 
 newer_version_of:
-  | NEWER_VERSION_OF LPAREN; id = code_id; RPAREN { id };
+  | KWD_NEWER_VERSION_OF LPAREN; id = code_id; RPAREN { id };
 
 static_closure_binding:
   | symbol = symbol; EQUAL; fun_decl = fun_decl;
@@ -233,18 +246,19 @@ static_closure_binding:
 ;
 
 static_set_of_closures:
-  | SET_OF_CLOSURES;
-    bindings = separated_nonempty_list(AND, static_closure_binding);
+  | KWD_SET_OF_CLOSURES;
+    bindings = separated_nonempty_list(KWD_AND, static_closure_binding);
     elements = with_closure_elements_opt;
-    END
+    KWD_END
     { { bindings; elements } }
 
 recursive:
   | { Nonrecursive }
-  | REC { Recursive }
+  | KWD_REC { Recursive }
 ;
 
 unop:
+  | PRIM_ARRAY_LENGTH; ak = array_kind { Array_length ak }
   | PRIM_GET_TAG { Get_tag }
   | PRIM_IS_INT { Is_int }
   | PRIM_OPAQUE { Opaque_identity }
@@ -275,36 +289,43 @@ infix_binop:
 
 prefix_binop:
   | PRIM_BLOCK_LOAD;
+    field_kind = block_access_field_kind;
     mutability = mutability;
     tag = tag;
-    size = option(SIZE; size = targetint { size });
-    field_kind = block_access_field_kind;
+    size = option(KWD_SIZE; size = targetint { size })
     { Block_load (Values { tag; size; field_kind }, mutability) }
   | PRIM_PHYS_EQ; k = kind_arg_opt { Phys_equal(k, Eq) }
   | PRIM_PHYS_NE; k = kind_arg_opt { Phys_equal(k, Neq) }
-  | PRIM_INT_COMP;
-    i = standard_int; s = signed_or_unsigned; c = int_comp;
-    { Int_comp (i, s, c) }
 
 mutability:
-  | MUTABLE { Mutable }
-  | IMMUTABLE_UNIQUE { Immutable_unique }
+  | KWD_MUTABLE { Mutable }
+  | KWD_IMMUTABLE_UNIQUE { Immutable_unique }
   | { Immutable }
+
+array_kind:
+  | { Values }
+  | KWD_IMM { Immediates }
+  | KWD_FLOAT { Naked_floats }
+  | KWD_DYNAMIC { Float_array_opt_dynamic }
 
 block_access_field_kind:
   | { Any_value }
-  | IMM { Immediate }
+  | KWD_IMM { Immediate }
 
 standard_int:
   | { Tagged_immediate }
-  | IMM { Naked_immediate }
-  | INT32 { Naked_int32 }
-  | INT64 { Naked_int64 }
-  | NATIVEINT { Naked_nativeint }
+  | KWD_IMM { Naked_immediate }
+  | KWD_INT32 { Naked_int32 }
+  | KWD_INT64 { Naked_int64 }
+  | KWD_NATIVEINT { Naked_nativeint }
+
+init_or_assign:
+  | EQUAL { Initialization }
+  | LESSMINUS { Assignment }
 
 signed_or_unsigned:
   | { Signed }
-  | UNSIGNED { Unsigned }
+  | KWD_UNSIGNED { Unsigned }
 
 int_comp:
   | LESS { Lt }
@@ -317,6 +338,20 @@ binop_app:
     { Binary (op, arg1, arg2) }
   | arg1 = simple; op = infix_binop; arg2 = simple
     { Binary (Infix op, arg1, arg2) }
+  | PRIM_ARRAY_LOAD; ak = array_kind; mut = mutability;
+    arg1 = simple; DOT; LPAREN; arg2 = simple; RPAREN
+    { Binary (Array_load (ak, mut), arg1, arg2) }
+  | PRIM_INT_COMP;
+    i = standard_int; s = signed_or_unsigned;
+    arg1 = simple; c = int_comp; arg2 = simple
+    { Binary (Int_comp (i, s, c), arg1, arg2) }
+;
+
+ternop_app:
+  | PRIM_ARRAY_SET; ak = array_kind;
+    arr = simple; DOT LPAREN; ix = simple; RPAREN; ia = init_or_assign;
+    v = simple
+    { Ternary (Array_set (ak, ia), arr, ix, v) }
 ;
 
 block:
@@ -330,6 +365,7 @@ named:
   | s = simple { Simple s }
   | u = unop a = simple { Prim (Unary (u, a)) }
   | b = binop_app { Prim b }
+  | t = ternop_app { Prim t }
   | b = block { Prim b }
   | c = fun_decl { Closure c }
 ;
@@ -342,16 +378,16 @@ switch:
   | option(PIPE); cs = separated_list(PIPE, switch_case) { cs }
 ;
 kind:
-  | VAL { Value }
-  | IMM { Naked_number Naked_immediate }
-  | FLOAT_KIND { Naked_number Naked_float }
-  | INT32 { Naked_number Naked_int32 }
-  | INT64 { Naked_number Naked_int64 }
-  | NATIVEINT { Naked_number Naked_nativeint }
-  | FABRICATED { Fabricated }
+  | KWD_VAL { Value }
+  | KWD_IMM { Naked_number Naked_immediate }
+  | KWD_FLOAT { Naked_number Naked_float }
+  | KWD_INT32 { Naked_number Naked_int32 }
+  | KWD_INT64 { Naked_number Naked_int64 }
+  | KWD_NATIVEINT { Naked_number Naked_nativeint }
+  | KWD_FABRICATED { Fabricated }
 ;
 kinds:
-  | UNIT { [] }
+  | KWD_UNIT { [] }
   | ks = separated_nonempty_list(STAR, kind) { ks }
 ;
 return_arity:
@@ -383,7 +419,7 @@ expr:
 ;
 
 let_expr(body):
-  | LET l = let_(body) { Let l }
+  | KWD_LET l = let_(body) { Let l }
   | ls = let_symbol(body) { Let_symbol ls }
 ;
 
@@ -393,8 +429,8 @@ inner_expr:
 ;
 
 where_expr:
-  | body = inner_expr; WHERE; recursive = recursive;
-    handlers = separated_list(ANDWHERE, continuation_handler)
+  | body = inner_expr; KWD_WHERE; recursive = recursive;
+    handlers = separated_list(KWD_ANDWHERE, continuation_handler)
      { Let_cont { recursive; body; handlers } }
 ;
 
@@ -404,16 +440,16 @@ continuation_body:
 ;
 
 atomic_expr:
-  | HCF { Invalid Halt_and_catch_fire }
-  | UNREACHABLE { Invalid Treat_as_unreachable }
-  | CONT; ac = apply_cont_expr { Apply_cont ac }
-  | SWITCH; scrutinee = simple; cases = switch { Switch {scrutinee; cases} }
-  | APPLY e = apply_expr { Apply e }
+  | KWD_HCF { Invalid Halt_and_catch_fire }
+  | KWD_UNREACHABLE { Invalid Treat_as_unreachable }
+  | KWD_CONT; ac = apply_cont_expr { Apply_cont ac }
+  | KWD_SWITCH; scrutinee = simple; cases = switch { Switch {scrutinee; cases} }
+  | KWD_APPLY e = apply_expr { Apply e }
   | LPAREN; e = expr; RPAREN { e }
 ;
 
 let_(body):
-  | bindings = separated_nonempty_list(AND, let_binding);
+  | bindings = separated_nonempty_list(KWD_AND, let_binding);
 (*  CR lwhite: I think this closure elements stuff is a bit of a hangover from
     when closures definitions contained the code as well. I imagine the closures
     used to look like:
@@ -435,7 +471,7 @@ let_(body):
     together. Also, several closures can share the same closure elements.
  *)
     closure_elements = with_closure_elements_opt;
-    IN body = body;
+    KWD_IN body = body;
     { ({ bindings; closure_elements; body } : let_) }
 ;
 
@@ -446,7 +482,7 @@ let_binding:
 
 with_closure_elements_opt:
   | { None }
-  | WITH LBRACE;
+  | KWD_WITH LBRACE;
     elements = separated_list(SEMICOLON, closure_element);
     RBRACE;
     { Some elements }
@@ -457,7 +493,7 @@ closure_element:
 ;
 
 fun_decl:
-  | CLOSURE; is_tupled = boption(TUPLED); code_id = code_id;
+  | KWD_CLOSURE; is_tupled = boption(KWD_TUPLED); code_id = code_id;
     closure_id = closure_id_opt;
     { { code_id; closure_id; is_tupled } }
 ;
@@ -468,7 +504,7 @@ apply_expr:
     inlining_state = option(inlining_state);
     func = func_name_with_optional_arities 
     args = simple_args MINUSGREATER
-    r = continuation e = exn_continuation
+    r = result_continuation e = exn_continuation
      { let (func, arities) = func in {
           func;
           continuation = r;
@@ -483,24 +519,29 @@ apply_expr:
 
 call_kind:
   | { Function Indirect }
-  | DIRECT; LPAREN; code_id = code_id; closure_id = closure_id_opt; RPAREN
+  | KWD_DIRECT; LPAREN; code_id = code_id; closure_id = closure_id_opt; RPAREN
     { Function (Direct { code_id; closure_id }) }
-  | CCALL; noalloc = boption(NOALLOC)
+  | KWD_CCALL; noalloc = boption(KWD_NOALLOC)
     { C_call { alloc = not noalloc } }
 ;
 
 inline:
-  | INLINE LPAREN ALWAYS RPAREN { Always_inline }
-  | INLINE LPAREN HINT RPAREN { Hint_inline }
-  | INLINE LPAREN NEVER RPAREN { Never_inline }
-  | UNROLL LPAREN; i = plain_int; RPAREN { Unroll i }
-  | INLINE LPAREN DEFAULT RPAREN { Default_inline }
+  | KWD_INLINE LPAREN KWD_ALWAYS RPAREN { Always_inline }
+  | KWD_INLINE LPAREN KWD_HINT RPAREN { Hint_inline }
+  | KWD_INLINE LPAREN KWD_NEVER RPAREN { Never_inline }
+  | KWD_UNROLL LPAREN; i = plain_int; RPAREN { Unroll i }
+  | KWD_INLINE LPAREN KWD_DEFAULT RPAREN { Default_inline }
 
 inlining_state:
-  | INLINING_STATE LPAREN; i = inlining_state_depth; RPAREN { Inlining_state.create ~depth:i }
+  | KWD_INLINING_STATE LPAREN; i = inlining_state_depth; RPAREN { Inlining_state.create ~depth:i }
 
 inlining_state_depth:
-  | INLINING_STATE_DEPTH; i = plain_int; { i }
+  | KWD_DEPTH; i = plain_int; { i }
+
+result_continuation:
+  | c = continuation { Return c }
+  | KWD_NEVER { Never_returns }
+;
 
 apply_cont_expr:
   | cont = continuation; args = simple_args
@@ -509,10 +550,10 @@ apply_cont_expr:
 
 exn_and_stub:
   | { false, false }
-  | STUB { false, true }
-  | EXN { true, false }
-  | STUB EXN { true, true }
-  | EXN STUB { true, true }
+  | KWD_STUB { false, true }
+  | KWD_EXN { true, false }
+  | KWD_STUB KWD_EXN { true, true }
+  | KWD_EXN KWD_STUB { true, true }
 ;
 
 continuation_handler:
@@ -532,7 +573,7 @@ static_structure:
 ;
 
 static_part:
-  | BLOCK; m = mutability; tag = tag; LPAREN;
+  | KWD_BLOCK; m = mutability; tag = tag; LPAREN;
     elements = separated_list(COMMA, of_kind_value); RPAREN
     { (Block { tag; mutability = m; elements } : static_part) }
 ;
@@ -555,8 +596,12 @@ of_kind_value:
 ;
 
 kinded_variable:
-  | param = variable { { param; kind = None } }
-  | param = variable; COLON; kind = kind { { param; kind = Some kind } }
+  | param = variable; kind = kind_opt { { param; kind } }
+;
+
+kind_opt:
+  | { None }
+  | COLON; kind = kind { Some kind }
 ;
 
 simple_args:
@@ -617,8 +662,8 @@ continuation:
 ;
 
 special_continuation:
-  | DONE { Done : special_continuation }
-  | ERROR { Error : special_continuation }
+  | KWD_DONE { Done }
+  | KWD_ERROR { Error }
 ;
 
 var_within_closure:

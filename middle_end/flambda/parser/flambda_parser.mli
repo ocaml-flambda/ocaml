@@ -2,23 +2,10 @@
 (* The type of tokens. *)
 
 type token = 
-  | WITH
-  | WHERE
-  | VAL
-  | UNSIGNED
-  | UNROLL
-  | UNREACHABLE
-  | UNIT
-  | TUPLED
-  | SYMBOL of (string)
-  | SWITCH
-  | STUB
+  | SYMBOL of (Fexpr.compilation_unit option * string)
   | STAR
-  | SIZE
-  | SET_OF_CLOSURES
   | SEMICOLON
   | RPAREN
-  | REC
   | RBRACE
   | PRIM_UNTAG_IMM
   | PRIM_TAG_IMM
@@ -32,68 +19,86 @@ type token =
   | PRIM_GET_TAG
   | PRIM_BLOCK_LOAD
   | PRIM_BLOCK
+  | PRIM_ARRAY_SET
+  | PRIM_ARRAY_LOAD
+  | PRIM_ARRAY_LENGTH
   | PLUSDOT
   | PLUS
   | PIPE
   | NOTEQUALDOT
-  | NOALLOC
-  | NEWER_VERSION_OF
-  | NEVER
-  | NATIVEINT
-  | MUTABLE
   | MINUSGREATER
   | MINUSDOT
   | MINUS
   | LPAREN
-  | LET
+  | LESSMINUS
   | LESSEQUALDOT
   | LESSEQUAL
   | LESSDOT
   | LESS
   | LBRACE
-  | INT64
-  | INT32
+  | KWD_WITH
+  | KWD_WHERE
+  | KWD_VAL
+  | KWD_UNSIGNED
+  | KWD_UNROLL
+  | KWD_UNREACHABLE
+  | KWD_UNIT
+  | KWD_TUPLED
+  | KWD_SWITCH
+  | KWD_STUB
+  | KWD_SIZE
+  | KWD_SET_OF_CLOSURES
+  | KWD_REC
+  | KWD_NOALLOC
+  | KWD_NEWER_VERSION_OF
+  | KWD_NEVER
+  | KWD_NATIVEINT
+  | KWD_MUTABLE
+  | KWD_LET
+  | KWD_INT64
+  | KWD_INT32
+  | KWD_INLINING_STATE
+  | KWD_INLINE
+  | KWD_IN
+  | KWD_IMMUTABLE_UNIQUE
+  | KWD_IMM
+  | KWD_HINT
+  | KWD_HCF
+  | KWD_FLOAT
+  | KWD_FABRICATED
+  | KWD_EXN
+  | KWD_ERROR
+  | KWD_END
+  | KWD_DYNAMIC
+  | KWD_DONE
+  | KWD_DIRECT
+  | KWD_DEPTH
+  | KWD_DELETED
+  | KWD_DEFAULT
+  | KWD_CONT
+  | KWD_CODE
+  | KWD_CLOSURE
+  | KWD_CCALL
+  | KWD_BLOCK
+  | KWD_APPLY
+  | KWD_ANDWHERE
+  | KWD_AND
+  | KWD_ALWAYS
   | INT of (string * char option)
-  | INLINING_STATE_DEPTH
-  | INLINING_STATE
-  | INLINE
-  | IN
-  | IMMUTABLE_UNIQUE
-  | IMM
   | IDENT of (string)
-  | HINT
-  | HCF
   | GREATEREQUALDOT
   | GREATEREQUAL
   | GREATERDOT
   | GREATER
-  | FLOAT_KIND
   | FLOAT of (float)
-  | FABRICATED
-  | EXN
-  | ERROR
   | EQUALDOT
   | EQUAL
   | EOF
-  | END
   | DOT
-  | DONE
-  | DIRECT
-  | DELETED
-  | DEFAULT
-  | CONT
   | COMMA
   | COLON
-  | CODE
-  | CLOSURE
-  | CCALL
-  | BLOCK
   | BIGARROW
   | AT
-  | APPLY
-  | ANDWHERE
-  | AND
-  | ALWAYS
 
 (* This exception is raised by the monolithic API functions. *)
 

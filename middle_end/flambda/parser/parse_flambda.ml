@@ -48,6 +48,17 @@ let run_parser ~start_symbol ~start_pos (lb : Lexing.lexbuf) =
             try Flambda_parser_messages.message s
             with Not_found -> Format.sprintf "Unknown error in state %d" s
           in
+          (* CR-someday lmaurer: Fix the error messages. This is not a small
+           * task - there are (or should be) 175 of them as of this writing,
+           * many of them need to be rewritten entirely, and even for the ones
+           * that need small tweaks, I don't know of any good way of updating
+           * the comments in the .messages file that tell you the state of
+           * the parser corresponding to an error message.
+           *
+           * A good alternative would be to generate something sensible
+           * automatically by inspecting the grammar, but I don't see any
+           * straightforward way to do that either. *)
+          let msg = msg ^ " (note: error messages are wildly out of date)" in
           let loc =
             make_loc ~relative_to:start_pos
               (Parser.MenhirInterpreter.positions error_state)

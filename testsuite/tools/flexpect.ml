@@ -34,7 +34,7 @@ let dump_error (e : Parse_flambda.error) =
       Flambda_lex.pp_error error
 
 let run_expect_test
-      ~backend ~extension ~filename ?tag
+      ~backend ~extension ~filename
       ({ before; after = expected } : Fexpr.expect_test_spec)
       : Test_outcome.t =
   let comp_unit =
