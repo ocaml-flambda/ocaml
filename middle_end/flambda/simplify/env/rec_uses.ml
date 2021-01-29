@@ -122,3 +122,121 @@ let add_apply_cont_args cont arg_name_occurrences t =
     { elt with apply_cont_args; }
   )
 
+(* Functional queues *)
+(* ***************** *)
+
+module Queue = struct
+
+  type 'a t = {
+    head : 'a list;
+    rev_tail : 'a list;
+  }
+
+  let empty = {
+    head = [];
+    rev_tail = [];
+  }
+
+  let add x t =
+    { t with rev_tail = x :: t.rev_tail; }
+
+  let rec pop t =
+    match t.head with
+    | x :: head -> Some (x, { t with head; })
+    | [] ->
+      begin match t.rev_tail with
+      | [] -> None
+      | l -> pop { head = List.rev l; rev_tail = []; }
+      end
+
+end
+
+(* Variable graph *)
+(* ************** *)
+
+module Var_graph = struct
+
+  type t = Variable.Set.t Variable.Map.t
+
+  let empty : t = Variable.Map.empty
+
+  let add_edge ~src ~dst t =
+    Variable.Map.update src (function
+      | None -> Some (Variable.Set.singleton dst)
+      | Some set -> Some (Variable.Set.add dst set)
+    ) t
+
+  let edges ~src t =
+    match Variable.Map.find src t with
+    | res -> res
+    | exception Not_found -> Variable.Set.empty
+
+  (* breadth-first reachability analysis
+     CR gbury: would using sets (and thus union and diff) instead of a
+               queue be better ? Enqueuing new nodes would be faster, but
+               we'd lose the bread-first aspect, and revert to some kind of
+               lexicographic order of traversal. *)
+  let rec reachable t visited queue =
+    match Queue.pop queue with
+    | None -> visited
+    | Some (v, queue) ->
+      if Variable.Set.mem v visited then
+        reachable t visited queue
+      else begin
+        let visited = Variable.Set.add v visited in
+        let queue =
+          Variable.Set.fold (fun dst q ->
+            if Variable.Set.mem dst visited
+            then queue
+            else Queue.add dst q
+          ) (edges t ~src:v) queue
+        in
+        reachable t visited queue
+      end
+
+end
+
+(* Analysis *)
+(* ******** *)
+
+let used_variables map =
+  (* Build the reversed graph of dependencies *)
+  let graph =
+    Continuation.Map.fold (fun _ { apply_cont_args; _ } graph ->
+      Continuation.Map.fold (fun k args graph ->
+        let params =
+          match Continuation.Map.find k map with
+          | params -> Array.of_list params
+          | exception Not_found ->
+            Misc.fatal_errorf "Continuation not found: %a@."
+              Continuation.print k
+        in
+        Numbers.Int.Map.fold (fun i name_occurrence graph ->
+          (* CR: is that the correct direction ? *)
+          let dst = params.(i) in
+          Name_occurrences.fold_variables name_occurrence ~init:graph
+            ~f:(fun g src -> Var_graph.add_edge ~src ~dst g)
+        ) args graph
+      ) apply_cont_args graph
+    ) map Var_graph.empty
+  in
+  let used =
+    Continuation.Map.fold (fun _ { used_in_handler; _ } set ->
+      Name_occurrences.fold_variables used_in_handler ~init:set
+        ~f:(fun set var -> Variable.Set.add var set)
+    ) map Variable.Set.empty
+  in
+  let transitively_used =
+    Var_graph.reachable graph Variable.Set.empty
+      (Variable.Set.fold Queue.add used Queue.empty)
+  in
+  transitively_used
+
+let analyze { stack; map; } =
+  assert (stack = []);
+  let used = used_variables map in
+  Format.eprintf "@.@\nUSED VARIABLES:@\n%a@\n@." Variable.Set.print used;
+  ()
+
+
+
