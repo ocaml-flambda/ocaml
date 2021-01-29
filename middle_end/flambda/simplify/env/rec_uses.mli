@@ -37,6 +37,10 @@ val print : Format.formatter -> t -> unit
 val empty : t
 (** Empty uses *)
 
+val init_toplevel : Continuation.t -> Variable.t list -> t -> t
+(** Initialize the rec_uses so that the stack consists of a single
+    toplevel continuation. *)
+
 val stack_cont : Continuation.t -> Variable.t list -> t -> t
 (** Add a new continuation on the stack. Used when entering a
     continuation handler. *)
@@ -60,7 +64,7 @@ val add_apply_cont_args : Continuation.t -> Name_occurrences.t list -> t -> t
 val analyze :
   return_continuation:Continuation.t ->
   exn_continuation:Continuation.t ->
-  t -> unit
+  t -> Variable.Set.t
 (** Analyze the rec uses.
     TODO: have a more useful return type. *)
 

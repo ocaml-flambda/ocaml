@@ -23,6 +23,18 @@
 module I = Ilambda
 module L = Lambda
 
+module Continuation = struct
+  include Continuation
+
+  let count = ref 0
+
+  let create ?sort () =
+    incr count;
+    let name = Printf.sprintf "k%d" !count in
+    Continuation.create ~name ?sort ()
+
+end
+
 type proto_switch = {
   numconsts : int;
   consts : (int * L.lambda) list;

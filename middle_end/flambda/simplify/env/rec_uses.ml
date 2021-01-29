@@ -12,6 +12,8 @@
 (*                                                                        *)
 (**************************************************************************)
 
+let debug = false
+
 (* Typedefs *)
 (* ******** *)
 
@@ -79,6 +81,9 @@ let stack_cont continuation params t =
   }
   in
   { t with stack = elt :: t.stack; }
+
+let init_toplevel continuation params t =
+  stack_cont continuation params { t with stack = []; }
 
 let unstack_cont cont t =
   match t.stack with
@@ -250,8 +255,8 @@ let used_variables ~return_continuation ~exn_continuation map =
       ) apply_cont_args (graph, used)
     ) map (Var_graph.empty, Variable.Set.empty)
   in
-  Format.eprintf "@.@\nGRAPH:@\n%a@\n@." Var_graph.print graph;
-  Format.eprintf "@.@\nUSED:@\n%a@\n@." Variable.Set.print used;
+  if debug then (Format.eprintf "@.@\nGRAPH:@\n%a@\n@." Var_graph.print graph);
+  if debug then (Format.eprintf "@.@\nUSED:@\n%a@\n@." Variable.Set.print used);
   let transitively_used =
     Var_graph.reachable graph Variable.Set.empty
       (Variable.Set.fold Queue.add used Queue.empty)
@@ -260,9 +265,10 @@ let used_variables ~return_continuation ~exn_continuation map =
 
 let analyze ~return_continuation ~exn_continuation { stack; map; } =
   assert (stack = []);
+  Format.eprintf "return: %a@." Continuation.print return_continuation;
   let used = used_variables ~return_continuation ~exn_continuation map in
-  Format.eprintf "@.@\nUSED VARIABLES:@\n%a@\n@." Variable.Set.print used;
-  ()
+  if debug then (Format.eprintf "@.@\nUSED VARIABLES:@\n%a@\n@." Variable.Set.print used);
+  used
 
 
 
