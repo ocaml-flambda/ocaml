@@ -2,11 +2,6 @@
 ; runs ocamllex and menhir from this directory rather than the workspace root,
 ; meaning the generated source is annotated with the bare filename.
 
-; CR-someday lmaurer: Rewrite the first two rules using (ocamllex) and (menhir)
-; (you can use the (merge_into) option to menhir to reproduce the --base
-; argument). At that point, remove or disable the Makefile so that we don't get
-; different results (that get checked in!) between make and dune.
-
 ; These rules are disabled by default because you need precisely the correct
 ; version of Menhir installed. Comment out (mode fallback) and uncomment (mode
 ; promote) in each stanza if you make changes to the Flambda
@@ -18,14 +13,6 @@
   (target  flambda_lex.ml)
   (deps    flambda_lex.mll)
   (action  (run ocamllex -q %{deps})))
-
-(rule
-  (mode    fallback)
-  ;(mode    promote)
-  (targets flambda_parser_in.ml
-           flambda_parser_in.mli)
-  (deps    flambda_parser.mly)
-  (action  (run menhir --table %{deps} --base flambda_parser_in)))
 
 (rule
   (mode   fallback)
@@ -44,6 +31,12 @@
   (action (with-stdin-from %{deps}
             (with-stdout-to %{target}
               (run sed "s/MenhirLib/CamlinternalMenhirLib/g")))))
+
+(rule
+  (targets flambda_parser_in.ml
+           flambda_parser_in.mli)
+  (deps    flambda_parser.mly)
+  (action  (run menhir --table %{deps} --base flambda_parser_in)))
 
 ; NOTE: flambda_parser.messages is massively out of date. No need to activate
 ; this rule unless you've fixed it (thanks!).
