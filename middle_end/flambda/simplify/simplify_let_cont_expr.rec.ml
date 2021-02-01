@@ -88,8 +88,16 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
               true
             end else begin
               first := false;
-              Name_occurrences.mem_var free_names (KP.var param)
-              && Variable.Set.mem (KP.var param) (UA.used_continuation_params uacc)
+              let tmp = Variable.Set.mem (KP.var param) (UA.used_continuation_params uacc) in
+              let occ = Name_occurrences.mem_var free_names (KP.var param) in
+              if not tmp then
+                if occ then
+                  Format.eprintf "(non-rec) rec-unused: %a in %a@."
+                    KP.print param Continuation.print cont
+                else
+                  Format.eprintf "(non-rec) unused: %a in %a@."
+                 KP.print param Continuation.print cont;
+              occ && tmp
             end)
             params
       in
@@ -534,7 +542,9 @@ let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
         let used_continuation_params = UA.used_continuation_params uacc in
         let used_params =
           List.filter (fun param ->
-            Variable.Set.mem (KP.var param) used_continuation_params
+            let b = Variable.Set.mem (KP.var param) used_continuation_params in
+            if not b then Format.eprintf "(rec) unused : %a@." KP.print param;
+            b
           ) params
           |> KP.Set.of_list
         in

@@ -41,14 +41,32 @@ let inline_linearly_used_continuation uacc ~create_apply_cont ~params ~handler
         Apply_cont.print apply_cont
         Expr.print handler
     end;
-    let bindings_outermost_first =
-      ListLabels.map2 params args
-        ~f:(fun param arg ->
-          let bound =
-            Var_in_binding_pos.create (KP.var param) Name_mode.normal
-            |> Bindable_let_bound.singleton
-          in
-          bound, Simplified_named.reachable (Named.create_simple arg))
+    let bindings_outermost_first = List.rev (
+      ListLabels.fold_left2 params args ~init:[]
+        ~f:(fun acc param arg ->
+          (* In the case of a pair (param, arg), 'param' might be an unused
+             continuation parameter. The recursive uses analysis being global,
+             it will sometimes cause removals that will render the right-hand side
+             of the binding (i.e. 'arg') invalid because it will refer to another
+             variable that has been eliminated. The recursive use anlaysis rely on
+             the fact that bindings where 'param' is unused will be removed.
+
+             However, without the explicit check below, such bindings can sometime
+             be kept by the code because the parameter variable is user-visible;
+             in those cases, the new bound variable becomes phantom, but the right
+             hand side of the binding refers to non-existing variables, which
+             yield compilation errors. *)
+            let used_continuation_params = UA.used_continuation_params uacc in
+            if not (Variable.Set.mem (KP.var param) used_continuation_params) then
+              acc
+            else begin
+              let bound =
+                Var_in_binding_pos.create (KP.var param) Name_mode.normal
+                |> Bindable_let_bound.singleton
+              in
+              (bound, Simplified_named.reachable (Named.create_simple arg)) :: acc
+            end)
+    )
     in
     let expr, uacc =
       let uacc =
