@@ -14,31 +14,39 @@ let make_located txt (startpos, endpos) =
 let make_plain_int = function
   | s, None -> Int64.of_string s |> Int64.to_int
   | _, Some _ ->
-    failwith "No modifier expected here"
+    Misc.fatal_errorf "No modifier expected here"
 
 let make_targetint = function
   | s, None -> Int64.of_string s
   | _, Some _ ->
-    failwith "No modifier expected here"
+    Misc.fatal_errorf "No modifier expected here"
 
 let make_tag ~loc:_ = function
   | s, None -> int_of_string s
   | _, Some _ ->
-    failwith "No modifier allowed for tags"
+    Misc.fatal_errorf "No modifier allowed for tags"
 
 let make_tagged_immediate ~loc:_ = function
   | s, None -> s
   | _, _ ->
-    failwith "Must be a tagged immediate"
+    Misc.fatal_errorf "Must be a tagged immediate"
 
 let make_const_int (i, m) : const =
   match m with
   | None -> Tagged_immediate i
-  | Some 'u' -> Naked_immediate i
+  | Some 'i' -> Naked_immediate i
   | Some 'n' -> Naked_nativeint (Int64.of_string i)
   | Some 'l' -> Naked_int32 (Int32.of_string i)
   | Some 'L' -> Naked_int64 (Int64.of_string i)
-  | Some c -> failwith (Printf.sprintf "Unknown int modifier %c" c)
+  | Some c -> Misc.fatal_errorf "Unknown int modifier: %c" c
+
+let make_boxed_const_int (i, m) : static_data =
+  match m with
+  | None -> Misc.fatal_errorf "Need int modifier for static data"
+  | Some 'n' -> Boxed_nativeint (Const (Int64.of_string i))
+  | Some 'l' -> Boxed_int32 (Const (Int32.of_string i))
+  | Some 'L' -> Boxed_int64 (Const (Int64.of_string i))
+  | Some c -> Misc.fatal_errorf "Bad int modifier for static data: %c" c
 
 %}
 
@@ -59,6 +67,7 @@ let make_const_int (i, m) : const =
 %token <string> IDENT
 %token <string * char option> INT
 %token LBRACE [@symbol "{"]
+%token LBRACKPIPE [@symbol "[|"]
 %token LESS   [@symbol "<"]
 %token LESSDOT [@symbol "<."]
 %token LESSEQUAL [@symbol "<="]
@@ -69,13 +78,21 @@ let make_const_int (i, m) : const =
 %token MINUSDOT [@symbol "-."]
 %token MINUSGREATER [@symbol "->"]
 %token NOTEQUALDOT [@symbol "!=."]
+%token QMARK [@symbol "?"]
+%token QMARKDOT [@symbol "?."]
 %token PIPE [@symbol "|"]
+%token PERCENT [@symbol "%"]
 %token PLUS     [@symbol "+"]
 %token PLUSDOT  [@symbol "+."]
 %token RBRACE [@symbol "}"]
+%token RBRACKPIPE [@symbol "|]"]
 %token RPAREN [@symbol ")"]
 %token SEMICOLON [@symbol ";"]
+%token SLASH  [@symbol "/"]
+%token SLASHDOT [@symbol "/."]
 %token STAR   [@symbol "*"]
+%token STARDOT [@symbol "*."]
+%token<string> STRING
 %token<Fexpr.compilation_unit option * string> SYMBOL
 %token EOF
 
@@ -84,6 +101,7 @@ let make_const_int (i, m) : const =
 %token KWD_ANDWHERE [@symbol "andwhere"]
 %token KWD_APPLY [@symbol "apply"]
 %token KWD_BLOCK [@symbol "Block"]
+%token KWD_BOXED [@symbol "boxed"]
 %token KWD_CCALL  [@symbol "ccall"]
 %token KWD_CLOSURE  [@symbol "closure"]
 %token KWD_CODE  [@symbol "code"]
@@ -99,6 +117,8 @@ let make_const_int (i, m) : const =
 %token KWD_EXN   [@symbol "exn"]
 %token KWD_FABRICATED [@symbol "fabricated"]
 %token KWD_FLOAT [@symbol "float"]
+%token KWD_FLOAT_ARRAY [@symbol "Float_array"]
+%token KWD_FLOAT_BLOCK [@symbol "Float_block"]
 %token KWD_HCF   [@symbol "halt_and_catch_fire"]
 %token KWD_HINT  [@symbol "hint"]
 %token KWD_IMM   [@symbol "imm" ]
@@ -108,7 +128,10 @@ let make_const_int (i, m) : const =
 %token KWD_INLINING_STATE [@symbol "inlining_state"]
 %token KWD_INT32 [@symbol "int32"]
 %token KWD_INT64 [@symbol "int64"]
-%token KWD_LET    [@symbol "let"]
+%token KWD_LAND  [@symbol "land"]
+%token KWD_LET   [@symbol "let"]
+%token KWD_LOR   [@symbol "lor"]
+%token KWD_LXOR  [@symbol "lxor"]
 %token KWD_MUTABLE [@symbol "mutable"]
 %token KWD_NATIVEINT [@symbol "nativeint"]
 %token KWD_NEVER  [@symbol "never"]
@@ -119,6 +142,7 @@ let make_const_int (i, m) : const =
 %token KWD_SIZE   [@symbol "size"]
 %token KWD_STUB   [@symbol "stub"]
 %token KWD_SWITCH [@symbol "switch"]
+%token KWD_TAGGED [@symbol "tagged"]
 %token KWD_TUPLED [@symbol "tupled"]
 %token KWD_UNIT   [@symbol "unit"]
 %token KWD_UNREACHABLE [@symbol "unreachable"]
@@ -133,32 +157,48 @@ let make_const_int (i, m) : const =
 %token PRIM_ARRAY_SET [@symbol "%array_set"]
 %token PRIM_BLOCK [@symbol "%Block"]
 %token PRIM_BLOCK_LOAD [@symbol "%block_load"]
+%token PRIM_BOX_FLOAT [@symbol "%Box_float"]
+%token PRIM_BOX_INT32 [@symbol "%Box_int32"]
+%token PRIM_BOX_INT64 [@symbol "%Box_int64"]
+%token PRIM_BOX_NATIVEINT [@symbol "%Box_nativeint"]
 %token PRIM_GET_TAG [@symbol "%get_tag"]
+%token PRIM_INT_ARITH [@symbol "%int_arith"]
 %token PRIM_INT_COMP [@symbol "%int_comp"]
 %token PRIM_IS_INT [@symbol "%is_int"]
+%token PRIM_NUM_CONV [@symbol "%num_conv"]
 %token PRIM_OPAQUE [@symbol "%Opaque"]
 %token PRIM_PHYS_EQ [@symbol "%phys_eq"]
 %token PRIM_PHYS_NE [@symbol "%phys_ne"]
 %token PRIM_PROJECT_VAR [@symbol "%project_var"]
 %token PRIM_SELECT_CLOSURE [@symbol "%select_closure"]
-%token PRIM_TAG_IMM [@symbol "%Tag_imm"]
+%token PRIM_TAG_IMM [@symbol "%tag_imm"]
+%token PRIM_UNBOX_FLOAT [@symbol "%unbox_float"]
+%token PRIM_UNBOX_INT32 [@symbol "%unbox_int32"]
+%token PRIM_UNBOX_INT64 [@symbol "%unbox_int64"]
+%token PRIM_UNBOX_NATIVEINT [@symbol "%unbox_nativeint"]
 %token PRIM_UNTAG_IMM [@symbol "%untag_imm"]
 
 %start flambda_unit expect_test_spec
 %type <Fexpr.array_kind> array_kind
+%type <Fexpr.binary_float_arith_op> binary_float_arith_op
+%type <Fexpr.binary_int_arith_op> binary_int_arith_op
 %type <Fexpr.block_access_field_kind> block_access_field_kind
 %type <Fexpr.const> const
+%type <Fexpr.standard_int_or_float> convertible_type
 %type <Fexpr.expect_test_spec> expect_test_spec
+%type <Fexpr.field_of_block> field_of_block
 %type <Fexpr.flambda_unit> flambda_unit
+%type <Fexpr.comparison Fexpr.comparison_behaviour> float_comp
+%type <float Fexpr.or_variable> float_or_variable
+%type <Fexpr.infix_binop> infix_binop
+%type <Fexpr.ordered_comparison Fexpr.comparison_behaviour> int_comp
 %type <Fexpr.kind> kind
 %type <Fexpr.mutability> mutability
 %type <Fexpr.name> name
 %type <Fexpr.named> named
-%type <Fexpr.of_kind_value> of_kind_value
-%type <Fexpr.ordered_comparison> int_comp
 %type <Fexpr.special_continuation> special_continuation
 %type <Fexpr.standard_int> standard_int
-%type <Fexpr.static_structure> static_structure
+%type <Fexpr.static_data_binding> static_data_binding
 %type <Fexpr.symbol_binding> symbol_binding
 %%
 
@@ -198,7 +238,7 @@ let_symbol(body):
 ;
 
 symbol_binding:
-  | s = static_structure { Block_like s }
+  | s = static_data_binding { Data s }
   | code = code { Code code }
   | s = static_closure_binding { Closure s }
   | s = static_set_of_closures { Set_of_closures s }
@@ -259,32 +299,35 @@ recursive:
 
 unop:
   | PRIM_ARRAY_LENGTH; ak = array_kind { Array_length ak }
+  | PRIM_BOX_FLOAT { Box_number Naked_float }
+  | PRIM_BOX_INT32 { Box_number Naked_int32 }
+  | PRIM_BOX_INT64 { Box_number Naked_int64 }
+  | PRIM_BOX_NATIVEINT { Box_number Naked_nativeint }
   | PRIM_GET_TAG { Get_tag }
   | PRIM_IS_INT { Is_int }
+  | PRIM_NUM_CONV; LPAREN;
+      src = convertible_type; MINUSGREATER; dst = convertible_type;
+    RPAREN
+    { Num_conv { src; dst } }
   | PRIM_OPAQUE { Opaque_identity }
-  | PRIM_TAG_IMM { Tag_imm }
-  | PRIM_UNTAG_IMM { Untag_imm }
   | PRIM_PROJECT_VAR; project_from = closure_id; DOT; var = var_within_closure
     { Project_var { project_from; var } }
-  | PRIM_SELECT_CLOSURE; LPAREN; move_from = closure_id; MINUSGREATER;
-      move_to = closure_id; RPAREN
+  | PRIM_SELECT_CLOSURE; LPAREN;
+      move_from = closure_id; MINUSGREATER; move_to = closure_id;
+    RPAREN
     { Select_closure { move_from; move_to } }
+  | PRIM_TAG_IMM { Box_number Untagged_immediate }
+  | PRIM_UNBOX_FLOAT { Unbox_number Naked_float }
+  | PRIM_UNBOX_INT32 { Unbox_number Naked_int32 }
+  | PRIM_UNBOX_INT64 { Unbox_number Naked_int64 }
+  | PRIM_UNBOX_NATIVEINT { Unbox_number Naked_nativeint }
+  | PRIM_UNTAG_IMM { Unbox_number Untagged_immediate }
 
 infix_binop:
-  | PLUS { Plus }
-  | MINUS { Minus }
-  | LESS { Lt }
-  | LESSEQUAL { Le }
-  | GREATER { Gt }
-  | GREATEREQUAL { Ge }
-  | PLUSDOT { Plusdot }
-  | MINUSDOT { Minusdot }
-  | EQUALDOT { Eqdot }
-  | NOTEQUALDOT { Neqdot }
-  | LESSDOT { Lt }
-  | LESSEQUALDOT { Le }
-  | GREATERDOT { Gt }
-  | GREATEREQUALDOT { Ge }
+  | o = binary_int_arith_op { Int_arith o }
+  | c = int_comp { Int_comp c }
+  | o = binary_float_arith_op { Float_arith o }
+  | c = float_comp { Float_comp c }
 ;
 
 prefix_binop:
@@ -319,6 +362,14 @@ standard_int:
   | KWD_INT64 { Naked_int64 }
   | KWD_NATIVEINT { Naked_nativeint }
 
+convertible_type:
+  | KWD_IMM KWD_TAGGED { Tagged_immediate }
+  | KWD_IMM { Naked_immediate }
+  | KWD_FLOAT { Naked_float }
+  | KWD_INT32 { Naked_int32 }
+  | KWD_INT64 { Naked_int64 }
+  | KWD_NATIVEINT { Naked_nativeint }
+
 init_or_assign:
   | EQUAL { Initialization }
   | LESSMINUS { Assignment }
@@ -327,11 +378,37 @@ signed_or_unsigned:
   | { Signed }
   | KWD_UNSIGNED { Unsigned }
 
+binary_int_arith_op:
+  | PLUS { Add }
+  | MINUS { Sub }
+  | STAR { Mul }
+  | SLASH { Div }
+  | PERCENT { Mod }
+  | KWD_LAND { And }
+  | KWD_LOR { Or }
+  | KWD_LXOR { Xor }
+
+binary_float_arith_op:
+  | PLUSDOT { Add }
+  | MINUSDOT { Sub }
+  | STARDOT { Mul }
+  | SLASHDOT { Div }
+
 int_comp:
-  | LESS { Lt }
-  | GREATER { Gt }
-  | LESSEQUAL { Le }
-  | GREATEREQUAL { Ge }
+  | LESS { Yielding_bool Lt }
+  | GREATER { Yielding_bool Gt }
+  | LESSEQUAL { Yielding_bool Le }
+  | GREATEREQUAL { Yielding_bool Ge }
+  | QMARK { Yielding_int_like_compare_functions }
+
+float_comp:
+  | EQUALDOT { Yielding_bool Eq }
+  | NOTEQUALDOT { Yielding_bool Neq }
+  | LESSDOT { Yielding_bool Lt }
+  | GREATERDOT { Yielding_bool Gt }
+  | LESSEQUALDOT { Yielding_bool Le }
+  | GREATEREQUALDOT { Yielding_bool Ge }
+  | QMARKDOT { Yielding_int_like_compare_functions }
 
 binop_app:
   | op = prefix_binop; LPAREN; arg1 = simple; COMMA; arg2 = simple; RPAREN
@@ -341,6 +418,9 @@ binop_app:
   | PRIM_ARRAY_LOAD; ak = array_kind; mut = mutability;
     arg1 = simple; DOT; LPAREN; arg2 = simple; RPAREN
     { Binary (Array_load (ak, mut), arg1, arg2) }
+  | PRIM_INT_ARITH; i = standard_int;
+    arg1 = simple; c = binary_int_arith_op; arg2 = simple
+    { Binary (Int_arith (i, c), arg1, arg2) }
   | PRIM_INT_COMP;
     i = standard_int; s = signed_or_unsigned;
     arg1 = simple; c = int_comp; arg2 = simple
@@ -476,8 +556,8 @@ let_(body):
 ;
 
 let_binding:
-  | v = kinded_variable EQUAL defining_expr = named
-      { let { param = var; kind } = v in { var; kind; defining_expr } }
+  | var = variable EQUAL defining_expr = named
+      { { var; defining_expr } }
 ;
 
 with_closure_elements_opt:
@@ -567,16 +647,39 @@ kinded_args:
   | LPAREN v = separated_nonempty_list(COMMA, kinded_variable) RPAREN { v }
   | { [] }
 
-static_structure:
-  | s = symbol EQUAL sp = static_part
-    { { symbol = s; kind = None; defining_expr = sp } }
+static_data_binding:
+  | s = symbol EQUAL sp = static_data
+    { { symbol = s; defining_expr = sp } }
 ;
 
-static_part:
+static_data:
   | KWD_BLOCK; m = mutability; tag = tag; LPAREN;
-    elements = separated_list(COMMA, of_kind_value); RPAREN
-    { (Block { tag; mutability = m; elements } : static_part) }
+    elements = separated_list(COMMA, field_of_block); RPAREN
+    { (Block { tag; mutability = m; elements } : static_data) }
+  | f = FLOAT { Boxed_float (Const f) }
+  | i = INT { make_boxed_const_int i }
+  | v = variable; COLON; k = static_data_kind { k v }
+  | KWD_FLOAT_BLOCK; LPAREN;
+    fs = separated_list(COMMA, float_or_variable);
+    RPAREN
+    { Immutable_float_block fs }
+  | KWD_FLOAT_ARRAY; LBRACKPIPE;
+    fs = separated_list(SEMICOLON, float_or_variable);
+    RBRACKPIPE
+    { Immutable_float_array fs }
+  | KWD_MUTABLE; s = STRING { Mutable_string { initial_value = s } }
+  | s = STRING { Immutable_string s }
 ;
+
+static_data_kind:
+  | KWD_FLOAT KWD_BOXED { fun v -> Boxed_float (Var v) }
+  | KWD_INT32 KWD_BOXED { fun v -> Boxed_int32 (Var v) }
+  | KWD_INT64 KWD_BOXED { fun v -> Boxed_int64 (Var v) }
+  | KWD_NATIVEINT KWD_BOXED { fun v -> Boxed_nativeint (Var v) }
+
+float_or_variable:
+  | f = FLOAT { Const f }
+  | v = variable { Var v }
 
 targetint:
   i = INT { make_targetint i }
@@ -589,7 +692,7 @@ plain_int:
   i = INT { make_plain_int i }
 ;
 
-of_kind_value:
+field_of_block:
   | s = symbol { Symbol s }
   | v = variable { Dynamically_computed v }
   | i = INT { Tagged_immediate ( make_tagged_immediate ~loc:($startpos, $endpos) i ) }

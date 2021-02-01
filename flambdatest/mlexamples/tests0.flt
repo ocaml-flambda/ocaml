@@ -1,20 +1,22 @@
 let $camlTests0__first_const16 = Block 0 () in
 let code f_0 (param) my_closure -> k * k1 =
-  (let prim = %is_int 0 in
-   let Pflambda_isint = %Tag_imm prim in
-   let untagged = %untag_imm Pflambda_isint in
+  let x = 0 in
+  let prim = %is_int 0 in
+  let Pflambda_isint = %Tag_imm prim in
+  (let untagged = %untag_imm Pflambda_isint in
    switch untagged
-     | 0 -> k3
-     | 1 -> k2)
+     | 0 -> k2
+     | 1 -> k3)
     where k3 =
-      let prim = %get_tag 0 in
-      let Pgettag = %Tag_imm prim in
+      let untagged = %untag_imm x in
+      cont k (0)
+    where k2 =
+      let prim_1 = %get_tag 0 in
+      let Pgettag = %Tag_imm prim_1 in
       let untagged = %untag_imm Pgettag in
       switch untagged
         | 0 -> k (1)
         | 1 -> k (2)
-    where k2 =
-      cont k (0)
 in
 (let f = closure f_0 @f in
  let Pmakeblock = %Block 0 (f) in

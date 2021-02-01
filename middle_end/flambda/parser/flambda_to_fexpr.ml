@@ -311,6 +311,9 @@ let name env n =
     ~var:(fun v : Fexpr.name -> Var (Env.find_var_exn env v))
     ~symbol:(fun s : Fexpr.name -> Symbol (Env.find_symbol_exn env s))
 
+let float f = f |> Numbers.Float_by_bit_pattern.to_float
+let targetint i = i |> Targetint.to_int64
+
 let const c : Fexpr.const =
   match Reg_width_things.Const.descr c with
   | Naked_immediate imm ->
@@ -318,13 +321,13 @@ let const c : Fexpr.const =
   | Tagged_immediate imm ->
     Tagged_immediate (imm |> Target_imm.to_targetint' |> Targetint.to_string)
   | Naked_float f ->
-    Naked_float (f |> Numbers.Float_by_bit_pattern.to_float)
+    Naked_float (f |> float)
   | Naked_int32 i ->
     Naked_int32 i
   | Naked_int64 i ->
     Naked_int64 i
   | Naked_nativeint i ->
-    Naked_nativeint (i |> Targetint.to_int64)
+    Naked_nativeint (i |> targetint)
 
 let simple env s =
   Simple.pattern_match s
@@ -366,18 +369,13 @@ let recursive_flag (r : Recursive.t) : Fexpr.is_recursive =
 
 let unop env (op : Flambda_primitive.unary_primitive) : Fexpr.unop =
   match op with
-  | Array_length ak ->
-    Array_length ak
-  | Box_number Untagged_immediate ->
-    Tag_imm
-  | Get_tag ->
-    Get_tag
-  | Is_int ->
-    Is_int
-  | Opaque_identity ->
-    Opaque_identity
-  | Unbox_number Untagged_immediate ->
-    Untag_imm
+  | Array_length ak -> Array_length ak
+  | Box_number bk -> Box_number bk
+  | Get_tag -> Get_tag
+  | Is_int -> Is_int
+  | Num_conv { src; dst } -> Num_conv { src; dst }
+  | Opaque_identity -> Opaque_identity
+  | Unbox_number bk -> Unbox_number bk
   | Project_var { project_from; var } ->
     let project_from = Env.translate_closure_id env project_from in
     let var = Env.translate_var_within_closure env var in
@@ -413,32 +411,12 @@ let binop (op : Flambda_primitive.binary_primitive) : Fexpr.binop =
       | k -> Some k
     in
     Phys_equal (k, op)
-  | Int_arith (Tagged_immediate, Add) ->
-    Infix Plus
-  | Int_arith (Tagged_immediate, Sub) ->
-    Infix Minus
-  | Int_comp (Tagged_immediate, Signed, Yielding_bool Lt) ->
-    Infix Lt
-  | Int_comp (Tagged_immediate, Signed, Yielding_bool Gt) ->
-    Infix Gt
-  | Int_comp (Tagged_immediate, Signed, Yielding_bool Le) ->
-    Infix Le
-  | Int_comp (Tagged_immediate, Signed, Yielding_bool Ge) ->
-    Infix Ge
-  | Int_comp (i, s, Yielding_bool c) ->
-    Int_comp (i, s, c)
-  | Float_comp (Yielding_bool Eq) ->
-    Infix Eqdot
-  | Float_comp (Yielding_bool Neq) ->
-    Infix Neqdot
-  | Float_comp (Yielding_bool Lt) ->
-    Infix Ltdot
-  | Float_comp (Yielding_bool Gt) ->
-    Infix Gtdot
-  | Float_comp (Yielding_bool Le) ->
-    Infix Ledot
-  | Float_comp (Yielding_bool Ge) ->
-    Infix Gedot
+  | Int_arith (Tagged_immediate, o) ->        Infix (Int_arith o)
+  | Int_arith (i, o) ->                       Int_arith (i, o)
+  | Int_comp (Tagged_immediate, Signed, c) -> Infix (Int_comp c)
+  | Int_comp (i, s, c) ->                     Int_comp (i, s, c)
+  | Float_arith o ->                          Infix (Float_arith o)
+  | Float_comp c ->                           Infix (Float_comp c)
   | _ ->
     Misc.fatal_errorf "TODO: Binary primitive: %a"
       Flambda_primitive.Without_args.print
@@ -506,7 +484,7 @@ let set_of_closures env sc =
   fun_decls, elts
 
 let field_of_block env (field : Flambda.Static_const.Field_of_block.t)
-      : Fexpr.of_kind_value =
+      : Fexpr.field_of_block =
   match field with
   | Symbol symbol ->
     Symbol (Env.find_symbol_exn env symbol)
@@ -515,7 +493,12 @@ let field_of_block env (field : Flambda.Static_const.Field_of_block.t)
   | Dynamically_computed var ->
     Dynamically_computed (Env.find_var_exn env var)
 
-let static_const env (sc : Flambda.Static_const.t) : Fexpr.static_part =
+let or_variable f env (ov : _ Or_variable.t) : _ Fexpr.or_variable =
+  match ov with
+  | Const c -> Const (f c)
+  | Var v -> Var (Env.find_var_exn env v)
+
+let static_const env (sc : Flambda.Static_const.t) : Fexpr.static_data =
   match sc with
   | Block (tag, mutability, fields) ->
     let tag = tag |> Tag.Scannable.to_int in
@@ -523,8 +506,16 @@ let static_const env (sc : Flambda.Static_const.t) : Fexpr.static_part =
     Block { tag; mutability; elements }
   | Code _ | Set_of_closures _ ->
     assert false
-  | _ ->
-    Misc.fatal_error "TODO: More static consts"
+  | Boxed_float f -> Boxed_float (or_variable float env f)
+  | Boxed_int32 i -> Boxed_int32 (or_variable Fun.id env i)
+  | Boxed_int64 i -> Boxed_int64 (or_variable Fun.id env i)
+  | Boxed_nativeint i -> Boxed_nativeint (or_variable targetint env i)
+  | Immutable_float_block elements ->
+    Immutable_float_block (List.map (or_variable float env) elements)
+  | Immutable_float_array elements ->
+    Immutable_float_array (List.map (or_variable float env) elements)
+  | Mutable_string { initial_value } -> Mutable_string { initial_value }
+  | Immutable_string s -> Immutable_string s
 
 let rec expr env e =
   match Flambda.Expr.descr e with
@@ -572,7 +563,7 @@ and dynamic_let_expr env vars (defining_expr : Flambda.Named.t) body
     Misc.fatal_error "Mismatched vars vs. values";
   let bindings =
     List.map2 (fun var defining_expr ->
-      { Fexpr.var; kind = None; defining_expr }
+      { Fexpr.var; defining_expr }
     ) vars defining_exprs in
   Let { bindings; closure_elements; body }
 and static_let_expr env bound_symbols defining_expr body : Fexpr.expr =
@@ -610,7 +601,7 @@ and static_let_expr env bound_symbols defining_expr body : Fexpr.expr =
        * already during the first pass *)
       let symbol = Env.find_symbol_exn env symbol in
       let defining_expr = static_const env const in
-      Block_like { symbol; kind = None; defining_expr }
+      Data { symbol; defining_expr }
     | Set_of_closures closure_symbols, Set_of_closures set ->
       let fun_decls, elements = set_of_closures env set in
       let symbols_by_closure_id =

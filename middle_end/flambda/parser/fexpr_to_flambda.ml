@@ -286,7 +286,7 @@ let name env (s:Fexpr.name) : Name.t =
       Name.symbol (get_symbol env sym)
     end
 
-let of_kind_value env (v:Fexpr.of_kind_value)
+let field_of_block env (v:Fexpr.field_of_block)
       : Flambda.Static_const.Field_of_block.t =
   match v with
   | Symbol s ->
@@ -299,14 +299,20 @@ let of_kind_value env (v:Fexpr.of_kind_value)
     let var = find_var env var in
     Dynamically_computed var
 
+let or_variable f env (ov : _ Fexpr.or_variable) : _ Or_variable.t =
+  match ov with
+  | Const c -> Const (f c)
+  | Var v -> Var (find_var env v)
+
 let unop env (unop:Fexpr.unop) : Flambda_primitive.unary_primitive =
   match unop with
   | Array_length ak -> Array_length ak
+  | Box_number bk -> Box_number bk
+  | Unbox_number bk -> Unbox_number bk
   | Get_tag -> Get_tag
   | Is_int -> Is_int
+  | Num_conv { src; dst } -> Num_conv { src; dst }
   | Opaque_identity -> Opaque_identity
-  | Tag_imm -> Box_number Untagged_immediate
-  | Untag_imm -> Unbox_number Untagged_immediate
   | Project_var { project_from; var } ->
     let var = fresh_or_existing_var_within_closure env var in
     let project_from = fresh_or_existing_closure_id env project_from in
@@ -317,22 +323,11 @@ let unop env (unop:Fexpr.unop) : Flambda_primitive.unary_primitive =
     Select_closure { move_from; move_to }
 
 let infix_binop (binop:Fexpr.infix_binop) : Flambda_primitive.binary_primitive =
-  let int_comp c = Flambda_primitive.Int_comp (Tagged_immediate, Signed, Yielding_bool c) in
   match binop with
-  | Plus -> Int_arith (Tagged_immediate, Add)
-  | Minus -> Int_arith (Tagged_immediate, Sub)
-  | Lt -> int_comp Lt
-  | Gt -> int_comp Gt
-  | Le -> int_comp Le
-  | Ge -> int_comp Ge
-  | Plusdot
-  | Minusdot -> failwith "TODO binop"
-  | Eqdot -> Float_comp (Yielding_bool Eq)
-  | Neqdot -> Float_comp (Yielding_bool Neq)
-  | Ltdot -> Float_comp (Yielding_bool Lt)
-  | Gtdot -> Float_comp (Yielding_bool Gt)
-  | Ledot -> Float_comp (Yielding_bool Le)
-  | Gedot -> Float_comp (Yielding_bool Ge)
+  | Int_arith o -> Int_arith (Tagged_immediate, o)
+  | Float_arith o -> Float_arith o
+  | Int_comp c -> Int_comp (Tagged_immediate, Signed, c)
+  | Float_comp c -> Float_comp c
 
 let binop (binop:Fexpr.binop) : Flambda_primitive.binary_primitive =
   match binop with
@@ -355,8 +350,10 @@ let binop (binop:Fexpr.binop) : Flambda_primitive.binary_primitive =
     Phys_equal (kind, op)
   | Infix op ->
     infix_binop op
+  | Int_arith (i, o) ->
+    Int_arith (i, o)
   | Int_comp (i, s, c) ->
-    Int_comp (i, s, Yielding_bool c)
+    Int_comp (i, s, c)
 
 let ternop (ternop:Fexpr.ternop) : Flambda_primitive.ternary_primitive =
   match ternop with
@@ -488,7 +485,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
   | Let { closure_elements = Some _; _ } ->
     Misc.fatal_errorf
       "'with' clause only allowed when defining closures"
-  | Let { bindings = [{ var; kind = _; defining_expr = d }];
+  | Let { bindings = [{ var; defining_expr = d }];
           body;
           closure_elements = None } ->
     let named = defining_expr env d in
@@ -599,7 +596,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
         | Code { id; _ } ->
           let code_id, env = fresh_code_id env id in
           Bound_symbols.Pattern.code code_id, env
-        | Block_like { symbol; _ } ->
+        | Data { symbol; _ } ->
           let symbol, env = declare_symbol env symbol in
           Bound_symbols.Pattern.block_like symbol, env
         | Set_of_closures soc ->
@@ -624,14 +621,30 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
     let bound_symbols = bound_symbols |> Bound_symbols.create in
     let static_const env (b : Fexpr.symbol_binding) : Flambda.Static_const.t =
       match b with
-      | Block_like { symbol = _; kind = _; defining_expr = def } ->
+      | Data { symbol = _; defining_expr = def } ->
         begin
           match def with
           | Block { tag; mutability; elements = args } ->
             let tag = Tag.Scannable.create_exn tag in
             Flambda.Static_const.Block
               (tag, mutability,
-               List.map (of_kind_value env) args)
+               List.map (field_of_block env) args)
+          | Boxed_float f ->
+            Boxed_float (or_variable float env f)
+          | Boxed_int32 i ->
+            Boxed_int32 (or_variable Fun.id env i)
+          | Boxed_int64 i ->
+            Boxed_int64 (or_variable Fun.id env i)
+          | Boxed_nativeint i ->
+            Boxed_nativeint (or_variable targetint env i)
+          | Immutable_float_block elements ->
+            Immutable_float_block (List.map (or_variable float env) elements)
+          | Immutable_float_array elements ->
+            Immutable_float_array (List.map (or_variable float env) elements)
+          | Mutable_string { initial_value = s } ->
+            Mutable_string { initial_value = s }
+          | Immutable_string s ->
+            Immutable_string s
         end
       | Set_of_closures { bindings; elements } ->
         let fun_decls =

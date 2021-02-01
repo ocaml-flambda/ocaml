@@ -1,5 +1,6 @@
 let $camlTests13__first_const62 = Block 0 () in
 let code `anon-fn[tests13.ml:19,44--59]_2` (param) my_closure -> k * k1 =
+  let const = 0 in
   cont k (0)
 in
 let code `anon-fn[tests13.ml:19,31--43]_3` (x) my_closure -> k * k1 =
@@ -10,8 +11,9 @@ let code `anon-fn[tests13.ml:16,2--118]_1` (param) my_closure -> k * k1 =
   let map_foo =
     %project_var `anon-fn[tests13.ml:16,2--118]`.map_foo_1 my_closure
   in
-  (let j = i + 3 in
-   let ignore = %Opaque j in
+  let j = i + 3 in
+  (let ignore = %Opaque j in
+   let const = 0 in
    cont k2 (0))
     where k2 (sequence) =
       let `anon-fn[tests13.ml:19,44--59]` =
@@ -22,14 +24,14 @@ let code `anon-fn[tests13.ml:16,2--118]_1` (param) my_closure -> k * k1 =
         closure `anon-fn[tests13.ml:19,31--43]_3`
           @`anon-fn[tests13.ml:19,31--43]`
       in
-      apply
-        inline(never)
+      apply inline(never)
         map_foo
         (`anon-fn[tests13.ml:19,31--43]`, `anon-fn[tests13.ml:19,44--59]`, 0)
         -> k
         * k1
 in
 let code inline(always) bar_0 (i, map_foo) my_closure -> k * k1 =
+  let sequence = 0 in
   let `anon-fn[tests13.ml:16,2--118]` =
     closure `anon-fn[tests13.ml:16,2--118]_1`
       @`anon-fn[tests13.ml:16,2--118]`
@@ -38,49 +40,59 @@ let code inline(always) bar_0 (i, map_foo) my_closure -> k * k1 =
   cont k (`anon-fn[tests13.ml:16,2--118]`)
 in
 let code `anon-fn[tests13.ml:29,15--28]_5` (param) my_closure -> k * k1 =
+  let const = 0 in
   cont k (0)
 in
 let code rec map_foo_4 (f, seq, param) my_closure -> k * k1 =
   let bar = %project_var map_foo.bar_2 my_closure in
-  apply seq (0) -> k3 * k1
-    where k3 (`*match*`) =
-      ((let prim = %is_int `*match*` in
-        let Pflambda_isint = %Tag_imm prim in
-        let untagged = %untag_imm Pflambda_isint in
+  apply seq (0) -> k2 * k1
+    where k2 (`*match*`) =
+      let prim = %is_int `*match*` in
+      let Pflambda_isint = %Tag_imm prim in
+      ((let untagged = %untag_imm Pflambda_isint in
         switch untagged
-          | 0 -> k7
-          | 1 -> k2)
-         where k7 =
-           cont k6
-         where k6 =
-           ((let Popaque = %Opaque 0 in
-             let untagged = %untag_imm Popaque in
-             switch untagged
-               | 0 -> k6
-               | 1 -> k7)
-              where k7 =
-                apply bar (10, my_closure) -> k5 * k1
-              where k6 =
-                apply bar (20, my_closure) -> k5 * k1)
-         where k5 (g) =
-           apply inline(always) g (0) -> k4 * k1
-         where k4 (g_result) =
-           let ignore = %Opaque g_result in
-           cont k3 (0)
-         where k3 (sequence) =
-           let `anon-fn[tests13.ml:29,15--28]` =
-             closure `anon-fn[tests13.ml:29,15--28]_5`
-               @`anon-fn[tests13.ml:29,15--28]`
-           in
-           ((let Pfield = %block_load 0 size 2 (`*match*`, 0) in
-             apply f (Pfield) -> k3 * k1)
-              where k3 (apply_result) =
-                let Pmakeblock =
-                  %Block 0 (apply_result, `anon-fn[tests13.ml:29,15--28]`)
-                in
-                cont k (Pmakeblock)))
-    where k2 =
-      cont k (0)
+          | 0 -> k2
+          | 1 -> k3)
+         where k3 =
+           let untagged = %untag_imm `*match*` in
+           cont k (0)
+         where k2 =
+           let prim_1 = %get_tag `*match*` in
+           let Pgettag = %Tag_imm prim_1 in
+           ((let untagged = %untag_imm Pgettag in
+             cont k2)
+              where k2 =
+                ((let Popaque = %Opaque 0 in
+                  (let untagged = %untag_imm Popaque in
+                   switch untagged
+                     | 0 -> k3
+                     | 1 -> k4)
+                    where k4 =
+                      apply bar (10, my_closure) -> k2 * k1
+                    where k3 =
+                      apply bar (20, my_closure) -> k2 * k1)
+                   where k2 (g) =
+                     (apply inline(always) g (0) -> k2 * k1
+                        where k2 (g_result) =
+                          ((let ignore = %Opaque g_result in
+                            let const = 0 in
+                            cont k2 (0))
+                             where k2 (sequence) =
+                               let `anon-fn[tests13.ml:29,15--28]` =
+                                 closure `anon-fn[tests13.ml:29,15--28]_5`
+                                   @`anon-fn[tests13.ml:29,15--28]`
+                               in
+                               let Pfield =
+                                 %block_load 0 size 2 (`*match*`, 0)
+                               in
+                               (apply f (Pfield) -> k2 * k1
+                                  where k2 (apply_result) =
+                                    let Pmakeblock =
+                                      %Block 0
+                                        (apply_result,
+                                         `anon-fn[tests13.ml:29,15--28]`)
+                                    in
+                                    cont k (Pmakeblock)))))))
 in
 (let bar = closure bar_0 @bar in
  let map_foo = closure map_foo_4 @map_foo with { bar_2 = bar } in
@@ -126,40 +138,38 @@ let code rec map_foo_4_1 newer_version_of(map_foo_4) (f, seq, param)
                my_closure -> k * k1 =
   apply seq (0) -> k2 * k1
     where k2 (`*match*`) =
-      ((let prim = %is_int `*match*` in
-        switch prim
-          | 0 -> k4
-          | 1 -> k (0))
-         where k4 =
-           let Popaque = %Opaque 0 in
-           let untagged = %untag_imm Popaque in
-           switch untagged
-             | 0 -> k3 (20)
-             | 1 -> k3 (10)
-         where k3 (unboxed_clos_var_i_0) =
-           let j = unboxed_clos_var_i_0 + 4 in
-           let ignore = %Opaque j in
-           apply
-             direct(map_foo_4_1 @map_foo)
-             inline(never)
-             inlining_state (depth 1)
-             $camlTests13__map_foo_9
-             ($`camlTests13__anon-fn[tests13.ml:19,31--43]_8`,
-              $`camlTests13__anon-fn[tests13.ml:19,44--59]_7`,
-              0)
-             -> k2
-             * k1
-         where k2 (g_result) =
-           let ignore = %Opaque g_result in
-           ((let Pfield = %block_load 0 size 2 (`*match*`, 0) in
-             apply f (Pfield) -> k2 * k1)
-              where k2 (apply_result) =
-                let Pmakeblock =
-                  %Block 0
-                    (apply_result,
-                     $`camlTests13__anon-fn[tests13.ml:29,15--28]_12`)
-                in
-                cont k (Pmakeblock)))
+      let prim = %is_int `*match*` in
+      (switch prim
+         | 0 -> k2
+         | 1 -> k (0)
+         where k2 =
+           ((let Popaque = %Opaque 0 in
+             let untagged = %untag_imm Popaque in
+             switch untagged
+               | 0 -> k2 (20)
+               | 1 -> k2 (10))
+              where k2 (unboxed_clos_var_i_0) =
+                ((let j = unboxed_clos_var_i_0 + 3 in
+                  let ignore = %Opaque j in
+                  apply direct(map_foo_4_1 @map_foo) inline(never)
+                         inlining_state (depth 1)
+                    $camlTests13__map_foo_9
+                    ($`camlTests13__anon-fn[tests13.ml:19,31--43]_8`,
+                     $`camlTests13__anon-fn[tests13.ml:19,44--59]_7`,
+                     0)
+                    -> k2
+                    * k1)
+                   where k2 (g_result) =
+                     let ignore = %Opaque g_result in
+                     let Pfield = %block_load 0 size 2 (`*match*`, 0) in
+                     (apply f (Pfield) -> k2 * k1
+                        where k2 (apply_result) =
+                          let Pmakeblock =
+                            %Block 0
+                              (apply_result,
+                               $`camlTests13__anon-fn[tests13.ml:29,15--28]_12`)
+                          in
+                          cont k (Pmakeblock)))))
 and $camlTests13__map_foo_9 =
   closure map_foo_4_1 @map_foo
 in

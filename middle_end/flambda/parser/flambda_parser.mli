@@ -3,20 +3,37 @@
 
 type token = 
   | SYMBOL of (Fexpr.compilation_unit option * string)
+  | STRING of (string)
+  | STARDOT
   | STAR
+  | SLASHDOT
+  | SLASH
   | SEMICOLON
   | RPAREN
+  | RBRACKPIPE
   | RBRACE
+  | QMARKDOT
+  | QMARK
   | PRIM_UNTAG_IMM
+  | PRIM_UNBOX_NATIVEINT
+  | PRIM_UNBOX_INT64
+  | PRIM_UNBOX_INT32
+  | PRIM_UNBOX_FLOAT
   | PRIM_TAG_IMM
   | PRIM_SELECT_CLOSURE
   | PRIM_PROJECT_VAR
   | PRIM_PHYS_NE
   | PRIM_PHYS_EQ
   | PRIM_OPAQUE
+  | PRIM_NUM_CONV
   | PRIM_IS_INT
   | PRIM_INT_COMP
+  | PRIM_INT_ARITH
   | PRIM_GET_TAG
+  | PRIM_BOX_NATIVEINT
+  | PRIM_BOX_INT64
+  | PRIM_BOX_INT32
+  | PRIM_BOX_FLOAT
   | PRIM_BLOCK_LOAD
   | PRIM_BLOCK
   | PRIM_ARRAY_SET
@@ -25,6 +42,7 @@ type token =
   | PLUSDOT
   | PLUS
   | PIPE
+  | PERCENT
   | NOTEQUALDOT
   | MINUSGREATER
   | MINUSDOT
@@ -35,6 +53,7 @@ type token =
   | LESSEQUAL
   | LESSDOT
   | LESS
+  | LBRACKPIPE
   | LBRACE
   | KWD_WITH
   | KWD_WHERE
@@ -44,6 +63,7 @@ type token =
   | KWD_UNREACHABLE
   | KWD_UNIT
   | KWD_TUPLED
+  | KWD_TAGGED
   | KWD_SWITCH
   | KWD_STUB
   | KWD_SIZE
@@ -54,7 +74,10 @@ type token =
   | KWD_NEVER
   | KWD_NATIVEINT
   | KWD_MUTABLE
+  | KWD_LXOR
+  | KWD_LOR
   | KWD_LET
+  | KWD_LAND
   | KWD_INT64
   | KWD_INT32
   | KWD_INLINING_STATE
@@ -64,6 +87,8 @@ type token =
   | KWD_IMM
   | KWD_HINT
   | KWD_HCF
+  | KWD_FLOAT_BLOCK
+  | KWD_FLOAT_ARRAY
   | KWD_FLOAT
   | KWD_FABRICATED
   | KWD_EXN
@@ -79,6 +104,7 @@ type token =
   | KWD_CODE
   | KWD_CLOSURE
   | KWD_CCALL
+  | KWD_BOXED
   | KWD_BLOCK
   | KWD_APPLY
   | KWD_ANDWHERE

@@ -14,6 +14,8 @@ let pp_star_list f = pp_list ~sep:" *@ " f
 
 let pp_comma_list f = pp_list ~sep:",@ " f
 
+let pp_semi_list f = pp_list ~sep:";@ " f
+
 let empty_fmt : (unit, Format.formatter, unit) format = ""
 
 let pp_with ?(prefix=empty_fmt) ?(suffix=empty_fmt) ppf =
@@ -148,20 +150,33 @@ let standard_int ?prefix ?suffix () ppf (i : standard_int) =
   in
   pp_option ?prefix ?suffix Format.pp_print_string ppf str
 
+let convertible_type ppf (t : standard_int_or_float) =
+  let str = match t with
+    | Tagged_immediate -> "imm tagged"
+    | Naked_immediate -> "imm"
+    | Naked_float -> "float"
+    | Naked_int32 -> "int32"
+    | Naked_int64 -> "int64"
+    | Naked_nativeint -> "nativeint"
+  in
+  Format.pp_print_string ppf str
+
 let signed_or_unsigned ?prefix ?suffix () ppf (s : signed_or_unsigned) =
   match s with
   | Signed -> ()
   | Unsigned -> pp_with ?prefix ?suffix ppf "unsigned"
 
-let of_kind_value ppf : of_kind_value -> unit = function
+let field_of_block ppf : field_of_block -> unit = function
   | Symbol s -> symbol ppf s
   | Dynamically_computed v -> variable ppf v
   | Tagged_immediate i -> Format.fprintf ppf "%s" i
 
+let float ppf f = Format.fprintf ppf "%h" f
+
 let const ppf (c:Fexpr.const) = match c with
-  | Naked_immediate i -> Format.fprintf ppf "%su" i
+  | Naked_immediate i -> Format.fprintf ppf "%si" i
   | Tagged_immediate i -> Format.fprintf ppf "%s" i
-  | Naked_float f -> Format.fprintf ppf "%h" f
+  | Naked_float f -> float ppf f
   | Naked_int32 i -> Format.fprintf ppf "%lil" i
   | Naked_int64 i -> Format.fprintf ppf "%LiL" i
   | Naked_nativeint i -> Format.fprintf ppf "%Lin" i
@@ -208,24 +223,42 @@ let init_or_assign ppf ia =
   in
   Format.fprintf ppf "%s" str
 
-let static_part ppf : static_part -> _ = function
+let boxed_variable ppf var ~kind =
+  Format.fprintf ppf "%a : %s boxed" variable var kind
+
+let float_or_variable ppf : float or_variable -> unit = function
+  | Const f -> float ppf f
+  | Var v -> variable ppf v
+
+let static_data ppf : static_data -> unit = function
   | Block { tag; mutability = mut; elements = elts } ->
     Format.fprintf ppf "Block %a%i (@[<hv>%a@])"
       (mutability ~suffix:"@ " ()) mut
       tag
-      (pp_comma_list of_kind_value) elts
+      (pp_comma_list field_of_block) elts
+  | Boxed_float (Const f) -> Format.fprintf ppf "%h" f
+  | Boxed_int32 (Const i) -> Format.fprintf ppf "%lil" i
+  | Boxed_int64 (Const i) -> Format.fprintf ppf "%LiL" i
+  | Boxed_nativeint (Const i) -> Format.fprintf ppf "%Lin" i
+  | Boxed_float (Var v) -> boxed_variable ppf v ~kind:"float"
+  | Boxed_int32 (Var v) -> boxed_variable ppf v ~kind:"int32"
+  | Boxed_int64 (Var v) -> boxed_variable ppf v ~kind:"int64"
+  | Boxed_nativeint (Var v) -> boxed_variable ppf v ~kind:"nativeint"
+  | Immutable_float_block elements ->
+    Format.fprintf ppf "Float_block (%a)"
+      (pp_comma_list float_or_variable) elements
+  | Immutable_float_array elements ->
+    Format.fprintf ppf "Float_array [|%a|]"
+      (pp_semi_list float_or_variable) elements
+  | Mutable_string { initial_value = s } ->
+    Format.fprintf ppf "mutable \"%s\"" (s |> String.escaped)
+  | Immutable_string s ->
+    Format.fprintf ppf "\"%s\"" (s |> String.escaped)
 
-let static_structure ppf { symbol = s; kind = k; defining_expr = sp } =
-  match k with
-  | None ->
-    Format.fprintf ppf "%a =@ %a"
-      symbol s
-      static_part sp
-  | Some k ->
-    Format.fprintf ppf "@[<2>%a :@ %a@] =@ %a"
-      symbol s
-      kind k
-      static_part sp
+let static_data_binding ppf { symbol = s; defining_expr = sp } =
+  Format.fprintf ppf "%a =@ %a"
+    symbol s
+    static_data sp
 
 let invalid ppf = function
   | Halt_and_catch_fire ->
@@ -233,25 +266,56 @@ let invalid ppf = function
   | Treat_as_unreachable ->
     Format.fprintf ppf "Unreachable"
 
-let infix_binop ppf b =
-  let s =
-    match b with
-    | Plus -> "+"
-    | Minus -> "-"
-    | Lt -> "<"
-    | Gt -> ">"
-    | Le -> "<="
-    | Ge -> ">="
-    | Eqdot -> "=."
-    | Neqdot -> "!=."
-    | Plusdot -> "+."
-    | Minusdot -> "-."
-    | Ltdot -> "<."
-    | Gtdot -> ">."
-    | Ledot -> "<=."
-    | Gedot -> ">=."
-  in
-  Format.pp_print_string ppf s
+let binary_int_arith_op ppf (o : binary_int_arith_op) =
+  Format.pp_print_string ppf
+  @@
+  match o with
+  | Add -> "+"
+  | Sub -> "-"
+  | Mul -> "*"
+  | Div -> "/"
+  | Mod -> "%"
+  | And -> "land"
+  | Or -> "lor"
+  | Xor -> "lxor"
+
+let binary_float_arith_op ppf (o : binary_float_arith_op) =
+  Format.pp_print_string ppf
+  @@
+  match o with
+  | Add -> "+."
+  | Sub -> "-."
+  | Mul -> "*."
+  | Div -> "/."
+
+let int_comp ppf (o : ordered_comparison comparison_behaviour) =
+  Format.pp_print_string ppf
+  @@
+  match o with
+  | Yielding_bool Lt -> "<"
+  | Yielding_bool Gt -> ">"
+  | Yielding_bool Le -> "<="
+  | Yielding_bool Ge -> ">="
+  | Yielding_int_like_compare_functions -> "?"
+
+let float_comp ppf (o : comparison comparison_behaviour) =
+  Format.pp_print_string ppf
+  @@
+  match o with
+  | Yielding_bool Eq -> "=."
+  | Yielding_bool Neq -> "!=."
+  | Yielding_bool Lt -> "<."
+  | Yielding_bool Gt -> ">."
+  | Yielding_bool Le -> "<=."
+  | Yielding_bool Ge -> ">=."
+  | Yielding_int_like_compare_functions -> "?"
+
+let infix_binop ppf (b : infix_binop) =
+  match b with
+  | Int_arith o -> binary_int_arith_op ppf o
+  | Float_arith o -> binary_float_arith_op ppf o
+  | Int_comp c -> int_comp ppf c
+  | Float_comp c -> float_comp ppf c
 
 let binop ppf binop a b =
   match binop with
@@ -284,48 +348,62 @@ let binop ppf binop a b =
       | Eq -> "%phys_eq"
       | Neq -> "%phys_neq"
     in
-    Format.fprintf ppf "@[<2>%s%a@]"
+    Format.fprintf ppf "@[<2>%s%a@ (%a,@ %a)@]"
       name
       (pp_option ~prefix:"@ {" ~suffix:"}" kind) k
+      simple a
+      simple b
   | Infix op ->
     Format.fprintf ppf "%a %a %a"
       simple a
       infix_binop op
       simple b
+  | Int_arith (i, o) ->
+      Format.fprintf ppf "@[<2>%%int_arith %a%a@ %a@ %a@]"
+        (standard_int ~suffix:"@ " ()) i
+        simple a
+        binary_int_arith_op o
+        simple b
   | Int_comp (i, s, c) ->
     begin
-      let rel =
-        match c with
-        | Lt -> "<"
-        | Gt -> ">"
-        | Le -> "<="
-        | Ge -> ">="
-      in
-      Format.fprintf ppf "@[<2>%%int_comp %a%a%a@ %s@ %a@]"
+      Format.fprintf ppf "@[<2>%%int_comp %a%a%a@ %a@ %a@]"
         (standard_int ~suffix:"@ " ()) i
         (signed_or_unsigned ~suffix:"@ " ()) s
         simple a
-        rel
+        int_comp c
         simple b
         ;
     end
 
 let unop ppf u =
   let str s = Format.pp_print_string ppf s in
+  let box_or_unbox verb_not_imm verb_imm (bk : box_kind) =
+    let print verb obj =
+      Format.fprintf ppf "%%%s_%s" verb obj
+    in
+    match bk with
+    | Naked_float -> print verb_not_imm "float"
+    | Naked_int32 -> print verb_not_imm "int32"
+    | Naked_int64 -> print verb_not_imm "int64"
+    | Naked_nativeint -> print verb_not_imm "nativeint"
+    | Untagged_immediate -> print verb_imm "imm"
+  in
   match u with
   | Array_length ak ->
     Format.fprintf ppf "@[<2>%%array_length%a@]"
       (array_kind ~prefix:"@ " ()) ak
+  | Box_number bk ->
+    box_or_unbox "Box" "Tag" bk
   | Get_tag ->
     str "%get_tag"
   | Is_int ->
     str "%is_int"
+  | Num_conv { src; dst } ->
+    Format.fprintf ppf "@[<2>%%num_conv@ (%a@ -> %a)@]"
+      convertible_type src
+      convertible_type dst
   | Opaque_identity ->
     str "%Opaque"
-  | Tag_imm ->
-    str "%Tag_imm"
-  | Untag_imm ->
-    str "%untag_imm"
   | Project_var { project_from; var } ->
     Format.fprintf ppf "@[<2>%%project_var@ %a.%a@]"
       closure_id project_from
@@ -334,6 +412,8 @@ let unop ppf u =
     Format.fprintf ppf "@[<2>%%select_closure@ (%a@ -> %a)@]"
       closure_id move_from
       closure_id move_to
+  | Unbox_number bk ->
+    box_or_unbox "unbox" "untag" bk
 
 let ternop ppf t a1 a2 a3 =
   match t with
@@ -527,11 +607,11 @@ let rec expr scope ppf = function
 and let_expr scope ppf : let_ -> unit = function
   | { bindings = first :: rest; body; closure_elements = ces; } ->
     Format.fprintf ppf "@[<v>@[<hv>@[<hv2>let %a =@ %a@]"
-      kinded_variable (first.var, first.kind)
+      variable first.var
       named first.defining_expr;
-    List.iter (fun ({ var; kind; defining_expr } : let_binding) ->
+    List.iter (fun ({ var; defining_expr } : let_binding) ->
       Format.fprintf ppf "@ @[<hv2>and %a =@ %a@]"
-        kinded_variable (var, kind)
+        variable var
         named defining_expr;
     ) rest;
     Format.fprintf ppf "%a@ in@]@ %a@]"
@@ -571,7 +651,7 @@ and symbol_bindings ppf (bindings, elements) =
 
 and symbol_binding ppf (sb : symbol_binding) =
   match sb with
-  | Block_like ss -> static_structure ppf ss
+  | Data ss -> static_data_binding ppf ss
   | Code code -> code_binding ppf code
   | Closure clo -> static_closure_binding ppf clo
   | Set_of_closures soc ->
