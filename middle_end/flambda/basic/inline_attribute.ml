@@ -33,7 +33,9 @@ let print ppf t =
   | Default_inline -> fprintf ppf "Default_inline"
 
 let equal t1 t2 =
-  t1 == t2
+  match t1, t2 with
+  | Unroll n1, Unroll n2 -> n1 = n2
+  | _, _ -> t1 == t2
 
 let is_default t =
   match t with
