@@ -161,6 +161,7 @@ let create_let let_expr = create (Let let_expr)
 let create_let_cont let_cont = create (Let_cont let_cont)
 let create_apply apply = create (Apply apply)
 let create_apply_cont apply_cont = create (Apply_cont apply_cont)
+let create_switch switch = create (Switch switch)
 
 let create_invalid ?semantics () =
   let semantics : Invalid_term_semantics.t =
@@ -175,36 +176,6 @@ let create_invalid ?semantics () =
   in
   create (Invalid semantics)
 
-type switch_creation_result =
-  | Have_deleted_comparison_but_not_branch
-  | Have_deleted_comparison_and_branch
-  | Nothing_deleted
-
-let create_switch0 ~scrutinee ~arms : t * switch_creation_result =
-  if Target_imm.Map.cardinal arms < 1 then
-    create_invalid (), Have_deleted_comparison_and_branch
-  else
-    let change_to_apply_cont action =
-      create_apply_cont action, Have_deleted_comparison_but_not_branch
-    in
-    match Target_imm.Map.get_singleton arms with
-    | Some (_discriminant, action) -> change_to_apply_cont action
-    | None ->
-      (* CR mshinwell: We should do a partial invariant check here (one
-         which doesn't require [Invariant_env.t]. *)
-      let actions =
-        Apply_cont_expr.Set.of_list (Target_imm.Map.data arms)
-      in
-      match Apply_cont_expr.Set.get_singleton actions with
-      | Some action -> change_to_apply_cont action
-      | None ->
-        let switch = Switch.create ~scrutinee ~arms in
-        create (Switch switch), Nothing_deleted
-
-let create_switch ~scrutinee ~arms =
-  let expr, _ = create_switch0 ~scrutinee ~arms in
-  expr
-
 let create_if_then_else ~scrutinee ~if_true ~if_false =
   let arms =
     Target_imm.Map.of_list [
@@ -212,7 +183,7 @@ let create_if_then_else ~scrutinee ~if_true ~if_false =
       Target_imm.bool_false, if_false;
     ]
   in
-  create_switch ~scrutinee ~arms
+  create_switch (Switch_expr.create ~scrutinee ~arms)
 
 let bind_no_simplification ~bindings ~body ~free_names_of_body =
   ListLabels.fold_left (List.rev bindings)

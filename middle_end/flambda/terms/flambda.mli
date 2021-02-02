@@ -73,25 +73,7 @@ module rec Expr : sig
   (** Create a continuation application (in the zero-arity case, "goto"). *)
   val create_apply_cont : Apply_cont.t -> t
 
-  (** What happened when a [Switch]-expression was created. *)
-  type switch_creation_result = private
-    | Have_deleted_comparison_but_not_branch
-    | Have_deleted_comparison_and_branch
-    | Nothing_deleted
-
-  (** Create a [Switch] expression, save that zero-arm switches are converted
-      to [Invalid], and one-arm switches to [Apply_cont]. *)
-  val create_switch0
-     : scrutinee:Simple.t
-    -> arms:Apply_cont_expr.t Target_imm.Map.t
-    -> Expr.t * switch_creation_result
-
-  (** Like [create_switch0], but for use when the caller isn't interested in
-      whether something got deleted. *)
-  val create_switch
-     : scrutinee:Simple.t
-    -> arms:Apply_cont_expr.t Target_imm.Map.t
-    -> Expr.t
+  val create_switch : Switch_expr.t -> t
 
   (** Build a [Switch] corresponding to a traditional if-then-else. *)
   val create_if_then_else

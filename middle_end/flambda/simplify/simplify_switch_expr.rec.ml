@@ -208,7 +208,7 @@ let rebuild_switch dacc ~arms ~scrutinee ~scrutinee_ty uacc
               ~free_names_of_body:(Known (Expr.free_names body))
             |> Expr.create_let)
         | None ->
-          let expr = Expr.create_switch ~scrutinee ~arms in
+          let expr, uacc = EB.create_switch uacc ~scrutinee ~arms in
           if !Clflags.flambda_invariant_checks
             && Simple.is_const scrutinee
             && Target_imm.Map.cardinal arms > 1

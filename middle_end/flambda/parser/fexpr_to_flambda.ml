@@ -514,8 +514,9 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
       |> Target_imm.Map.of_list
     in
     Flambda.Expr.create_switch
-      ~scrutinee:(simple env scrutinee)
-      ~arms
+      (Flambda.Switch.create
+        ~scrutinee:(simple env scrutinee)
+        ~arms)
 
   | Let_symbol { bindings; closure_elements; body } ->
     (* Desugar the abbreviated form for a single set of closures *)

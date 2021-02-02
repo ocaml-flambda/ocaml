@@ -258,13 +258,14 @@ let rec bind_rec ~backend exn_cont
               (Prim expr_primitive) dbg
               (fun prim_result ->
                 (Expr.create_switch
-                  ~scrutinee:prim_result
-                  ~arms:(Target_imm.Map.of_list [
-                    Target_imm.bool_true,
-                      Apply_cont.goto condition_passed_cont;
-                    Target_imm.bool_false,
-                      Apply_cont.goto failure_cont;
-                  ])))
+                   (Switch.create
+                    ~scrutinee:prim_result
+                    ~arms:(Target_imm.Map.of_list [
+                      Target_imm.bool_true,
+                        Apply_cont.goto condition_passed_cont;
+                      Target_imm.bool_false,
+                        Apply_cont.goto failure_cont;
+                  ]))))
           in
           Let_cont.create_non_recursive condition_passed_cont
             condition_passed_cont_handler ~body

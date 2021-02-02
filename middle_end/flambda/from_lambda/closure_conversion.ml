@@ -506,11 +506,10 @@ let rec close t env (ilam : Ilambda.t) : Expr.t =
           ~dbg:Debuginfo.none
       in
       let switch =
-        let arms =
-          Target_imm.Map.singleton Target_imm.bool_false default_action
-          |> Target_imm.Map.add Target_imm.bool_true action
-        in
-        Expr.create_switch ~scrutinee:(Simple.var comparison_result) ~arms
+        let scrutinee = Simple.var comparison_result in
+        Expr.create_if_then_else ~scrutinee
+          ~if_true:action
+          ~if_false:default_action
       in
       let body =
         Let.create (Bindable_let_bound.singleton comparison_result')
@@ -542,8 +541,11 @@ let rec close t env (ilam : Ilambda.t) : Expr.t =
       if Target_imm.Map.is_empty arms then
         Expr.create_invalid ()
       else
+        let scrutinee = Simple.var untagged_scrutinee in
         let body =
-          Expr.create_switch ~scrutinee:(Simple.var untagged_scrutinee) ~arms
+          match Target_imm.Map.get_singleton arms with
+          | Some (_discriminant, action) -> Expr.create_apply_cont action
+          | None -> Expr.create_switch (Switch.create ~scrutinee ~arms)
         in
         Let.create (Bindable_let_bound.singleton untagged_scrutinee')
           untag ~body ~free_names_of_body:Unknown

@@ -67,3 +67,11 @@ val place_lifted_constants
   -> body:Expr.t
   -> critical_deps_of_bindings:Name_occurrences.t
   -> Expr.t * Upwards_acc.t
+
+(** Create a [Switch] expression, save that zero-arm switches are converted
+    to [Invalid], and one-arm switches to [Apply_cont]. *)
+val create_switch
+  : Upwards_acc.t
+      -> scrutinee:Simple.t
+      -> arms:Apply_cont_expr.t Target_imm.Map.t
+      -> Expr.t * Upwards_acc.t

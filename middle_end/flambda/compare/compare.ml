@@ -470,7 +470,7 @@ and subst_switch env switch =
   let arms =
     Target_imm.Map.map (subst_apply_cont env) (Switch_expr.arms switch)
   in
-  Expr.create_switch ~scrutinee ~arms
+  Expr.create_switch (Switch_expr.create ~scrutinee ~arms)
 ;;
 
 module Comparator = struct
@@ -1062,7 +1062,7 @@ let switch_exprs env switch1 switch2 : Expr.t Comparison.t =
     (Switch.arms switch1, Switch.scrutinee switch1)
     (Switch.arms switch2, Switch.scrutinee switch2)
   |> Comparison.map ~f:(fun (arms, scrutinee) ->
-      Expr.create_switch ~scrutinee ~arms
+      Expr.create_switch (Switch.create ~scrutinee ~arms)
   )
 ;;
 
