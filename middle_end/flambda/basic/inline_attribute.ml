@@ -34,8 +34,12 @@ let print ppf t =
 
 let equal t1 t2 =
   match t1, t2 with
+  | Always_inline, Always_inline
+  | Hint_inline, Hint_inline
+  | Never_inline, Never_inline
+  | Default_inline, Default_inline -> true
   | Unroll n1, Unroll n2 -> n1 = n2
-  | _, _ -> t1 == t2
+  | _, _ -> false
 
 let is_default t =
   match t with
