@@ -134,7 +134,9 @@ let $`camlTests13__anon-fn[tests13.ml:29,15--28]_12` =
   closure `anon-fn[tests13.ml:29,15--28]_5_1`
     @`anon-fn[tests13.ml:29,15--28]`
 in
-let code rec map_foo_4_1 newer_version_of(map_foo_4) (f, seq, param)
+let $camlTests13__map_foo_9 =
+  closure map_foo_4_1 @map_foo
+and code rec map_foo_4_1 newer_version_of(map_foo_4) (f, seq, param)
                my_closure -> k * k1 =
   apply seq (0) -> k2 * k1
     where k2 (`*match*`) =
@@ -170,8 +172,6 @@ let code rec map_foo_4_1 newer_version_of(map_foo_4) (f, seq, param)
                                $`camlTests13__anon-fn[tests13.ml:29,15--28]_12`)
                           in
                           cont k (Pmakeblock)))))
-and $camlTests13__map_foo_9 =
-  closure map_foo_4_1 @map_foo
 in
 let $camlTests13 = Block 0 ($camlTests13__map_foo_9) in
 cont done ($camlTests13)

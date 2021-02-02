@@ -96,6 +96,7 @@ type token =
   | KWD_END
   | KWD_DYNAMIC
   | KWD_DONE
+  | KWD_DOMINATOR_SCOPED
   | KWD_DIRECT
   | KWD_DEPTH
   | KWD_DELETED

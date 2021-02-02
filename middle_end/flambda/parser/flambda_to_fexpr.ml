@@ -533,10 +533,8 @@ and let_expr env le =
       dynamic_let_expr env [ var ] defining_expr body
     | Set_of_closures { closure_vars; _ } ->
       dynamic_let_expr env closure_vars defining_expr body
-    | Symbols { scoping_rule = Dominator; _ } ->
-      Misc.fatal_error "TODO: dominator-scoped symbols"
-    | Symbols { bound_symbols; scoping_rule = Syntactic } ->
-      static_let_expr env bound_symbols defining_expr body
+    | Symbols { bound_symbols; scoping_rule } ->
+      static_let_expr env bound_symbols scoping_rule defining_expr body
   )
 and dynamic_let_expr env vars (defining_expr : Flambda.Named.t) body
       : Fexpr.expr =
@@ -566,7 +564,8 @@ and dynamic_let_expr env vars (defining_expr : Flambda.Named.t) body
       { Fexpr.var; defining_expr }
     ) vars defining_exprs in
   Let { bindings; closure_elements; body }
-and static_let_expr env bound_symbols defining_expr body : Fexpr.expr =
+and static_let_expr env bound_symbols scoping_rule defining_expr body
+  : Fexpr.expr =
   let static_consts =
     match defining_expr with
     | Flambda.Named.Static_consts static_consts ->
@@ -683,43 +682,43 @@ and static_let_expr env bound_symbols defining_expr body : Fexpr.expr =
         Bound_symbols.Pattern.print pat
         Flambda.Static_const.print const
   in
-  let symbol_bindings = List.map2 translate_const bound_symbols static_consts in
-  (* If there's exactly one set of closures, make it implicit *)
-  let only_set_of_closures =
-    let rec loop only_set (symbol_bindings : Fexpr.symbol_binding list) =
-      match symbol_bindings with
-      | [] -> only_set
-      | Set_of_closures set :: symbol_bindings ->
-        begin
-          match only_set with
-          | None -> loop (Some set) symbol_bindings
-          | Some _ -> None
-        end
-      | _ :: symbol_bindings ->
-        loop only_set symbol_bindings
-    in
-    loop None symbol_bindings
+  let bindings = List.map2 translate_const bound_symbols static_consts in
+  let scoping_rule =
+    match scoping_rule with
+    | Symbol_scoping_rule.Syntactic -> None
+    | Symbol_scoping_rule.Dominator -> Some Symbol_scoping_rule.Dominator
   in
   let body = expr env body in
+  (* If there's exactly one set of closures, make it implicit *)
+  let only_set_of_closures =
+    let rec loop only_set (bindings : Fexpr.symbol_binding list) =
+      match bindings with
+      | [] -> only_set
+      | Set_of_closures set :: bindings ->
+        begin
+          match only_set with
+          | None -> loop (Some set) bindings
+          | Some _ -> None
+        end
+      | _ :: bindings ->
+        loop only_set bindings
+    in
+    loop None bindings
+  in
   match only_set_of_closures with
   | None ->
-    Let_symbol { bindings = symbol_bindings; closure_elements = None; body }
-  | Some { bindings; elements } ->
-    let symbol_bindings =
-      List.filter (fun (binding : Fexpr.symbol_binding) ->
+    Let_symbol { bindings; closure_elements = None; scoping_rule; body }
+  | Some { bindings = _; elements = closure_elements } ->
+    let bindings =
+      List.concat_map (fun (binding : Fexpr.symbol_binding) ->
         match binding with
-        | Set_of_closures _ -> false
-        | _ -> true
-      ) symbol_bindings
-    in
-    let extra_symbol_bindings =
-      List.map (fun (binding : Fexpr.static_closure_binding)
-          : Fexpr.symbol_binding ->
-        Closure binding
+        | Set_of_closures { bindings; elements = _ } ->
+          List.map (fun closure -> Fexpr.Closure closure) bindings
+        | _ ->
+          [ binding ]
       ) bindings
     in
-    let symbol_bindings = symbol_bindings @ extra_symbol_bindings in
-    Let_symbol { bindings = symbol_bindings; closure_elements = elements; body }
+    Let_symbol { bindings; closure_elements; scoping_rule; body }
 
 and let_cont_expr env (lc : Flambda.Let_cont_expr.t) =
   match lc with

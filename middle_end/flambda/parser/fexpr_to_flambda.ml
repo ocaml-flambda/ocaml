@@ -558,7 +558,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
       ~scrutinee:(simple env scrutinee)
       ~arms
 
-  | Let_symbol { bindings; closure_elements; body } ->
+  | Let_symbol { bindings; closure_elements; scoping_rule; body } ->
     (* Desugar the abbreviated form for a single set of closures *)
     let found_explicit_set = ref false in
     let closures_in_implicit_set =
@@ -578,16 +578,24 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
       | [], None ->
         bindings
       | _, _ ->
-        let not_a_closure (b : Fexpr.symbol_binding) =
-          match b with
-          | Closure _ -> false
-          | _ -> true
+        let implicit_set : Fexpr.static_set_of_closures =
+          { bindings = closures_in_implicit_set; elements = closure_elements; }
         in
-        let extra_bindings : Fexpr.symbol_binding list =
-          [ Set_of_closures { bindings = closures_in_implicit_set;
-                              elements = closure_elements; } ]
-        in
-        List.filter not_a_closure bindings @ extra_bindings
+        (* Will replace the first closure found with the set and the rest with
+         * nothing *)
+        let found_the_first_closure = ref false in
+        List.filter_map (fun (binding : Fexpr.symbol_binding) ->
+          match binding with
+          | Closure _ ->
+            if !found_the_first_closure
+              then None
+              else begin
+                found_the_first_closure := true;
+                Some (Set_of_closures implicit_set : Fexpr.symbol_binding)
+              end
+          | _ ->
+            Some binding
+        ) bindings
     in
     let bound_symbols, env =
       let process_binding env (b : Fexpr.symbol_binding)
@@ -737,8 +745,9 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
       List.map (static_const env) bindings
       |> Flambda.Static_const.Group.create
     in
+    let scoping_rule = scoping_rule |> Option.value ~default:Fexpr.Syntactic in
     let body = expr env body in
-    Flambda.Let.create (Bindable_let_bound.symbols bound_symbols Syntactic)
+    Flambda.Let.create (Bindable_let_bound.symbols bound_symbols scoping_rule)
       (Flambda.Named.create_static_consts static_consts)
       ~body
       ~free_names_of_body:Unknown

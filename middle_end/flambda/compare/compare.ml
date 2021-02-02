@@ -131,7 +131,7 @@ let log f e1 e2 thunk =
             | Different { approximant } ->
               Format.eprintf
                 "@[<hv>FOUND DIFFERENCE:\
-                @;<1 2>%a@;<1 0>!=@;<1 2>%a@;<1 0>approx@;<1 2>%a@]"
+                @;<1 2>%a@;<1 0>!=@;<1 2>%a@;<1 0>approx@;<1 2>%a@]\n%!"
                 f e1 f e2 f approximant
           end;
           ans
@@ -506,11 +506,11 @@ module Comparator = struct
     of_predicate ~f:(fun a1 a2 -> f a1 a2 = 0) ?subst
 end
 
-(* If subst2 is given, it will be used on the second member of the first
- * pair to produce an approximant if the first members are unequal (see step
- * 1(b)(ii) in the note at the top of the file).  This is *only* safe if the
- * type of the second component of the pair is such that unification is not
- * necessary, which is to say, if the second component cannot contain any
+(* If subst2 is given and the first components of the pairs are unequal, then
+ * rather than call f2 on the second components to produce the approximants (see
+ * step 1(b)(ii) in the note at the top of the file), it will use the
+ * (presumably faster) subst2 function instead. This is *only* safe if
+ * unification is unnecessary because the second components cannot contain any
  * closure ids or closure variables. *)
 let pairs
       ~(f1 : 'a Comparator.t)
@@ -1199,7 +1199,7 @@ and static_consts env (const1 : Static_const.t) (const2 : Static_const.t)
   | _, _ ->
     if Static_const.equal const1 const2
     then Equivalent
-    else Different { approximant = const1 }
+    else Different { approximant = subst_static_const env const1 }
 and codes env (code1 : Code.t) (code2 : Code.t) =
   let bodies env params_and_body1 params_and_body2 =
     Function_params_and_body.pattern_match_pair

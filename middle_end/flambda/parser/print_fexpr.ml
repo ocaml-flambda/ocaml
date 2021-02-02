@@ -528,6 +528,13 @@ let func_name_with_optional_arities ppf (n, arities) =
       arity params_arity
       arity ret_arity
 
+let symbol_scoping_rule ?prefix ?suffix () ppf sr =
+  pp_option Format.pp_print_string ?prefix ?suffix ppf
+  @@
+  match sr with
+  | None | Some Syntactic -> None
+  | Some Dominator -> Some "dominator_scoped"
+
 
 type scope =
   | Outer
@@ -622,8 +629,9 @@ and let_expr scope ppf : let_ -> unit = function
 
 
 and let_symbol_expr scope ppf = function
-  | { bindings; closure_elements; body } ->
-    Format.fprintf ppf "@[<v>@[<hv>@[<hv2>let %a@]@ in@]@ %a@]"
+  | { bindings; closure_elements; body; scoping_rule } ->
+    Format.fprintf ppf "@[<v>@[<hv>@[<hv2>let %a%a@]@ in@]@ %a@]"
+      (symbol_scoping_rule ~suffix:"@ " ()) scoping_rule
       symbol_bindings (bindings, closure_elements)
       (expr scope) body
 

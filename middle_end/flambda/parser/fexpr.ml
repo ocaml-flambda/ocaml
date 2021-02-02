@@ -284,6 +284,10 @@ type apply_cont = {
   args : simple list;
 }
 
+type symbol_scoping_rule = Symbol_scoping_rule.t =
+  | Syntactic
+  | Dominator
+
 type expr =
   | Let of let_
   | Let_cont of let_cont
@@ -345,6 +349,7 @@ and let_symbol = {
   bindings : symbol_binding list;
   (* Only used if there's no [Set_of_closures] in the list *)
   closure_elements : closure_elements option;
+  scoping_rule : symbol_scoping_rule option;
   body : expr;
 }
 
