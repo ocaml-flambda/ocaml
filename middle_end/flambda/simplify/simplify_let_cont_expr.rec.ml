@@ -90,13 +90,9 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
               first := false;
               let tmp = Variable.Set.mem (KP.var param) (UA.used_continuation_params uacc) in
               let occ = Name_occurrences.mem_var free_names (KP.var param) in
-              if not tmp then
-                if occ then
+              if not tmp && occ then
                   Format.eprintf "(non-rec) rec-unused: %a in %a@."
-                    KP.print param Continuation.print cont
-                else
-                  Format.eprintf "(non-rec) unused: %a in %a@."
-                 KP.print param Continuation.print cont;
+                    KP.print param Continuation.print cont;
               occ && tmp
             end)
             params
