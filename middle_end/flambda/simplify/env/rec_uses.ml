@@ -194,9 +194,7 @@ module Var_graph = struct
         let visited = Variable.Set.add v visited in
         let queue =
           Variable.Set.fold (fun dst q ->
-            if Variable.Set.mem dst visited
-            then queue
-            else Queue.add dst q
+            if Variable.Set.mem dst visited then q else Queue.add dst q
           ) (edges t ~src:v) queue
         in
         reachable t visited queue

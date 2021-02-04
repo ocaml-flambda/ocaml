@@ -24,9 +24,9 @@ let simplify_toplevel dacc expr ~return_continuation ~return_arity
       exn_continuation ~return_cont_scope ~exn_cont_scope =
   let toplevel_cont = Continuation.create ~name:"toplevel" () in
   let dacc = DA.map_rec_uses dacc ~f:(Rec_uses.init_toplevel toplevel_cont []) in
-  if debug then (Format.eprintf "@.@.SIMP_TOPLEVEL:@\n%a@\n%a@\n%a@\n@."
+  if debug then (Format.eprintf "@.@.SIMP_TOPLEVEL:@\n%a@\n%a@\n@."
                    Continuation.print return_continuation
-                   Expr.print expr Rec_uses.print (DA.rec_uses dacc));
+                   Rec_uses.print (DA.rec_uses dacc));
   let expr, uacc =
     Simplify_expr.simplify_expr dacc expr ~down_to_up:(fun dacc ~rebuild ->
       let dacc = DA.map_rec_uses dacc ~f:(Rec_uses.unstack_cont toplevel_cont) in
