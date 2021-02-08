@@ -30,7 +30,7 @@ let code `anon-fn[tests13.ml:16,2--118]_1` (param) my_closure -> k * k1 =
         -> k
         * k1
 in
-let code inline(always) bar_0 (i, map_foo) my_closure -> k * k1 =
+let code inline(always) bar_0 (i : imm tagged, map_foo) my_closure -> k * k1 =
   let sequence = 0 in
   let `anon-fn[tests13.ml:16,2--118]` =
     closure `anon-fn[tests13.ml:16,2--118]_1`
@@ -98,7 +98,8 @@ in
  let map_foo = closure map_foo_4 @map_foo with { bar_2 = bar } in
  let Pmakeblock = %Block 0 (map_foo) in
  cont k (Pmakeblock))
-  where k (module_block) =
+  where
+    define_root_symbol k (module_block) =
     let field_0 = %block_load 0 size 1 (module_block, 0) in
     let $camlTests13 = Block 0 (field_0) in
     cont done ($camlTests13)

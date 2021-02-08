@@ -107,6 +107,7 @@ let make_boxed_const_int (i, m) : static_data =
 %token KWD_CODE  [@symbol "code"]
 %token KWD_CONT  [@symbol "cont"]
 %token KWD_DEFAULT [@symbol "default"]
+%token KWD_DEFINE_ROOT_SYMBOL [@symbol "define_root_symbol"]
 %token KWD_DELETED [@symbol "deleted"]
 %token KWD_DEPTH [@symbol "depth"]
 %token KWD_DIRECT [@symbol "direct"]
@@ -141,7 +142,6 @@ let make_boxed_const_int (i, m) : static_data =
 %token KWD_REC    [@symbol "rec"]
 %token KWD_SET_OF_CLOSURES [@symbol "set_of_closures"]
 %token KWD_SIZE   [@symbol "size"]
-%token KWD_STUB   [@symbol "stub"]
 %token KWD_SWITCH [@symbol "switch"]
 %token KWD_TAGGED [@symbol "tagged"]
 %token KWD_TUPLED [@symbol "tupled"]
@@ -190,16 +190,22 @@ let make_boxed_const_int (i, m) : static_data =
 %type <Fexpr.field_of_block> field_of_block
 %type <Fexpr.flambda_unit> flambda_unit
 %type <Fexpr.comparison Fexpr.comparison_behaviour> float_comp
+%type <Fexpr.continuation_sort option> continuation_sort
 %type <float Fexpr.or_variable> float_or_variable
 %type <Fexpr.infix_binop> infix_binop
 %type <Fexpr.ordered_comparison Fexpr.comparison_behaviour> int_comp
 %type <Fexpr.kind> kind
+%type <Fexpr.kind_with_subkind> kind_with_subkind
+%type <Fexpr.kind_with_subkind list> kinds_with_subkinds
 %type <Fexpr.mutability> mutability
+%type <Fexpr.naked_number_kind> naked_number_kind
 %type <Fexpr.name> name
 %type <Fexpr.named> named
 %type <Fexpr.special_continuation> special_continuation
 %type <Fexpr.standard_int> standard_int
+%type <Fexpr.static_data> static_data
 %type <Fexpr.static_data_binding> static_data_binding
+%type <Fexpr.variable -> Fexpr.static_data> static_data_kind
 %type <Fexpr.symbol_binding> symbol_binding
 %%
 
@@ -265,9 +271,9 @@ code:
   | header = code_header;
     KWD_DELETED;
     COLON;
-    param_arity = kinds;
+    param_arity = kinds_with_subkinds;
     MINUSGREATER;
-    ret_arity = kinds;
+    ret_arity = kinds_with_subkinds;
     { let recursive, inline, id, newer_version_of = header in
       { id; newer_version_of; param_arity = Some param_arity;
         ret_arity = Some ret_arity; recursive; inline;
@@ -463,24 +469,35 @@ switch_case:
 switch:
   | option(PIPE); cs = separated_list(PIPE, switch_case) { cs }
 ;
+naked_number_kind:
+  | KWD_IMM { Naked_immediate }
+  | KWD_FLOAT { Naked_float }
+  | KWD_INT32 { Naked_int32 }
+  | KWD_INT64 { Naked_int64 }
+  | KWD_NATIVEINT { Naked_nativeint }
+;
 kind:
   | KWD_VAL { Value }
-  | KWD_IMM { Naked_number Naked_immediate }
-  | KWD_FLOAT { Naked_number Naked_float }
-  | KWD_INT32 { Naked_number Naked_int32 }
-  | KWD_INT64 { Naked_number Naked_int64 }
-  | KWD_NATIVEINT { Naked_number Naked_nativeint }
+  | nnk = naked_number_kind { Naked_number nnk }
   | KWD_FABRICATED { Fabricated }
 ;
-kinds:
+kind_with_subkind:
+  | KWD_VAL { Any_value }
+  | nnk = naked_number_kind { Naked_number nnk }
+  | KWD_FLOAT KWD_BOXED { Boxed_float }
+  | KWD_INT32 KWD_BOXED { Boxed_int32 }
+  | KWD_INT64 KWD_BOXED { Boxed_int64 }
+  | KWD_NATIVEINT KWD_BOXED { Boxed_nativeint }
+  | KWD_IMM KWD_TAGGED { Tagged_immediate }
+;
+kinds_with_subkinds :
   | KWD_UNIT { [] }
-  | ks = separated_nonempty_list(STAR, kind) { ks }
+  | ks = separated_nonempty_list(STAR, kind_with_subkind) { ks }
 ;
 return_arity:
   | { None }
-  | COLON k = kinds { Some k }
+  | COLON k = kinds_with_subkinds { Some k }
 ;
-
 kind_arg_opt:
   | { None }
   | LBRACE; k = kind; RBRACE { Some k }
@@ -516,8 +533,8 @@ inner_expr:
 
 where_expr:
   | body = inner_expr; KWD_WHERE; recursive = recursive;
-    handlers = separated_list(KWD_ANDWHERE, continuation_handler)
-     { Let_cont { recursive; body; handlers } }
+    bindings = separated_list(KWD_ANDWHERE, continuation_binding)
+     { Let_cont { recursive; body; bindings } }
 ;
 
 continuation_body:
@@ -634,24 +651,22 @@ apply_cont_expr:
     { { cont; args; trap_action = None } }
 ;
 
-exn_and_stub:
-  | { false, false }
-  | KWD_STUB { false, true }
-  | KWD_EXN { true, false }
-  | KWD_STUB KWD_EXN { true, true }
-  | KWD_EXN KWD_STUB { true, true }
+continuation_sort:
+  | { None }
+  | KWD_EXN { Some Exn }
+  | KWD_DEFINE_ROOT_SYMBOL { Some Define_root_symbol }
 ;
 
-continuation_handler:
-  | exn_and_stub = exn_and_stub; name = continuation_id;
+continuation_binding:
+  | sort = continuation_sort; name = continuation_id;
     params = kinded_args; EQUAL; handler = continuation_body
-    { let is_exn_handler, stub = exn_and_stub in
-      { name; params; stub; is_exn_handler; handler } }
+    { { name; params; handler; sort } }
 ;
 
 kinded_args:
-  | LPAREN v = separated_nonempty_list(COMMA, kinded_variable) RPAREN { v }
   | { [] }
+  | LPAREN; vs = separated_nonempty_list(COMMA, kinded_variable); RPAREN { vs }
+;
 
 static_data_binding:
   | s = symbol EQUAL sp = static_data
@@ -705,17 +720,16 @@ field_of_block:
 ;
 
 kinded_variable:
-  | param = variable; kind = kind_opt { { param; kind } }
+  | param = variable; kind = kind_with_subkind_opt { { param; kind } }
 ;
 
-kind_opt:
+kind_with_subkind_opt:
   | { None }
-  | COLON; kind = kind { Some kind }
-;
+  | COLON; kind = kind_with_subkind { Some kind }
 
 simple_args:
   | { [] }
-  | LPAREN s = separated_nonempty_list(COMMA, simple) RPAREN { s }
+  | LPAREN s = separated_nonempty_list(COMMA, simple); RPAREN { s }
 ;
 
 const:
@@ -730,8 +744,8 @@ name:
 
 func_name_with_optional_arities:
   | n = name { n, None }
-  | LPAREN; n = name; COLON; params_arity = kinds; MINUSGREATER;
-    ret_arity = kinds; RPAREN
+  | LPAREN; n = name; COLON; params_arity = kinds_with_subkinds; MINUSGREATER;
+    ret_arity = kinds_with_subkinds; RPAREN
     { n, Some ({ params_arity; ret_arity } : function_arities) }
 
 simple:

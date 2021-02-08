@@ -1261,15 +1261,29 @@ and let_cont_exprs env (let_cont1 : Let_cont.t) (let_cont2 : Let_cont.t)
   | Non_recursive { handler = handler1; num_free_occurrences = _ },
     Non_recursive { handler = handler2; num_free_occurrences = _ } ->
     let module Non_rec = Non_recursive_let_cont_handler in
+    let sorts_match =
+      let sort handler =
+        Non_rec.pattern_match handler ~f:(fun cont ~body:_ ->
+          Continuation.sort cont
+        )
+      in
+      Continuation.Sort.equal (sort handler1) (sort handler2)
+    in
     Non_rec.pattern_match_pair handler1 handler2
       ~f:(fun cont ~body1 ~body2 ->
         pairs ~f1:cont_handlers ~f2:exprs env
           (Non_rec.handler handler1, body1)
           (Non_rec.handler handler2, body2)
+        |> Comparison.add_condition
+             ~approximant:(fun () ->
+               subst_cont_handler env (Non_rec.handler handler1),
+               subst_expr env body1)
+             ~cond:sorts_match
         |> Comparison.map ~f:(fun (handler, body) ->
              Let_cont.create_non_recursive cont handler ~body
                ~free_names_of_body:Unknown
-           ))
+           )
+      )
   | Recursive handlers1, Recursive handlers2 ->
     let compare_handler_maps env map1 map2
         : Continuation_handler.t Continuation.Map.t Comparison.t =

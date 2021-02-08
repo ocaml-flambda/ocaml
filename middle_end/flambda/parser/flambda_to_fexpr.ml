@@ -344,16 +344,25 @@ let kind (k : Flambda_kind.t) : Fexpr.kind =
   | Fabricated -> Fabricated
   | Naked_number nnk -> Naked_number nnk
 
-let arity (a : Flambda_arity.With_subkinds.t) : Fexpr.flambda_arity =
-  List.map kind (Flambda_arity.With_subkinds.to_arity a)
+let kind_with_subkind (k : Flambda_kind.With_subkind.t)
+: Fexpr.kind_with_subkind =
+  match k |> Flambda_kind.With_subkind.descr with
+  | Any_value -> Any_value
+  | Naked_number nnk -> Naked_number nnk
+  | Boxed_float -> Boxed_float
+  | Boxed_int32 -> Boxed_int32
+  | Boxed_int64 -> Boxed_int64
+  | Boxed_nativeint -> Boxed_nativeint
+  | Tagged_immediate -> Tagged_immediate
 
-let arity_without_subkinds a = List.map kind a
+let arity (a : Flambda_arity.With_subkinds.t) : Fexpr.arity =
+  List.map kind_with_subkind a
 
 let kinded_parameter env (kp : Kinded_parameter.t)
       : Fexpr.kinded_parameter * Env.t =
   let k =
-    match kind (Flambda_kind.With_subkind.kind (Kinded_parameter.kind kp)) with
-    | Value -> None
+    match kind_with_subkind (Kinded_parameter.kind kp) with
+    | Any_value -> None
     | k -> Some k
   in
   let param, env = Env.bind_var env (Kinded_parameter.var kp) in
@@ -638,7 +647,7 @@ and static_let_expr env bound_symbols scoping_rule defining_expr body
       in
       let ret_arity =
         match arity (Flambda.Code.result_arity code) with
-        | [ Value ] -> None
+        | [ Any_value ] -> None
         | other -> Some other
       in
       let recursive = recursive_flag (Flambda.Code.recursive code) in
@@ -725,14 +734,15 @@ and let_cont_expr env (lc : Flambda.Let_cont_expr.t) =
   | Non_recursive { handler; _ } ->
     Flambda.Non_recursive_let_cont_handler.pattern_match handler
       ~f:(fun c ~body ->
+        let sort = Continuation.sort c in
         let c, body_env = Env.bind_named_continuation env c in
-        let handler =
-          cont_handler env c
+        let binding =
+          cont_handler env c sort
             (Flambda.Non_recursive_let_cont_handler.handler handler)
         in
         let body = expr body_env body in
         Fexpr.Let_cont { recursive = Nonrecursive;
-                         handlers = [ handler ];
+                         bindings = [ binding ];
                          body }
       )
   | Recursive handlers ->
@@ -744,31 +754,39 @@ and let_cont_expr env (lc : Flambda.Let_cont_expr.t) =
             env
           ) (Flambda.Continuation_handlers.domain handlers) env
         in
-        let handlers =
+        let bindings =
           List.map (fun (c, handler) ->
+            let sort = Continuation.sort c in
             let c =
               match Env.find_continuation_exn env c with
               | Named c -> c
               | Special _ -> assert false
             in
-            cont_handler env c handler
+            cont_handler env c sort handler
           ) (handlers
               |> Flambda.Continuation_handlers.to_map
               |> Continuation.Map.bindings)
         in
         let body = expr env body in
-        Fexpr.Let_cont { recursive = Recursive; handlers; body }
+        Fexpr.Let_cont { recursive = Recursive; bindings; body }
       )
-and cont_handler env cont_id h =
+and cont_handler env cont_id (sort : Continuation.Sort.t) h =
   let is_exn_handler = Flambda.Continuation_handler.is_exn_handler h in
+  let sort : Fexpr.continuation_sort option =
+    match sort with
+    | Normal -> assert (not is_exn_handler); None
+    | Define_root_symbol -> assert (not is_exn_handler); Some Define_root_symbol
+    | Exn -> assert is_exn_handler; Some Exn
+    | Return 
+    | Toplevel_return -> assert false
+  in
   Flambda.Continuation_handler.pattern_match h
-    ~f:(fun params ~handler : Fexpr.continuation_handler ->
+    ~f:(fun params ~handler : Fexpr.continuation_binding ->
       let params, env =
         Misc.Stdlib.List.map_accum_left kinded_parameter env params
       in
       let handler = expr env handler in
-      (* CR mshinwell: remove [stub], no longer used *)
-      { name = cont_id; params; stub = false; is_exn_handler; handler }
+      { name = cont_id; params; sort; handler }
     )
 and apply_expr env (app : Apply_expr.t) : Fexpr.expr =
   let func =
@@ -815,18 +833,16 @@ and apply_expr env (app : Apply_expr.t) : Fexpr.expr =
   let arities : Fexpr.function_arities option =
     match Apply_expr.call_kind app with
     | Function (Indirect_known_arity { param_arity; return_arity }) ->
-      let params_arity =
-        Flambda_arity.With_subkinds.to_arity param_arity
-        |> arity_without_subkinds
-      in
-      let ret_arity =
-        Flambda_arity.With_subkinds.to_arity return_arity
-        |> arity_without_subkinds
-      in
+      let params_arity = arity param_arity in
+      let ret_arity = arity return_arity in
       Some { params_arity; ret_arity; }
     | C_call { param_arity; return_arity; _ } ->
-      let params_arity = arity_without_subkinds param_arity in
-      let ret_arity = arity_without_subkinds return_arity in
+      let params_arity =
+        arity (param_arity |> Flambda_arity.With_subkinds.of_arity)
+      in
+      let ret_arity =
+        arity (return_arity |> Flambda_arity.With_subkinds.of_arity)
+      in
       Some { params_arity; ret_arity }
     | _ ->
       None

@@ -76,6 +76,15 @@ type kind = (* can't alias because Flambda_kind.t is private *)
   | Naked_number of naked_number_kind
   | Fabricated
 
+type kind_with_subkind = (* can't alias for same reason as [kind] *)
+  | Any_value
+  | Naked_number of naked_number_kind
+  | Boxed_float
+  | Boxed_int32
+  | Boxed_int64
+  | Boxed_nativeint
+  | Tagged_immediate
+
 type static_data_binding = {
   symbol : symbol;
   defining_expr : static_data;
@@ -88,7 +97,7 @@ type invalid_term_semantics = Invalid_term_semantics.t =
 type trap_action
 type kinded_parameter = {
   param : variable;
-  kind : kind option;
+  kind : kind_with_subkind option;
 }
 
 type name =
@@ -221,7 +230,7 @@ type prim =
   | Ternary of ternop * simple * simple * simple
   | Variadic of varop * simple list
 
-type flambda_arity = kind list
+type arity = kind_with_subkind list
 
 type function_call =
   | Direct of {
@@ -253,9 +262,16 @@ type result_continuation =
   | Return of continuation
   | Never_returns
 
+type continuation_sort =
+  | Normal
+  | Exn
+  | Define_root_symbol
+  (* There's also [Return] and [Toplevel_return], but those don't need to be
+   * specified explicitly *)
+
 type function_arities = {
-  params_arity : flambda_arity;
-  ret_arity : flambda_arity;
+  params_arity : arity;
+  ret_arity : arity;
 }
 
 type inline_attribute = Inline_attribute.t =
@@ -332,16 +348,13 @@ and fun_decl = {
 and let_cont = {
   recursive : is_recursive;
   body : expr;
-  handlers : let_cont_handlers;
+  bindings : continuation_binding list;
 }
 
-and let_cont_handlers = continuation_handler list
-
-and continuation_handler = {
+and continuation_binding = {
   name : continuation_id;
   params : kinded_parameter list;
-  stub : bool;
-  is_exn_handler : bool;
+  sort : continuation_sort option;
   handler : expr;
 }
 
@@ -367,8 +380,8 @@ and static_set_of_closures = {
 and code = {
   id : code_id;
   newer_version_of : code_id option;
-  param_arity : flambda_arity option;
-  ret_arity : flambda_arity option;
+  param_arity : arity option;
+  ret_arity : arity option;
   recursive : is_recursive;
   inline : inline_attribute option;
   params_and_body : params_and_body or_deleted;

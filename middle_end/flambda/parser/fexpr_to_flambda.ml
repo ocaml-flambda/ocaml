@@ -57,7 +57,9 @@ type env = {
 }
 
 let init_env () =
-  let done_continuation = Continuation.create ~name:"done" () in
+  let done_continuation =
+    Continuation.create ~sort:Toplevel_return ~name:"done" ()
+  in
   let exn_handler = Continuation.create ~sort:Exn ~name:"error" () in
   let error_continuation =
     Exn_continuation.create ~exn_handler ~extra_args:[]
@@ -85,8 +87,8 @@ let enter_code env = {
   vars_within_closures = env.vars_within_closures;
 }
 
-let fresh_cont env ?sort { Fexpr.txt = name; loc = _ } arity =
-  let c = Continuation.create ?sort ~name () in
+let fresh_cont env { Fexpr.txt = name; loc = _ } ~sort ~arity =
+  let c = Continuation.create ~sort ~name () in
   c,
   { env with
     continuations = CM.add name (c, arity) env.continuations }
@@ -215,31 +217,45 @@ let immediate i =
   i |> Targetint.of_string |> Targetint.OCaml.of_targetint |> Target_imm.int
 let float f = f |> Numbers.Float_by_bit_pattern.create
 
-let value_kind : Fexpr.kind -> Flambda_kind.With_subkind.t = function
-  | Value -> Flambda_kind.With_subkind.any_value
+let value_kind_with_subkind (k : Fexpr.kind_with_subkind)
+: Flambda_kind.With_subkind.t =
+  let module KWS = Flambda_kind.With_subkind in
+  match k with
+  | Any_value -> KWS.any_value
   | Naked_number naked_number_kind ->
     begin
       match naked_number_kind with
-      | Naked_immediate -> Flambda_kind.With_subkind.naked_immediate
-      | Naked_float -> Flambda_kind.With_subkind.naked_float
-      | Naked_int32 -> Flambda_kind.With_subkind.naked_int32
-      | Naked_int64 -> Flambda_kind.With_subkind.naked_int64
-      | Naked_nativeint -> Flambda_kind.With_subkind.naked_nativeint
+      | Naked_immediate -> KWS.naked_immediate
+      | Naked_float -> KWS.naked_float
+      | Naked_int32 -> KWS.naked_int32
+      | Naked_int64 -> KWS.naked_int64
+      | Naked_nativeint -> KWS.naked_nativeint
+    end
+  | Boxed_float -> KWS.boxed_float
+  | Boxed_int32 -> KWS.boxed_int32
+  | Boxed_int64 -> KWS.boxed_int64
+  | Boxed_nativeint -> KWS.boxed_nativeint
+  | Tagged_immediate -> KWS.tagged_immediate
+
+let value_kind
+: Fexpr.kind -> Flambda_kind.t = function
+  | Value -> Flambda_kind.value
+  | Naked_number naked_number_kind ->
+    begin
+      match naked_number_kind with
+      | Naked_immediate -> Flambda_kind.naked_immediate
+      | Naked_float -> Flambda_kind.naked_float
+      | Naked_int32 -> Flambda_kind.naked_int32
+      | Naked_int64 -> Flambda_kind.naked_int64
+      | Naked_nativeint -> Flambda_kind.naked_nativeint
     end
   | Fabricated -> Misc.fatal_error "Fabricated should not be used"
 
-let value_kind_without_subkind kind =
-  Flambda_kind.With_subkind.kind (value_kind kind)
-
-let value_kind_opt : Fexpr.kind option -> Flambda_kind.With_subkind.t = function
-  | Some kind -> value_kind kind
+let value_kind_with_subkind_opt : Fexpr.kind_with_subkind option -> Flambda_kind.With_subkind.t = function
+  | Some kind -> value_kind_with_subkind kind
   | None -> Flambda_kind.With_subkind.any_value
 
-let arity a = Flambda_arity.With_subkinds.create (List.map value_kind a)
-
-let arity_without_subkinds a =
-  List.map Flambda_kind.With_subkind.kind (arity a)
-
+let arity a = Flambda_arity.With_subkinds.create (List.map value_kind_with_subkind a)
 
 let const (c:Fexpr.const) : Reg_width_const.t =
   match c with
@@ -344,8 +360,7 @@ let binop (binop:Fexpr.binop) : Flambda_primitive.binary_primitive =
                          size; }, mutability)
   | Phys_equal (kind, op) ->
     let kind =
-      value_kind_without_subkind
-        (kind |> Option.value ~default:(Value : Fexpr.kind))
+      value_kind (kind |> Option.value ~default:(Value : Fexpr.kind))
     in
     Phys_equal (kind, op)
   | Infix op ->
@@ -445,6 +460,12 @@ let apply_cont env ({ cont; args; trap_action } : Fexpr.apply_cont) =
   let args = List.map (simple env) args in
   Flambda.Apply_cont.create c ~args ~dbg:Debuginfo.none
 
+let continuation_sort (sort : Fexpr.continuation_sort) : Continuation.Sort.t =
+  match sort with
+  | Normal -> Normal
+  | Exn -> Exn
+  | Define_root_symbol -> Define_root_symbol
+
 let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
   match e with
   | Let { bindings = []; _ } ->
@@ -499,10 +520,18 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
     |> Flambda.Expr.create_let
   | Let_cont
       { recursive; body;
-        handlers = [handler] } -> begin
-      let is_exn_handler = false in
+        bindings = [{ name; params; sort; handler }] } -> begin
+      let sort =
+        sort |> Option.value ~default:(Normal : Fexpr.continuation_sort)
+      in
+      let is_exn_handler =
+        match sort with
+        | Exn -> true
+        | _ -> false
+      in
+      let sort = continuation_sort sort in
       let name, body_env =
-        fresh_cont env handler.name (List.length handler.params)
+        fresh_cont env name ~sort ~arity:(List.length params)
       in
       let body = expr body_env body in
       let env =
@@ -516,15 +545,13 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
             (env, args) ->
             let var, env = fresh_var env param in
             let param =
-              (* CR mshinwell for lmaurer: Allow the subkinds to be specified
-                 in the syntax on continuation parameters. *)
-              Kinded_parameter.create var (value_kind_opt kind)
+              Kinded_parameter.create var (value_kind_with_subkind_opt kind)
             in
             env, param :: args)
-          handler.params (env, [])
+          params (env, [])
       in
       let handler =
-        expr handler_env handler.handler
+        expr handler_env handler
       in
       let handler =
         Flambda.Continuation_handler.create params ~handler
@@ -681,7 +708,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
                   Code_id.print code_id
             | Present { params; _ } ->
               List.map (fun ({ kind; _ } : Fexpr.kinded_parameter) ->
-                  value_kind_opt kind)
+                  value_kind_with_subkind_opt kind)
                 params
         in
         let result_arity =
@@ -698,14 +725,16 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
                 (fun env ({ param; kind }:Fexpr.kinded_parameter) ->
                   let var, env = fresh_var env param in
                   let param =
-                    Kinded_parameter.create var (value_kind_opt kind)
+                    Kinded_parameter.create var
+                      (value_kind_with_subkind_opt kind)
                   in
                   param, env)
                 env params
             in
             let my_closure, env = fresh_var env closure_var in
             let return_continuation, env =
-              fresh_cont env ret_cont (List.length result_arity)
+              fresh_cont env ret_cont ~sort:Return
+                ~arity:(List.length result_arity)
             in
             let exn_continuation, env =
               fresh_exn_cont env exn_cont
@@ -720,6 +749,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
             in
             let free_names =
               Flambda.Function_params_and_body.free_names params_and_body
+              |> Name_occurrences.without_code_ids
             in
             Present (params_and_body, free_names)
         in
@@ -792,8 +822,12 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
         begin
           match arities with
           | Some { params_arity; ret_arity } ->
-            let param_arity = arity_without_subkinds params_arity in
-            let return_arity = arity_without_subkinds ret_arity in
+            let param_arity =
+              arity params_arity |> Flambda_arity.With_subkinds.to_arity
+            in
+            let return_arity =
+              arity ret_arity |> Flambda_arity.With_subkinds.to_arity
+            in
             Call_kind.c_call ~alloc ~param_arity ~return_arity
           | None ->
             Misc.fatal_errorf "Must specify arities for C call"

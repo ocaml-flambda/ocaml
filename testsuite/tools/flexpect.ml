@@ -45,7 +45,7 @@ let run_expect_test
   let before_fl = Fexpr_to_flambda.conv ~backend ~module_ident before in
   check_invariants before_fl;
   let { Simplify.unit = actual_fl; _ } =
-    Simplify.run ~backend ~round:1 before_fl
+    Simplify.run ~backend ~round:0 before_fl
   in
   let expected_fl = Fexpr_to_flambda.conv ~backend ~module_ident expected in
   match Compare.flambda_units actual_fl expected_fl with

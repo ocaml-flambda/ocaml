@@ -35,11 +35,13 @@ let keyword_table =
     "andwhere", KWD_ANDWHERE;
     "apply", KWD_APPLY;
     "Block", KWD_BLOCK;
+    "boxed", KWD_BOXED;
     "ccall", KWD_CCALL;
     "closure", KWD_CLOSURE;
     "code", KWD_CODE;
     "cont", KWD_CONT;
     "default", KWD_DEFAULT;
+    "define_root_symbol", KWD_DEFINE_ROOT_SYMBOL;
     "deleted", KWD_DELETED;
     "depth", KWD_DEPTH;
     "direct", KWD_DIRECT;
@@ -69,7 +71,6 @@ let keyword_table =
     "rec", KWD_REC;
     "set_of_closures", KWD_SET_OF_CLOSURES;
     "size", KWD_SIZE;
-    "stub", KWD_STUB;
     "switch", KWD_SWITCH;
     "tagged", KWD_TAGGED;
     "tupled", KWD_TUPLED;

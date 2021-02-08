@@ -50,6 +50,19 @@ module Sort = struct
     | Exn -> "Exn"
 
   let print ppf t = Format.pp_print_string ppf (to_string t)
+
+  let equal t1 t2 =
+    match t1, t2 with
+    | Normal, Normal
+    | Return, Return
+    | Define_root_symbol, Define_root_symbol
+    | Toplevel_return, Toplevel_return
+    | Exn, Exn -> true
+    | Normal, _
+    | Return, _
+    | Define_root_symbol, _
+    | Toplevel_return, _
+    | Exn, _ -> false
 end
 
 module Data = struct

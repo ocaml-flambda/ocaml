@@ -1,5 +1,5 @@
 let $camlTests3__first_const37 = Block 0 () in
-let code foo_0 (arr, f, i) my_closure -> k * k1 =
+let code foo_0 (arr, f, i : imm tagged) my_closure -> k * k1 =
   (let prim = %array_length dynamic arr in
    let prim_1 = %int_comp unsigned i < prim in
    switch prim_1
@@ -33,7 +33,8 @@ let code foo_0 (arr, f, i) my_closure -> k * k1 =
                 in
                 cont k (Parraysets)))
 in
-let code f_1 (c, m, n, x', y') my_closure -> k * k1 =
+let code f_1 (c : imm tagged, m, n, x' : imm tagged, y' : imm tagged)
+           my_closure -> k * k1 : imm tagged =
   (let prim = c < 0 in
    let Pintcomp = %Tag_imm prim in
    (let untagged = %untag_imm Pintcomp in
@@ -43,7 +44,7 @@ let code f_1 (c, m, n, x', y') my_closure -> k * k1 =
      where k3 =
        let Paddint = x' + 10 in
        cont k2 (Paddint))
-    where k2 (x) =
+    where k2 (x : imm tagged) =
       ((let prim = c < 0 in
         let Pintcomp = %Tag_imm prim in
         (let untagged = %untag_imm Pintcomp in
@@ -53,7 +54,7 @@ let code f_1 (c, m, n, x', y') my_closure -> k * k1 =
           where k3 =
             let Paddint = y' + 20 in
             cont k2 (Paddint))
-         where k2 (y) =
+         where k2 (y : imm tagged) =
            let Paddint = x + y in
            cont k (Paddint))
 in
@@ -61,15 +62,19 @@ in
  let f = closure f_1 @f in
  let Pmakeblock = %Block 0 (foo, f) in
  cont k (Pmakeblock))
-  where k (module_block) =
+  where
+    define_root_symbol k (module_block) =
     let field_0 = %block_load 0 size 2 (module_block, 0) in
     let field_1 = %block_load 0 size 2 (module_block, 1) in
     let $camlTests3 = Block 0 (field_0, field_1) in
     cont done ($camlTests3)
 ===>
-let code foo_0 deleted : val * val * val -> val in
-let code f_1 deleted : val * val * val * val * val -> val in
-let code foo_0_1 newer_version_of(foo_0) (arr, f, i) my_closure -> k * k1 =
+let code foo_0 deleted : val * val * imm tagged -> val in
+let code f_1 deleted : imm tagged * val * val * imm tagged *
+           imm tagged -> imm tagged
+in
+let code foo_0_1 newer_version_of(foo_0) (arr, f, i : imm tagged) my_closure
+           -> k * k1 =
   (let prim = %array_length dynamic arr in
    let prim_1 = %int_comp unsigned i < prim in
    switch prim_1
@@ -98,7 +103,9 @@ let code foo_0_1 newer_version_of(foo_0) (arr, f, i) my_closure -> k * k1 =
         * k1
 in
 let $camlTests3__foo_2 = closure foo_0_1 @foo in
-let code f_1_1 newer_version_of(f_1) (c, m, n, x', y') my_closure -> k * k1 =
+let code f_1_1 newer_version_of(f_1)
+           (c : imm tagged, m, n, x' : imm tagged, y' : imm tagged)
+           my_closure -> k * k1 : imm tagged =
   (let prim = c < 0 in
    let Pintcomp = %Tag_imm prim in
    switch prim
@@ -107,7 +114,7 @@ let code f_1_1 newer_version_of(f_1) (c, m, n, x', y') my_closure -> k * k1 =
      where k3 =
        let Paddint = x' + 10 in
        cont k2 (Paddint, Pintcomp))
-    where k2 (x, cse_param) =
+    where k2 (x : imm tagged, cse_param) =
       ((let untagged = %untag_imm cse_param in
         switch untagged
           | 0 -> k3
@@ -115,7 +122,7 @@ let code f_1_1 newer_version_of(f_1) (c, m, n, x', y') my_closure -> k * k1 =
          where k3 =
            let Paddint = y' + 20 in
            cont k2 (Paddint)
-         where k2 (y) =
+         where k2 (y : imm tagged) =
            let Paddint = x + y in
            cont k (Paddint))
 in

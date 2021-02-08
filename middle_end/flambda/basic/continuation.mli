@@ -30,6 +30,8 @@ module Sort : sig
     | Define_root_symbol
     | Toplevel_return
     | Exn
+
+  val equal : t -> t -> bool
 end
 
 val create : ?sort:Sort.t -> ?name:string -> unit -> t

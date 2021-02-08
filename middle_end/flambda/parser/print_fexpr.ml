@@ -32,13 +32,13 @@ let recursive ppf = function
   | Nonrecursive -> ()
   | Recursive -> Format.fprintf ppf "@ rec"
 
-let is_stub ppf = function
-  | false -> ()
-  | true -> Format.fprintf ppf "@ stub"
-
-let is_exn ppf = function
-  | false -> ()
-  | true -> Format.fprintf ppf "@ exn"
+let continuation_sort ppf sort =
+  Format.pp_print_string ppf
+  @@
+  match sort with
+  | Normal -> "normal"
+  | Exn -> "exn"
+  | Define_root_symbol -> "define_root_symbol"
 
 let char_between c (low, high) =
   Char.compare low c <= 0 && Char.compare c high <= 0
@@ -111,34 +111,48 @@ let result_continuation ppf rcont =
 let exn_continuation ppf c =
   Format.fprintf ppf "* %a" continuation c
 
+let naked_number_kind ppf (nnk : naked_number_kind) =
+  Format.pp_print_string ppf
+  @@
+  match nnk with
+  | Naked_immediate -> "imm"
+  | Naked_float -> "float"
+  | Naked_int32 -> "int32"
+  | Naked_int64 -> "int64"
+  | Naked_nativeint -> "nativeint"
+
 let kind ppf (k : kind) =
-  let s =
+  match k with
+  | Value -> Format.pp_print_string ppf "val"
+  | Naked_number nnk -> naked_number_kind ppf nnk
+  | Fabricated -> Format.pp_print_string ppf "fabricated"
+
+let kind_with_subkind ppf (k : kind_with_subkind) =
+  match k with
+  | Naked_number nnk -> naked_number_kind ppf nnk
+  | _ ->
+    Format.pp_print_string ppf
+    @@
     match k with
-    | Value -> "val"
-    | Naked_number nnt ->
-      begin
-        match nnt with
-        | Naked_immediate -> "imm"
-        | Naked_float -> "float"
-        | Naked_int32 -> "int32"
-        | Naked_int64 -> "int64"
-        | Naked_nativeint -> "nativeint"
-      end
-    | Fabricated -> "fabricated"
-  in
-  Format.pp_print_string ppf s
+    | Any_value -> "val"
+    | Naked_number _ -> assert false
+    | Boxed_float -> "float boxed"
+    | Boxed_int32 -> "int32 boxed"
+    | Boxed_int64 -> "int64 boxed"
+    | Boxed_nativeint -> "nativeint boxed"
+    | Tagged_immediate -> "imm tagged"
 
-let arity ppf (a : flambda_arity) =
+let arity ppf (a : arity) =
   match a with
-  | [] -> Format.fprintf ppf "unit"
-  | _ -> pp_star_list kind ppf a
+  | [] -> Format.pp_print_string ppf "unit"
+  | _ -> pp_star_list kind_with_subkind ppf a
 
-let kinded_variable ppf (v, (k:kind option)) =
+let kinded_variable ppf (v, (k:kind_with_subkind option)) =
   match k with
   | None ->
     variable ppf v
   | Some k ->
-    Format.fprintf ppf "@[<2>%a :@ %a@]" variable v kind k
+    Format.fprintf ppf "@[<2>%a :@ %a@]" variable v kind_with_subkind k
 
 let standard_int ?prefix ?suffix () ppf (i : standard_int) =
   let str = match i with
@@ -558,16 +572,15 @@ let rec expr scope ppf = function
       let_expr scope ppf let_
     )
   | Let_cont { recursive = recu; body;
-               handlers =
-                 { name; params; stub; is_exn_handler; handler } :: rem_cont;
+               bindings =
+                 { name; params; sort; handler } :: rem_cont;
              } ->
     parens ~if_scope_is:Continuation_body scope ppf (fun _scope ppf ->
       Format.fprintf ppf
-        "@[<v 2>%a@ @[<v>@[<v 2>where%a%a%a %a@[<hv2>%a@] =@ %a@]%a@]@]"
+        "@[<v 2>%a@ @[<v>@[<v 2>where%a%a %a@[<hv2>%a@] =@ %a@]%a@]@]"
         (expr Where_body) body
         recursive recu
-        is_exn is_exn_handler
-        is_stub stub
+        (pp_option continuation_sort ~prefix:"@ ") sort
         continuation_id name
         kinded_parameters params
         (expr Continuation_body) handler
@@ -637,11 +650,10 @@ and let_symbol_expr scope ppf = function
 
 
 and andk ppf l =
-  let cont { name; params; stub; is_exn_handler; handler } =
+  let cont { name; params; sort; handler } =
     Format.fprintf ppf
-      "@ @[<v 2>andwhere%a%a %a@[<hv2>%a@] =@ %a@]"
-      is_exn is_exn_handler
-      is_stub stub
+      "@ @[<v 2>andwhere%a %a@[<hv2>%a@] =@ %a@]"
+      (pp_option continuation_sort ~prefix:"@ ") sort
       continuation_id name
       kinded_parameters params
       (expr Continuation_body) handler
@@ -687,9 +699,12 @@ and code_binding ppf ({ recursive = rec_; inline; id; newer_version_of;
         | None -> Format.print_string "???" (* invalid *)
         | Some ar -> arity ppf ar
       in
+      let ret_arity =
+        ret_arity |> Option.value ~default:([(Any_value : kind_with_subkind)])
+      in
       Format.fprintf ppf "@ deleted :@ %t -> %a@]"
         pp_arity
-        arity (ret_arity |> Option.value ~default:[(Value : kind)])
+        arity ret_arity
     | Present { params; closure_var; ret_cont; exn_cont; body } ->
       Format.fprintf ppf "%a@ %a@ -> %a@ * %a%a@] =@ %a"
         kinded_parameters params

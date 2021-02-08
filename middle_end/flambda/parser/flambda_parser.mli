@@ -65,7 +65,6 @@ type token =
   | KWD_TUPLED
   | KWD_TAGGED
   | KWD_SWITCH
-  | KWD_STUB
   | KWD_SIZE
   | KWD_SET_OF_CLOSURES
   | KWD_REC
@@ -100,6 +99,7 @@ type token =
   | KWD_DIRECT
   | KWD_DEPTH
   | KWD_DELETED
+  | KWD_DEFINE_ROOT_SYMBOL
   | KWD_DEFAULT
   | KWD_CONT
   | KWD_CODE
