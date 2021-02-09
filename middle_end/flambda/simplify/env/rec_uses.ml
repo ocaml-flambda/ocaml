@@ -21,6 +21,7 @@ type elt = {
   continuation : Continuation.t;
   params : Variable.t list;
   used_in_handler : Name_occurrences.t;
+  apply_result_conts : Continuation.Set.t;
   apply_cont_args :
     Name_occurrences.t Numbers.Int.Map.t Continuation.Map.t;
 }
@@ -33,16 +34,19 @@ type t = {
 (* Print *)
 (* ***** *)
 
-let print_elt ppf { continuation; params; used_in_handler; apply_cont_args; } =
+let print_elt ppf
+      { continuation; params; used_in_handler; apply_result_conts; apply_cont_args; } =
   Format.fprintf ppf "@[<hov 1>(\
                       @[<hov 1>(continuation %a)@]@ \
                       @[<hov 1>(params %a)@]@ \
                       @[<hov 1>(used_in_handler %a)@]@ \
+                      @[<hov 1>(apply_result_conts %a)@]@ \
                       @[<hov 1>(apply_cont_args %a)@]\
                       )@]"
     Continuation.print continuation
     Variable.print_list params
     Name_occurrences.print used_in_handler
+    Continuation.Set.print apply_result_conts
     (Continuation.Map.print (Numbers.Int.Map.print Name_occurrences.print))
     apply_cont_args
 
@@ -78,6 +82,7 @@ let stack_cont continuation params t =
     continuation; params;
     used_in_handler = Name_occurrences.empty;
     apply_cont_args = Continuation.Map.empty;
+    apply_result_conts = Continuation.Set.empty;
   }
   in
   { t with stack = elt :: t.stack; }
@@ -104,6 +109,12 @@ let add_used_in_current_handler name_occurrences t =
       Name_occurrences.union elt.used_in_handler name_occurrences
     in
     { elt with used_in_handler; }
+  )
+
+let add_apply_result_cont k t =
+  update_top_of_stack ~t ~f:(fun elt ->
+    let apply_result_conts = Continuation.Set.add k elt.apply_result_conts in
+    { elt with apply_result_conts; }
   )
 
 let add_apply_cont_args cont arg_name_occurrences t =
@@ -205,7 +216,6 @@ end
 (* Analysis *)
 (* ******** *)
 
-
 let used_variables ~return_continuation ~exn_continuation map =
   (* Some auxiliary functions *)
   let add_used name_occurrences set =
@@ -214,8 +224,28 @@ let used_variables ~return_continuation ~exn_continuation map =
   in
   (* Build the reversed graph of dependencies *)
   let graph, used =
-    Continuation.Map.fold (fun _ { apply_cont_args; used_in_handler; _ } (graph, used) ->
+    Continuation.Map.fold (fun _ {
+      apply_cont_args; apply_result_conts; used_in_handler; _
+    } (graph, used) ->
+      (* Add the vars used in the handler *)
       let used = add_used used_in_handler used in
+      (* Add the vars of continuation used as function call return as used *)
+      let used =
+        Continuation.Set.fold (fun k used ->
+          match Continuation.Map.find k map with
+          | elt ->
+            List.fold_left (fun used v -> Variable.Set.add v used) used elt.params
+          | exception Not_found ->
+            if Continuation.equal return_continuation k ||
+               Continuation.equal exn_continuation k
+            then used
+            else
+              Misc.fatal_errorf "Continuation not found during rec analysis: %a@."
+                Continuation.print k
+        ) apply_result_conts used
+      in
+      (* Build the graph of dependencies between continuation
+         parameters and arguments. *)
       Continuation.Map.fold (fun k args (graph, used) ->
         if Continuation.equal return_continuation k ||
            Continuation.equal exn_continuation k then begin
@@ -230,7 +260,7 @@ let used_variables ~return_continuation ~exn_continuation map =
             match Continuation.Map.find k map with
             | elt -> Array.of_list elt.params
             | exception Not_found ->
-              Misc.fatal_errorf "Continuation not found: %a@."
+              Misc.fatal_errorf "Continuation not found during rec analysis: %a@."
                 Continuation.print k
           in
           let graph =

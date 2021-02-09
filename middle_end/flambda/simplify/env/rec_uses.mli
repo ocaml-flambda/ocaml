@@ -54,6 +54,10 @@ val add_used_in_current_handler : Name_occurrences.t -> t -> t
     handler, **excluding** uses in apply_cont expressions, which are tracked
     separately. *)
 
+val add_apply_result_cont : Continuation.t -> t -> t
+(** Add the continuation as being used as the return continuation for
+    a function call. *)
+
 val add_apply_cont_args : Continuation.t -> Name_occurrences.t list -> t -> t
 (** Add, for the current continuation handler, uses for an apply cont of the
     given continuation with given arguments occurrences. *)

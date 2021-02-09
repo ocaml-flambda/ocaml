@@ -783,8 +783,13 @@ let simplify_c_call dacc apply ~callee_ty ~param_arity ~return_arity
 let simplify_apply dacc apply ~down_to_up =
   (* This is an over-approximation. It should be replaced with adequate
      calls after the potential simplifications in the future. *)
-  let dacc = DA.map_rec_uses dacc ~f:(
-    Rec_uses.add_used_in_current_handler (Apply.free_names apply)
+  let dacc = DA.map_rec_uses dacc ~f:(fun rec_uses ->
+    let rec_uses =
+      Rec_uses.add_used_in_current_handler (Apply.free_names apply) rec_uses
+    in
+    match Apply.continuation apply with
+    | Never_returns -> rec_uses
+    | Return k -> Rec_uses.add_apply_result_cont k rec_uses
   ) in
   match simplify_apply_shared dacc apply with
   | Bottom -> down_to_up dacc ~rebuild:Simplify_common.rebuild_invalid
