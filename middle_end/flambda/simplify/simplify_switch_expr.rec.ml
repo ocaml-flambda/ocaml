@@ -48,12 +48,15 @@ let rebuild_switch dacc ~arms ~scrutinee ~scrutinee_ty uacc
                 end
               | Other { arity = _; handler = Some handler; } ->
                 Continuation_handler.pattern_match handler
-                  ~f:(fun params ~handler ->
+                  ~f:(fun params ~env_extension ~handler ->
                     assert (List.length params = 0);
+                    let empty_env_ext =
+                      Flambda_type.Typing_env_extension.is_empty env_extension
+                    in
                     match Expr.descr handler with
-                    | Apply_cont action -> Some action
+                    | Apply_cont action when empty_env_ext -> Some action
                     | Let _ | Let_cont _ | Apply _
-                    | Switch _ | Invalid _ -> Some action)
+                    | Switch _ | Invalid _ | Apply_cont _ -> Some action)
               | Other _ -> Some action
               | Unreachable _ -> None
           in

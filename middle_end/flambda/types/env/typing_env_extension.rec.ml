@@ -40,14 +40,21 @@ let print ppf t =
     "@[<hov 1>(equations@ @[<v 1>%a@])@]"
     print_equations t.equations
 
+let print_with_cache ~cache:_ ppf t =
+  print ppf t
+
 let fold ~equation t acc =
   Name.Map.fold equation t.equations acc
 
-let invariant { equations; } =
+let invariant _ { equations; } =
+  (* CR gbury: check that the keys of the maps are bound in the env *)
   if !Clflags.flambda_invariant_checks then
     Name.Map.iter Type_grammar.check_equation equations
 
 let empty () = { equations = Name.Map.empty; }
+
+let is_empty { equations; } =
+  Name.Map.is_empty equations
 
 let one_equation name ty =
   Type_grammar.check_equation name ty;
@@ -67,6 +74,41 @@ let add_or_replace_equation t name ty =
       Type_grammar.print ty
   end;
   { equations = Name.Map.add name ty t.equations; }
+
+let all_ids_for_export { equations; } =
+  Name.Map.fold (fun name ty acc ->
+    let acc = Ids_for_export.union (Type_grammar.all_ids_for_export ty) acc in
+    Ids_for_export.add_name acc name
+  ) equations Ids_for_export.empty
+
+let import map { equations; } =
+  let equations =
+    Name.Map.fold (fun name ty acc ->
+      let ty' = Type_grammar.import map ty in
+      let name' = Ids_for_export.Import_map.name map name in
+      Name.Map.add name' ty' acc
+    ) equations Name.Map.empty
+  in
+  { equations; }
+
+let free_names { equations; } =
+  Name.Map.fold (fun name ty acc ->
+    let acc = Name_occurrences.union acc (Type_grammar.free_names ty) in
+    Name_occurrences.add_name acc name Name_mode.in_types
+  ) equations Name_occurrences.empty
+
+let apply_name_permutation ({ equations; } as t) perm =
+  let changed = ref false in
+  let equations' =
+    Name.Map.fold (fun name ty acc ->
+      let ty' = Type_grammar.apply_name_permutation ty perm in
+      let name' = Name_permutation.apply_name perm name in
+      if not (ty == ty' && name == name') then changed := true;
+      Name.Map.add name' ty' acc
+    ) equations Name.Map.empty
+  in
+  if !changed then { equations = equations'; } else t
+
 
 exception Bottom_meet
 

@@ -434,11 +434,18 @@ and subst_let_cont env (let_cont_expr : Let_cont_expr.t) =
       )
 and subst_cont_handler env cont_handler =
   Continuation_handler.pattern_match cont_handler
-    ~f:(fun params ~handler ->
+    ~f:(fun params ~env_extension ~handler ->
       let handler = subst_expr env handler in
+      (* CR gbury: fix this *)
+      let env_extension =
+        if Flambda_type.Typing_env_extension.is_empty env_extension
+        then env_extension
+        else assert false
+      in
       Continuation_handler.create params ~handler
         ~free_names_of_handler:Unknown
         ~is_exn_handler:(Continuation_handler.is_exn_handler cont_handler)
+        ~env_extension
     )
 and subst_apply env apply =
   let callee = subst_simple env (Apply_expr.callee apply) in
@@ -1289,12 +1296,17 @@ and let_cont_exprs env (let_cont1 : Let_cont.t) (let_cont2 : Let_cont.t)
     Different { approximant = subst_let_cont env let_cont1 }
 and cont_handlers env handler1 handler2 =
   Continuation_handler.pattern_match_pair handler1 handler2
-    ~f:(fun params ~handler1:expr1 ~handler2:expr2 ->
+    ~f:(fun params ~env_extension1 ~handler1:expr1 ~env_extension2 ~handler2:expr2 ->
+      (* Cr gbury: fix this *)
+      if not (Flambda_type.Typing_env_extension.is_empty env_extension1 &&
+              Flambda_type.Typing_env_extension.is_empty env_extension2) then
+        assert false;
       exprs env expr1 expr2
       |> Comparison.map ~f:(fun handler ->
           Continuation_handler.create params ~handler
             ~free_names_of_handler:Unknown
-            ~is_exn_handler:(Continuation_handler.is_exn_handler handler2))
+            ~is_exn_handler:(Continuation_handler.is_exn_handler handler2)
+            ~env_extension:env_extension1)
       |> Comparison.add_condition ~cond:(
         Bool.equal
           (Continuation_handler.is_exn_handler handler1)

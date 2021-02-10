@@ -43,11 +43,13 @@ type typing_env_extension
 module Typing_env_extension : sig
   type t = typing_env_extension
 
-  val print : Format.formatter -> t -> unit
+  include Expr_std.S with type t:= t
 
-  val invariant : t -> unit
+  include Contains_ids.S with type t := t
 
   val empty : unit -> t
+
+  val is_empty : t -> bool
 
   val one_equation : Name.t -> flambda_type -> t
 

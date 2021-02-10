@@ -231,9 +231,11 @@ let rec bind_rec ~backend exn_cont
         bind_rec ~backend exn_cont ~register_const_string
           primitive dbg cont
       in
+      let env_extension = Flambda_type.Typing_env_extension.empty () in
       Continuation_handler.create [] ~handler
         ~free_names_of_handler:Unknown
         ~is_exn_handler:false
+        ~env_extension
     in
     let failure_cont = Continuation.create () in
     let failure_cont_handler =
@@ -241,17 +243,21 @@ let rec bind_rec ~backend exn_cont
         expression_for_failure ~backend exn_cont
           ~register_const_string primitive dbg failure
       in
+      let env_extension = Flambda_type.Typing_env_extension.empty () in
       Continuation_handler.create [] ~handler
         ~free_names_of_handler:Unknown
         ~is_exn_handler:false
+        ~env_extension
     in
     let check_validity_conditions =
       List.fold_left (fun rest expr_primitive ->
           let condition_passed_cont = Continuation.create () in
+          let env_extension = Flambda_type.Typing_env_extension.empty () in
           let condition_passed_cont_handler =
             Continuation_handler.create [] ~handler:rest
               ~free_names_of_handler:Unknown
               ~is_exn_handler:false
+              ~env_extension
           in
           let body =
             bind_rec_primitive ~backend exn_cont ~register_const_string

@@ -451,7 +451,7 @@ let smaller' denv expr ~than:threshold =
     | Static_consts _ -> ()
   and continuation_handler_size denv handler =
     Continuation_handler.pattern_match handler
-      ~f:(fun _params ~handler -> expr_size denv handler)
+      ~f:(fun _params ~env_extension:_ ~handler -> expr_size denv handler)
   in
   try
     expr_size denv expr;

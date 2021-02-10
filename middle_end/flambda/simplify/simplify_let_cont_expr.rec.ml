@@ -19,7 +19,7 @@
 open! Simplify_import
 
 let rebuild_one_continuation_handler cont ~at_unit_toplevel
-      (recursive : Recursive.t) (cont_handler : CH.t) ~params
+      (recursive : Recursive.t) (cont_handler : CH.t) ~params ~env_extension
       ~(extra_params_and_args : EPA.t) ~is_single_inlinable_use handler uacc
       ~after_rebuild =
   let handler, uacc =
@@ -114,13 +114,15 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
   let cont_handler =
     CH.create params' ~handler ~free_names_of_handler:(Known free_names)
       ~is_exn_handler:(CH.is_exn_handler cont_handler)
+      ~env_extension
   in
   after_rebuild cont_handler ~params:params' ~handler
     ~free_names_of_handler:free_names uacc
 
 let simplify_one_continuation_handler dacc cont ~at_unit_toplevel recursive
-      cont_handler ~params ~handler ~extra_params_and_args
+      cont_handler ~params ~env_extension ~handler ~extra_params_and_args
       ~is_single_inlinable_use ~down_to_up =
+  let dacc = DA.extend_typing_environment dacc env_extension in
   Simplify_expr.simplify_expr dacc handler
     ~down_to_up:(fun dacc ~rebuild ->
       down_to_up dacc ~rebuild:(fun uacc ~after_rebuild ->
@@ -130,7 +132,7 @@ let simplify_one_continuation_handler dacc cont ~at_unit_toplevel recursive
         assert (Name_occurrences.is_empty (UA.name_occurrences uacc));
         rebuild uacc ~after_rebuild:(fun handler uacc ->
           rebuild_one_continuation_handler cont ~at_unit_toplevel recursive
-            cont_handler ~params ~extra_params_and_args
+            cont_handler ~params ~env_extension ~extra_params_and_args
             ~is_single_inlinable_use handler uacc ~after_rebuild)))
 
 let rebuild_non_recursive_let_cont_handler cont
@@ -186,7 +188,7 @@ let rebuild_non_recursive_let_cont_handler cont
   after_rebuild cont_handler (UA.with_uenv uacc uenv)
 
 let simplify_non_recursive_let_cont_handler ~denv_before_body ~dacc_after_body
-      cont params ~(handler : Expr.t) cont_handler ~prior_lifted_constants
+      cont params ~env_extension ~(handler : Expr.t) cont_handler ~prior_lifted_constants
       ~inlining_state_at_let_cont ~inlined_debuginfo_at_let_cont
       ~scope ~is_exn_handler ~denv_for_toplevel_check ~unit_toplevel_exn_cont
       ~prior_cont_uses_env ~down_to_up =
@@ -293,7 +295,7 @@ let simplify_non_recursive_let_cont_handler ~denv_before_body ~dacc_after_body
       |> DA.with_denv dacc
     in
     simplify_one_continuation_handler dacc cont ~at_unit_toplevel
-      Non_recursive cont_handler ~params ~handler ~extra_params_and_args
+      Non_recursive cont_handler ~params ~env_extension ~handler ~extra_params_and_args
       ~is_single_inlinable_use ~down_to_up:(fun dacc ~rebuild ->
         down_to_up dacc ~continuation_has_zero_uses:false
           ~rebuild:(fun uacc ~after_rebuild ->
@@ -322,7 +324,7 @@ let simplify_non_recursive_let_cont dacc non_rec ~down_to_up =
     in
     let scope = DE.get_continuation_scope_level (DA.denv dacc) in
     let is_exn_handler = CH.is_exn_handler cont_handler in
-    CH.pattern_match cont_handler ~f:(fun params ~handler ->
+    CH.pattern_match cont_handler ~f:(fun params ~env_extension ~handler ->
       let denv_before_body =
         (* We add the parameters assuming that none of them are at toplevel.
            When we do the toplevel calculation before simplifying the
@@ -351,7 +353,7 @@ let simplify_non_recursive_let_cont dacc non_rec ~down_to_up =
           (* Then, before the upwards traversal of the body, we do the
              downwards traversal of the handler. *)
           simplify_non_recursive_let_cont_handler ~denv_before_body
-            ~dacc_after_body cont params ~handler cont_handler
+            ~dacc_after_body cont params ~env_extension ~handler cont_handler
             ~prior_lifted_constants ~inlining_state_at_let_cont
             ~inlined_debuginfo_at_let_cont ~scope ~is_exn_handler
             ~denv_for_toplevel_check ~unit_toplevel_exn_cont
@@ -433,27 +435,35 @@ let simplify_non_recursive_let_cont dacc non_rec ~down_to_up =
                         in
                         body, uacc
                       else
+                        (* CR gbury: we prevent removing the [Let_cont] in cases where
+                           the env_extension is not empty, because doing so in such cases
+                           would make us forget the information in the env_extension.
+                           We could remove the [Let_cont] in such cases if there existed
+                           a construction in flambda expressions to represent that. *)
                         let remove_let_cont_leaving_handler =
                           match Expr.descr body with
                           | Apply_cont apply_cont ->
                             if not (Continuation.equal cont
                               (Apply_cont.continuation apply_cont))
-                            then false
+                            then None
                             else
                               begin match Apply_cont.args apply_cont with
                               | [] ->
-                                Option.is_none
-                                  (Apply_cont.trap_action apply_cont)
-                              | _::_ -> false
+                                if Option.is_none
+                                     (Apply_cont.trap_action apply_cont) then
+                                  CH.pattern_match handler
+                                    ~f:(fun _params ~env_extension ~handler ->
+                                      if Flambda_type.Typing_env_extension.is_empty env_extension
+                                      then Some handler
+                                      else None)
+                                else None
+                              | _::_ -> None
                               end
                           | Let _ | Apply _ | Switch _ | Invalid _
-                          | Let_cont _ -> false
+                          | Let_cont _ -> None
                         in
-                        if remove_let_cont_leaving_handler then
-                          let handler =
-                            CH.pattern_match handler ~f:(fun _params ~handler ->
-                              handler)
-                          in
+                        match remove_let_cont_leaving_handler with
+                        | Some handler ->
                           let uacc =
                             let name_occurrences =
                               Name_occurrences.union name_occurrences_handler
@@ -462,7 +472,7 @@ let simplify_non_recursive_let_cont dacc non_rec ~down_to_up =
                             UA.with_name_occurrences uacc ~name_occurrences
                           in
                           handler, uacc
-                        else
+                        | None ->
                           let uacc =
                             let name_occurrences =
                               Name_occurrences.union name_occurrences_body
@@ -491,10 +501,21 @@ let rebuild_recursive_let_cont_handlers cont arity ~original_cont_scope_level
   let handlers = Continuation.Map.singleton cont handler in
   after_rebuild handlers uacc
 
+let ty_of_kind param =
+  let kind = KP.kind param in
+  let subkind = Flambda_kind.With_subkind.subkind kind in
+  match subkind with
+  | Anything -> Flambda_type.unknown (Flambda_kind.With_subkind.kind kind)
+  | Boxed_float -> Flambda_type.any_boxed_float ()
+  | Boxed_int32 -> Flambda_type.any_boxed_int32 ()
+  | Boxed_int64 -> Flambda_type.any_boxed_int64 ()
+  | Boxed_nativeint -> Flambda_type.any_boxed_nativeint ()
+  | Tagged_immediate -> Flambda_type.any_tagged_immediate ()
+
 (* This only takes one handler at present since we don't yet support
    simplification of multiple recursive handlers. *)
 let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
-      cont params ~handler cont_handler ~prior_lifted_constants arity
+      cont params ~env_extension ~handler cont_handler ~prior_lifted_constants arity
       ~original_cont_scope_level ~down_to_up =
   let dacc_after_body =
     DA.map_rec_uses dacc_after_body ~f:(
@@ -522,9 +543,28 @@ let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
   let dacc = DA.with_denv dacc_after_body denv in
   let dacc = DA.add_lifted_constants dacc prior_lifted_constants in
   let dacc = DA.map_denv dacc ~f:DE.set_not_at_unit_toplevel in
+  let param_types = List.map ty_of_kind params in
+  let arg_types_by_use_id =
+    List.map (fun _ ->
+      Apply_cont_rewrite_id.Map.empty
+    ) params
+  in
+  let denv =
+    DE.map_typing_env (DA.denv dacc) ~f:(fun env ->
+      Flambda_type.Typing_env.meet_equations_on_params env ~params ~param_types
+    )
+  in
+  let _tenv, tmp_extra_params =
+    Unbox_continuation_params.make_unboxing_decisions denv
+      ~arg_types_by_use_id ~params ~param_types Continuation_extra_params_and_args.empty
+  in
+  if Continuation_extra_params_and_args.is_empty tmp_extra_params then ()
+  else
+    Format.eprintf "=== SAUCISSE ===@\nextra_params for %a:@ %a@."
+      Continuation.print cont Continuation_extra_params_and_args.print tmp_extra_params;
   simplify_one_continuation_handler dacc cont
     ~at_unit_toplevel:false Recursive
-    cont_handler ~params ~handler
+    cont_handler ~params ~env_extension ~handler
     ~extra_params_and_args:Continuation_extra_params_and_args.empty
     ~is_single_inlinable_use:false
     ~down_to_up:(fun dacc ~rebuild:rebuild_handler ->
@@ -600,7 +640,7 @@ let simplify_recursive_let_cont dacc recs ~down_to_up : Expr.t * UA.t =
           continuations is not yet implemented"
       | [c] -> c
     in
-    CH.pattern_match cont_handler ~f:(fun params ~handler ->
+    CH.pattern_match cont_handler ~f:(fun params ~env_extension ~handler ->
       let arity = KP.List.arity_with_subkinds params in
       let dacc =
         DA.map_denv dacc ~f:DE.increment_continuation_scope_level
@@ -615,7 +655,7 @@ let simplify_recursive_let_cont dacc recs ~down_to_up : Expr.t * UA.t =
       Simplify_expr.simplify_expr dacc body
         ~down_to_up:(fun dacc_after_body ~rebuild:rebuild_body ->
           simplify_recursive_let_cont_handlers ~denv_before_body
-            ~dacc_after_body cont params ~handler cont_handler
+            ~dacc_after_body cont params ~env_extension ~handler cont_handler
             ~prior_lifted_constants arity ~original_cont_scope_level
             ~down_to_up:(fun dacc ~rebuild:rebuild_handlers ->
               down_to_up dacc ~rebuild:(fun uacc ~after_rebuild ->

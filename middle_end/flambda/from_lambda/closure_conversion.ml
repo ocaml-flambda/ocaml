@@ -282,6 +282,7 @@ let close_c_call t ~let_bound_var (prim : Primitive.description)
         Flambda_kind.With_subkind.create return_kind Anything
       in
       let params = [Kinded_parameter.create handler_param return_kind] in
+      let env_extension = Flambda_type.Typing_env_extension.empty () in
       Continuation_handler.create params
         ~handler:code_after_call
         (* Here and elsewhere in this pass, we specify [Unknown] for
@@ -290,6 +291,7 @@ let close_c_call t ~let_bound_var (prim : Primitive.description)
            have rebuilt the term and provided the free names. *)
         ~free_names_of_handler:Unknown
         ~is_exn_handler:false
+        ~env_extension
     in
     Let_cont.create_non_recursive return_continuation after_call
       ~body:call
@@ -421,10 +423,12 @@ let rec close t env (ilam : Ilambda.t) : Expr.t =
         params_with_kinds
     in
     let handler = close t handler_env handler in
+    let env_extension = Flambda_type.Typing_env_extension.empty () in
     let handler =
       Continuation_handler.create params ~handler
         ~free_names_of_handler:Unknown
         ~is_exn_handler
+        ~env_extension
     in
     let body = close t env body in
     begin match recursive with
@@ -975,9 +979,11 @@ let ilambda_to_flambda ~backend ~module_ident ~module_block_size_in_words
     let param =
       Kinded_parameter.create module_block_var K.With_subkind.any_value
     in
+    let env_extension = Flambda_type.Typing_env_extension.empty () in
     Continuation_handler.create [param] ~handler:load_fields_body
       ~free_names_of_handler:Unknown
       ~is_exn_handler:false
+      ~env_extension
   in
   let body =
     (* This binds the return continuation that is free (or, at least, not bound)

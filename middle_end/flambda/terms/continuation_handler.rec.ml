@@ -62,34 +62,49 @@ module T0 = struct
   type t = {
     num_normal_occurrences_of_params : Num_occurrences.t Variable.Map.t;
     handler : Expr.t;
+    env_extension : Flambda_type.Typing_env_extension.t;
   }
 
   let print_with_cache ~cache ppf
-        { handler; num_normal_occurrences_of_params = _; } =
+        { handler; num_normal_occurrences_of_params = _; env_extension; } =
     fprintf ppf "@[<hov 1>(\
+        @[<hov 1>(env_extension@ %a)@]@ \
         @[<hov 1>(handler@ %a)@]\
-        )@]"
+      )@]"
+      (Flambda_type.Typing_env_extension.print_with_cache ~cache) env_extension
       (Expr.print_with_cache ~cache) handler
 
   let print ppf t = print_with_cache ~cache:(Printing_cache.create ()) ppf t
 
-  let free_names { handler; num_normal_occurrences_of_params = _; } =
-    Expr.free_names handler
+  let free_names { handler; num_normal_occurrences_of_params = _; env_extension; } =
+    Name_occurrences.union
+      (Expr.free_names handler)
+      (Flambda_type.Typing_env_extension.free_names env_extension)
 
   let apply_name_permutation
-        ({ handler; num_normal_occurrences_of_params; } as t) perm =
+        ({ handler; num_normal_occurrences_of_params; env_extension; } as t) perm =
     let handler' =
       Expr.apply_name_permutation handler perm
     in
-    if handler == handler' then t
-    else { handler = handler'; num_normal_occurrences_of_params; }
+    let env_extension' =
+      Flambda_type.Typing_env_extension.apply_name_permutation env_extension perm
+    in
+    if handler == handler' && env_extension == env_extension' then t
+    else {
+      handler = handler';
+      num_normal_occurrences_of_params;
+      env_extension = env_extension';
+    }
 
-  let all_ids_for_export { handler; num_normal_occurrences_of_params = _; } =
-    Expr.all_ids_for_export handler
+  let all_ids_for_export { handler; num_normal_occurrences_of_params = _; env_extension; } =
+    Ids_for_export.union
+      (Expr.all_ids_for_export handler)
+      (Flambda_type.Typing_env_extension.all_ids_for_export env_extension)
 
-  let import import_map { handler; num_normal_occurrences_of_params; } =
+  let import import_map { handler; num_normal_occurrences_of_params; env_extension; } =
     let handler = Expr.import import_map handler in
-    { handler; num_normal_occurrences_of_params; }
+    let env_extension = Flambda_type.Typing_env_extension.import import_map env_extension in
+    { handler; num_normal_occurrences_of_params; env_extension; }
 end
 
 module A = Name_abstraction.Make_list (Kinded_parameter) (T0)
@@ -100,11 +115,18 @@ type t = {
   is_exn_handler : bool;
 }
 
+(* CR gbury: call the invariant function of at least the env_extension
+             inside the name_abstraction. *)
 let invariant _env _t = ()
 
 let create params ~handler ~(free_names_of_handler : _ Or_unknown.t)
-      ~is_exn_handler =
+      ~is_exn_handler ~env_extension =
+  (* The meet between the env_extension and params's kind/subkinds needs
+     to be done outside this function since it requires the surrounding
+     typing env. *)
   let num_normal_occurrences_of_params =
+    (* The occurrences of params in env_extension are all `in_types`,
+       hence not normal. *)
     match free_names_of_handler with
     | Unknown -> Variable.Map.empty
     | Known free_names_of_handler ->
@@ -146,6 +168,7 @@ let create params ~handler ~(free_names_of_handler : _ Or_unknown.t)
   let t0 : T0.t =
     { num_normal_occurrences_of_params;
       handler;
+      env_extension;
     }
   in
   let abst = A.create params t0 in
@@ -156,13 +179,13 @@ let create params ~handler ~(free_names_of_handler : _ Or_unknown.t)
 
 let pattern_match' t ~f =
   A.pattern_match t.abst
-    ~f:(fun params { handler; num_normal_occurrences_of_params; } ->
+    ~f:(fun params { handler; num_normal_occurrences_of_params; env_extension = _; } ->
       f params ~num_normal_occurrences_of_params ~handler)
 
 let pattern_match t ~f =
   A.pattern_match t.abst
-    ~f:(fun params { handler; num_normal_occurrences_of_params = _; } ->
-      f params ~handler)
+    ~f:(fun params { handler; num_normal_occurrences_of_params = _; env_extension; } ->
+      f params ~env_extension ~handler)
 
 module Pattern_match_pair_error = struct
   type t = Parameter_lists_have_different_lengths
@@ -173,14 +196,19 @@ module Pattern_match_pair_error = struct
 end
 
 let pattern_match_pair t1 t2 ~f =
-  pattern_match t1 ~f:(fun params1 ~handler:_ ->
-    pattern_match t2 ~f:(fun params2 ~handler:_ ->
+  pattern_match t1 ~f:(fun params1 ~env_extension:_ ~handler:_ ->
+    pattern_match t2 ~f:(fun params2 ~env_extension:_ ~handler:_ ->
       (* CR lmaurer: Should this check be done by
          [Name_abstraction.Make_list]? *)
       if List.compare_lengths params1 params2 = 0 then
         A.pattern_match_pair t1.abst t2.abst ~f:(
-          fun params { handler = handler1; _ } { handler = handler2; _ } ->
-            Ok (f params ~handler1 ~handler2))
+          fun params { handler = handler1;
+                       env_extension = env_extension1;
+                       num_normal_occurrences_of_params = _; }
+                     { handler = handler2;
+                       env_extension = env_extension2;
+                       num_normal_occurrences_of_params = _; } ->
+            Ok (f params ~env_extension1 ~handler1 ~env_extension2 ~handler2))
       else
         Error Pattern_match_pair_error.Parameter_lists_have_different_lengths))
 
@@ -190,7 +218,7 @@ let print_using_where_with_cache (recursive : Recursive.t) ~cache ppf k
   if not first then begin
     fprintf ppf "@ "
   end;
-  pattern_match t ~f:(fun params ~handler ->
+  pattern_match t ~f:(fun params ~env_extension ~handler ->
     begin match Expr.descr handler with
     | Apply_cont _ | Invalid _ -> fprintf ppf "@[<hov 1>"
     | _ -> fprintf ppf "@[<v 1>"
@@ -205,6 +233,10 @@ let print_using_where_with_cache (recursive : Recursive.t) ~cache ppf k
       (Flambda_colours.normal ());
     if List.length params > 0 then begin
       fprintf ppf " %a" Kinded_parameter.List.print params
+    end;
+    if not (Flambda_type.Typing_env_extension.is_empty env_extension) then begin
+      fprintf ppf " %a"
+        (Flambda_type.Typing_env_extension.print_with_cache ~cache) env_extension
     end;
     fprintf ppf "@<0>%s:@<0>%s@ %a"
       (Flambda_colours.elide ())
@@ -229,17 +261,14 @@ let arity t = Behaviour.arity t.behaviour
 
 let behaviour t = t.behaviour
 
-let free_names t = A.free_names t.abst
+let free_names t =
+  A.free_names t.abst
 
 let apply_name_permutation ({ abst; behaviour; is_exn_handler; } as t) perm =
   let abst' = A.apply_name_permutation abst perm in
   let behaviour' = Behaviour.apply_name_permutation behaviour perm in
   if abst == abst' && behaviour == behaviour' then t
-  else
-    { abst = abst';
-      behaviour = behaviour';
-      is_exn_handler;
-    }
+  else { abst = abst'; behaviour = behaviour'; is_exn_handler; }
 
 let import import_map { abst; behaviour; is_exn_handler; } =
   let abst = A.import import_map abst in
@@ -247,5 +276,7 @@ let import import_map { abst; behaviour; is_exn_handler; } =
   { abst; behaviour; is_exn_handler; }
 
 let all_ids_for_export { abst; behaviour; is_exn_handler = _; } =
-  Ids_for_export.union (A.all_ids_for_export abst)
+  Ids_for_export.union
+    (A.all_ids_for_export abst)
     (Behaviour.all_ids_for_export behaviour)
+

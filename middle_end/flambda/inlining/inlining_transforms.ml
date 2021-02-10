@@ -138,11 +138,13 @@ let inline dacc ~callee ~args function_decl
                         ~dbg:Debuginfo.none
                     in
                     let handler = Expr.create_apply_cont apply_cont in
+                    let env_extension = Flambda_type.Typing_env_extension.empty () in
                     Continuation_handler.create
                       (Kinded_parameter.List.create kinded_params)
                       ~handler
                       ~free_names_of_handler:Unknown
                       ~is_exn_handler:false
+                      ~env_extension
                   in
                   let body =
                     make_inlined_body ~apply_exn_continuation:wrapper
@@ -172,18 +174,22 @@ let inline dacc ~callee ~args function_decl
                                             compiler-generated raises not to
                                             have any debug info *)
                 in
+                let env_extension = Flambda_type.Typing_env_extension.empty () in
                 Continuation_handler.create kinded_params ~handler
                   ~free_names_of_handler:Unknown
                   ~is_exn_handler:true
+                  ~env_extension
               in
               let body_with_push =
                 (* Wrap the body between push and pop of the wrapper handler *)
                 let push_wrapper_cont = Continuation.create () in
                 let handler = body_with_pop in
+                let env_extension = Flambda_type.Typing_env_extension.empty () in
                 let push_wrapper_handler =
                   Continuation_handler.create [] ~handler
                     ~free_names_of_handler:Unknown
                     ~is_exn_handler:false
+                    ~env_extension
                 in
                 let trap_action =
                   Trap_action.Push { exn_handler = wrapper; }

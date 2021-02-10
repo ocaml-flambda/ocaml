@@ -337,6 +337,7 @@ end and Continuation_handler : sig
     -> handler:Expr.t
     -> free_names_of_handler:Name_occurrences.t Or_unknown.t
     -> is_exn_handler:bool
+    -> env_extension:Flambda_type.Typing_env_extension.t
     -> t
 
   (** Choose a member of the alpha-equivalence class to enable examination
@@ -352,6 +353,7 @@ end and Continuation_handler : sig
   val pattern_match
      : t
     -> f:(Kinded_parameter.t list
+      -> env_extension:Flambda_type.Typing_env_extension.t
       -> handler:Expr.t
       -> 'a)
     -> 'a
@@ -368,7 +370,9 @@ end and Continuation_handler : sig
      : t
     -> t
     -> f:(Kinded_parameter.t list
+      -> env_extension1:Flambda_type.Typing_env_extension.t
       -> handler1:Expr.t
+      -> env_extension2: Flambda_type.Typing_env_extension.t
       -> handler2:Expr.t
       -> 'a)
     -> ('a, Pattern_match_pair_error.t) Result.t
