@@ -27,8 +27,7 @@ let code `anon-fn[tests13.ml:16,2--118]_1` (param) my_closure -> k * k1 =
       apply inline(never)
         map_foo
         (`anon-fn[tests13.ml:19,31--43]`, `anon-fn[tests13.ml:19,44--59]`, 0)
-        -> k
-        * k1
+        -> k * k1
 in
 let code inline(always) bar_0 (i : imm tagged, map_foo) my_closure -> k * k1 =
   let sequence = 0 in
@@ -160,8 +159,7 @@ and code rec map_foo_4_1 newer_version_of(map_foo_4) (f, seq, param)
                     ($`camlTests13__anon-fn[tests13.ml:19,31--43]_8`,
                      $`camlTests13__anon-fn[tests13.ml:19,44--59]_7`,
                      0)
-                    -> k2
-                    * k1)
+                    -> k2 * k1)
                    where k2 (g_result) =
                      let ignore = %Opaque g_result in
                      let Pfield = %block_load 0 size 2 (`*match*`, 0) in

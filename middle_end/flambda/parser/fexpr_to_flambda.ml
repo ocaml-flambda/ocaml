@@ -810,18 +810,19 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
       | Function Indirect ->
         begin
           match arities with
-          | Some { params_arity; ret_arity } ->
+          | Some { params_arity = Some params_arity; ret_arity } ->
             let param_arity = arity params_arity in
             let return_arity = arity ret_arity in
             Call_kind.indirect_function_call_known_arity
               ~param_arity ~return_arity
-          | None ->
+          | None
+          | Some { params_arity = None; ret_arity = _ } ->
             Call_kind.indirect_function_call_unknown_arity ()
         end
       | C_call { alloc } ->
         begin
           match arities with
-          | Some { params_arity; ret_arity } ->
+          | Some { params_arity = Some params_arity; ret_arity } ->
             let param_arity =
               arity params_arity |> Flambda_arity.With_subkinds.to_arity
             in
@@ -829,7 +830,8 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
               arity ret_arity |> Flambda_arity.With_subkinds.to_arity
             in
             Call_kind.c_call ~alloc ~param_arity ~return_arity
-          | None ->
+          | None
+          | Some { params_arity = None; ret_arity = _ } ->
             Misc.fatal_errorf "Must specify arities for C call"
         end
     in

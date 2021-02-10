@@ -270,7 +270,7 @@ type continuation_sort =
    * specified explicitly *)
 
 type function_arities = {
-  params_arity : arity;
+  params_arity : arity option;
   ret_arity : arity;
 }
 

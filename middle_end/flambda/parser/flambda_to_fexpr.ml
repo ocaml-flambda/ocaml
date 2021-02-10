@@ -831,14 +831,28 @@ and apply_expr env (app : Apply_expr.t) : Fexpr.expr =
       Misc.fatal_error "TODO: Method call kind"
   in
   let arities : Fexpr.function_arities option =
+    let is_default_arity a =
+      match a with
+      | [ k ] ->
+        begin match Flambda_kind.With_subkind.descr k with
+        | Any_value -> true
+        | _ -> false
+        end
+      | _ ->
+        false
+    in
     match Apply_expr.call_kind app with
     | Function (Indirect_known_arity { param_arity; return_arity }) ->
-      let params_arity = arity param_arity in
+      let params_arity = Some (arity param_arity) in
       let ret_arity = arity return_arity in
       Some { params_arity; ret_arity; }
+    | Function (Direct { return_arity; _ }) ->
+      if is_default_arity return_arity then None else
+        let ret_arity = arity return_arity in
+        Some { params_arity = None; ret_arity; }
     | C_call { param_arity; return_arity; _ } ->
       let params_arity =
-        arity (param_arity |> Flambda_arity.With_subkinds.of_arity)
+        Some (arity (param_arity |> Flambda_arity.With_subkinds.of_arity))
       in
       let ret_arity =
         arity (return_arity |> Flambda_arity.With_subkinds.of_arity)

@@ -124,6 +124,7 @@ type token =
   | DOT
   | COMMA
   | COLON
+  | BLANK
   | BIGARROW
   | AT
 

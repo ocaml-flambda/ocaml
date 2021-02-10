@@ -533,13 +533,18 @@ let inline_attribute ?prefix ?suffix () ppf (i : Inline_attribute.t) =
 let inline_attribute_opt ?prefix ?suffix () ppf i =
   pp_option ?prefix ?suffix (inline_attribute ()) ppf i
 
+let or_blank f ppf ob =
+  match ob with
+  | None -> Format.pp_print_string ppf "_"
+  | Some a -> f ppf a
+
 let func_name_with_optional_arities ppf (n, arities) =
   match arities with
   | None -> name ppf n
   | Some { params_arity; ret_arity } ->
     Format.fprintf ppf "@[<2>(%a :@ %a ->@ %a@,)@]"
       name n
-      arity params_arity
+      (or_blank arity) params_arity
       arity ret_arity
 
 let symbol_scoping_rule ?prefix ?suffix () ppf sr =
@@ -614,7 +619,7 @@ let rec expr scope ppf = function
         ppf inlining_state
     in
     Format.fprintf ppf
-      "@[<hv 2>apply@[<2>%a%a%a@]@ %a%a@ @[<hov2>->@ %a@]@ %a@]"
+      "@[<hv 2>apply@[<2>%a%a%a@]@ %a%a@ @[<hov>-> %a@ %a@]@]"
       (call_kind ~prefix:"@ " ()) kind
       (inline_attribute_opt ~prefix:"@ " ()) inline
       pp_inlining_state ()

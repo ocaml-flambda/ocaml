@@ -54,6 +54,7 @@ let make_boxed_const_int (i, m) : static_data =
 
 %token AT    [@symbol "@"]
 %token BIGARROW [@symbol "===>"]
+%token BLANK [@symbol "_"]
 %token COLON  [@symbol ":"]
 %token COMMA [@symbol ","]
 %token DOT   [@symbol "."]
@@ -744,9 +745,17 @@ name:
 
 func_name_with_optional_arities:
   | n = name { n, None }
-  | LPAREN; n = name; COLON; params_arity = kinds_with_subkinds; MINUSGREATER;
-    ret_arity = kinds_with_subkinds; RPAREN
+  | LPAREN;
+      n = name; COLON; params_arity = blank_or(kinds_with_subkinds);
+      MINUSGREATER; ret_arity = kinds_with_subkinds;
+    RPAREN
     { n, Some ({ params_arity; ret_arity } : function_arities) }
+;
+
+blank_or(a):
+  | BLANK { None }
+  | a = a { Some a }
+;
 
 simple:
   | s = symbol { Symbol s }

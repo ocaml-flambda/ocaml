@@ -191,6 +191,8 @@ rule token = parse
       { SEMICOLON }
   | "="
       { EQUAL }
+  | "_"
+      { BLANK }
   | "{"
       { LBRACE }
   | "}"

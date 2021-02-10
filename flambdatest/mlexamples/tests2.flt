@@ -36,12 +36,18 @@ and code rec f_0_1 newer_version_of(f_0) (x : imm tagged) my_closure -> k
     | 1 -> k2
     where k2 =
       let Psubint = x - 1 in
-      (apply direct(f_0_1 @f) $camlTests2__f_1 (Psubint) -> k2 * k1
+      (apply direct(f_0_1 @f)
+         ($camlTests2__f_1 : _ -> imm tagged)
+         (Psubint)
+         -> k2 * k1
          where k2 (apply_result) =
            let Paddint = 1 + apply_result in
            cont k (Paddint))
 in
-apply direct(f_0_1 @f) unroll(10) $camlTests2__f_1 (5) -> k * error
+apply direct(f_0_1 @f) unroll(10)
+  ($camlTests2__f_1 : _ -> imm tagged)
+  (5)
+  -> k * error
   where k (n : imm tagged) =
     let dominator_scoped
       $camlTests2__Pmakeblock36 =
