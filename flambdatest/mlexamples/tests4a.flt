@@ -15,9 +15,8 @@ in
 (let pr2162_3_as_int64 = closure pr2162_3_as_int64_0 @pr2162_3_as_int64 in
  let Pmakeblock = %Block 0 (pr2162_3_as_int64) in
  cont k (Pmakeblock))
-  where
-    define_root_symbol k (module_block) =
-    let field_0 = %block_load 0 size 1 (module_block, 0) in
+  where k define_root_symbol (module_block) =
+    let field_0 = %block_load 0 size(1) (module_block, 0) in
     let $camlTests4a = Block 0 (field_0) in
     cont done ($camlTests4a)
 ===>

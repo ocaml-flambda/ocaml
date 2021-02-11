@@ -138,6 +138,7 @@ type block_access_kind =
       size : targetint option;
       field_kind : block_access_field_kind;
     }
+  | Naked_floats of { size : targetint option }
 
 type standard_int = Flambda_kind.Standard_int.t =
   | Tagged_immediate
@@ -153,6 +154,10 @@ type standard_int_or_float = Flambda_kind.Standard_int_or_float.t =
   | Naked_int32
   | Naked_int64
   | Naked_nativeint
+
+type string_or_bytes = Flambda_primitive.string_or_bytes =
+  | String
+  | Bytes
 
 type init_or_assign = Flambda_primitive.Init_or_assign.t =
   | Initialization
@@ -189,6 +194,7 @@ type unop =
       move_from : closure_id;
       move_to : closure_id;
     }
+  | String_length of string_or_bytes
   | Unbox_number of box_kind
 
 type 'a comparison_behaviour = 'a Flambda_primitive.comparison_behaviour =
@@ -289,6 +295,8 @@ type apply = {
     call_kind : call_kind;
     arities : function_arities option;
     inline : inline_attribute option;
+    (* CR lmaurer: This should should be a separate inlining_state type here
+     * so that we're not coupled to Inlining_state.print's syntax *)
     inlining_state : Inlining_state.t option;
   }
 

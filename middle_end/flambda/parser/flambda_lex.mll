@@ -101,6 +101,7 @@ let prim_table =
     "Box_int32", PRIM_BOX_INT32;
     "Box_int64", PRIM_BOX_INT64;
     "Box_nativeint", PRIM_BOX_NATIVEINT;
+    "bytes_length", PRIM_BYTES_LENGTH;
     "get_tag", PRIM_GET_TAG;
     "int_arith", PRIM_INT_ARITH;
     "int_comp", PRIM_INT_COMP;
@@ -111,6 +112,7 @@ let prim_table =
     "phys_ne", PRIM_PHYS_NE;
     "project_var", PRIM_PROJECT_VAR;
     "select_closure", PRIM_SELECT_CLOSURE;
+    "string_length", PRIM_STRING_LENGTH;
     "Tag_imm", PRIM_TAG_IMM;
     "unbox_float", PRIM_UNBOX_FLOAT;
     "unbox_int32", PRIM_UNBOX_INT32;

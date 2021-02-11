@@ -393,6 +393,8 @@ let unop env (op : Flambda_primitive.unary_primitive) : Fexpr.unop =
     let move_from = Env.translate_closure_id env move_from in
     let move_to = Env.translate_closure_id env move_to in
     Select_closure { move_from; move_to }
+  | String_length string_or_bytes ->
+    String_length string_or_bytes
   | _ ->
     Misc.fatal_errorf "TODO: Unary primitive: %a"
       Flambda_primitive.Without_args.print
@@ -402,17 +404,23 @@ let binop (op : Flambda_primitive.binary_primitive) : Fexpr.binop =
   match op with
   | Array_load (ak, mut) ->
     Array_load (ak, mut)
-  | Block_load (Values { field_kind;
-                         size;
-                         tag }, mutability) ->
-    let size =
-      match size with
-      | Known size -> Some (size |> targetint_ocaml)
+  | Block_load (access_kind, mutability) ->
+    let size (s : _ Or_unknown.t) =
+      match s with
+      | Known s -> Some (s |> targetint_ocaml)
       | Unknown -> None
     in
-    Block_load (Values { field_kind;
-                         size;
-                         tag = tag |> Tag.Scannable.to_int }, mutability)
+    let access_kind : Fexpr.block_access_kind =
+      match access_kind with
+      | Values { field_kind; size = s; tag } ->
+        let size = s |> size in
+        let tag = tag |> Tag.Scannable.to_int in
+        Values { field_kind; size; tag }
+      | Naked_floats { size = s } ->
+        let size = s |> size in
+        Naked_floats { size }
+    in
+    Block_load (access_kind, mutability)
   | Phys_equal (k, op) ->
     let k =
       match kind k with

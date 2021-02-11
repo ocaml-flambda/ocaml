@@ -163,6 +163,7 @@ let make_boxed_const_int (i, m) : static_data =
 %token PRIM_BOX_INT32 [@symbol "%Box_int32"]
 %token PRIM_BOX_INT64 [@symbol "%Box_int64"]
 %token PRIM_BOX_NATIVEINT [@symbol "%Box_nativeint"]
+%token PRIM_BYTES_LENGTH [@symbol "%bytes_length"]
 %token PRIM_GET_TAG [@symbol "%get_tag"]
 %token PRIM_INT_ARITH [@symbol "%int_arith"]
 %token PRIM_INT_COMP [@symbol "%int_comp"]
@@ -173,6 +174,7 @@ let make_boxed_const_int (i, m) : static_data =
 %token PRIM_PHYS_NE [@symbol "%phys_ne"]
 %token PRIM_PROJECT_VAR [@symbol "%project_var"]
 %token PRIM_SELECT_CLOSURE [@symbol "%select_closure"]
+%token PRIM_STRING_LENGTH [@symbol "%string_length"]
 %token PRIM_TAG_IMM [@symbol "%tag_imm"]
 %token PRIM_UNBOX_FLOAT [@symbol "%unbox_float"]
 %token PRIM_UNBOX_INT32 [@symbol "%unbox_int32"]
@@ -316,6 +318,7 @@ unop:
   | PRIM_BOX_INT32 { Box_number Naked_int32 }
   | PRIM_BOX_INT64 { Box_number Naked_int64 }
   | PRIM_BOX_NATIVEINT { Box_number Naked_nativeint }
+  | PRIM_BYTES_LENGTH { String_length Bytes }
   | PRIM_GET_TAG { Get_tag }
   | PRIM_IS_INT { Is_int }
   | PRIM_NUM_CONV; LPAREN;
@@ -329,6 +332,7 @@ unop:
       move_from = closure_id; MINUSGREATER; move_to = closure_id;
     RPAREN
     { Select_closure { move_from; move_to } }
+  | PRIM_STRING_LENGTH { String_length String }
   | PRIM_TAG_IMM { Box_number Untagged_immediate }
   | PRIM_UNBOX_FLOAT { Unbox_number Naked_float }
   | PRIM_UNBOX_INT32 { Unbox_number Naked_int32 }
@@ -345,11 +349,9 @@ infix_binop:
 
 prefix_binop:
   | PRIM_BLOCK_LOAD;
-    field_kind = block_access_field_kind;
     mutability = mutability;
-    tag = tag;
-    size = option(KWD_SIZE; size = targetint { size })
-    { Block_load (Values { tag; size; field_kind }, mutability) }
+    kind = block_access_kind;
+    { Block_load (kind, mutability) }
   | PRIM_PHYS_EQ; k = kind_arg_opt { Phys_equal(k, Eq) }
   | PRIM_PHYS_NE; k = kind_arg_opt { Phys_equal(k, Neq) }
 
@@ -364,9 +366,20 @@ array_kind:
   | KWD_FLOAT { Naked_floats }
   | KWD_DYNAMIC { Float_array_opt_dynamic }
 
+block_access_kind:
+  | field_kind = block_access_field_kind; tag = tag; size = size_opt
+    { Values { field_kind; tag; size } }
+  | KWD_FLOAT; size = size_opt
+    { Naked_floats { size } }
+;
+
 block_access_field_kind:
   | { Any_value }
   | KWD_IMM { Immediate }
+
+size_opt:
+  | { None }
+  | KWD_SIZE; LPAREN; size = targetint; RPAREN { Some size }
 
 standard_int:
   | { Tagged_immediate }
@@ -659,7 +672,7 @@ continuation_sort:
 ;
 
 continuation_binding:
-  | sort = continuation_sort; name = continuation_id;
+  | name = continuation_id; sort = continuation_sort;
     params = kinded_args; EQUAL; handler = continuation_body
     { { name; params; handler; sort } }
 ;

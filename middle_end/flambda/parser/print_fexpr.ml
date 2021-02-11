@@ -17,6 +17,7 @@ let pp_comma_list f = pp_list ~sep:",@ " f
 let pp_semi_list f = pp_list ~sep:";@ " f
 
 let empty_fmt : (unit, Format.formatter, unit) format = ""
+let space_fmt : (unit, Format.formatter, unit) format = "@ "
 
 let pp_with ?(prefix=empty_fmt) ?(suffix=empty_fmt) ppf =
   Format.kdprintf (fun pp ->
@@ -24,13 +25,26 @@ let pp_with ?(prefix=empty_fmt) ?(suffix=empty_fmt) ppf =
     pp ppf;
     Format.fprintf ppf suffix)
 
-let pp_option ?prefix ?suffix f ppf = function
-  | None -> ()
-  | Some x -> pp_with ?prefix ?suffix ppf "%a" f x
+let pp_like fmt f ppf = Format.fprintf ppf fmt f
 
-let recursive ppf = function
+type spacing = Before | After | Neither
+
+let pp_spaced ~space ppf =
+  let prefix, suffix =
+    match space with
+    | Before -> space_fmt, empty_fmt
+    | After -> empty_fmt, space_fmt
+    | Neither -> empty_fmt, empty_fmt
+  in
+  pp_with ~prefix ~suffix ppf
+
+let pp_option ~space f ppf = function
+  | None -> ()
+  | Some a -> pp_spaced ~space ppf "%a" f a
+
+let recursive ~space ppf = function
   | Nonrecursive -> ()
-  | Recursive -> Format.fprintf ppf "@ rec"
+  | Recursive -> pp_spaced ~space ppf "rec"
 
 let continuation_sort ppf sort =
   Format.pp_print_string ppf
@@ -154,7 +168,7 @@ let kinded_variable ppf (v, (k:kind_with_subkind option)) =
   | Some k ->
     Format.fprintf ppf "@[<2>%a :@ %a@]" variable v kind_with_subkind k
 
-let standard_int ?prefix ?suffix () ppf (i : standard_int) =
+let standard_int ~space ppf (i : standard_int) =
   let str = match i with
     | Tagged_immediate -> None
     | Naked_immediate -> Some "imm"
@@ -162,7 +176,7 @@ let standard_int ?prefix ?suffix () ppf (i : standard_int) =
     | Naked_int64 -> Some "int64"
     | Naked_nativeint -> Some "nativeint"
   in
-  pp_option ?prefix ?suffix Format.pp_print_string ppf str
+  pp_option ~space Format.pp_print_string ppf str
 
 let convertible_type ppf (t : standard_int_or_float) =
   let str = match t with
@@ -175,10 +189,10 @@ let convertible_type ppf (t : standard_int_or_float) =
   in
   Format.pp_print_string ppf str
 
-let signed_or_unsigned ?prefix ?suffix () ppf (s : signed_or_unsigned) =
+let signed_or_unsigned ~space ppf (s : signed_or_unsigned) =
   match s with
   | Signed -> ()
-  | Unsigned -> pp_with ?prefix ?suffix ppf "unsigned"
+  | Unsigned -> pp_spaced ~space ppf "unsigned"
 
 let field_of_block ppf : field_of_block -> unit = function
   | Symbol s -> symbol ppf s
@@ -210,16 +224,16 @@ let name ppf : name -> unit = function
   | Symbol s -> symbol ppf s
   | Var v -> variable ppf v
 
-let mutability ?prefix ?suffix () ppf mut =
+let mutability ~space ppf mut =
   let str =
     match mut with
     | Mutable -> Some "mutable"
     | Immutable -> None
     | Immutable_unique -> Some "immutable_unique"
   in
-  pp_option ?prefix ?suffix Format.pp_print_string ppf str
+  pp_option ~space Format.pp_print_string ppf str
 
-let array_kind ?prefix ?suffix () ppf (ak : array_kind) =
+let array_kind ~space ppf (ak : array_kind) =
   let str =
     match ak with
     | Immediates -> None
@@ -227,7 +241,7 @@ let array_kind ?prefix ?suffix () ppf (ak : array_kind) =
     | Naked_floats -> Some "float"
     | Float_array_opt_dynamic -> Some "dynamic"
   in
-  pp_option ?prefix ?suffix Format.pp_print_string ppf str
+  pp_option ~space Format.pp_print_string ppf str
 
 let init_or_assign ppf ia =
   let str =
@@ -247,7 +261,7 @@ let float_or_variable ppf : float or_variable -> unit = function
 let static_data ppf : static_data -> unit = function
   | Block { tag; mutability = mut; elements = elts } ->
     Format.fprintf ppf "Block %a%i (@[<hv>%a@])"
-      (mutability ~suffix:"@ " ()) mut
+      (mutability ~space:After) mut
       tag
       (pp_comma_list field_of_block) elts
   | Boxed_float (Const f) -> Format.fprintf ppf "%h" f
@@ -335,26 +349,34 @@ let binop ppf binop a b =
   match binop with
   | Array_load (ak, mut) ->
     Format.fprintf ppf "@[<2>%%array_load%a%a@ %a.(%a)@]"
-      (array_kind ~prefix:"@ " ()) ak
-      (mutability ~prefix:"@ " ()) mut
+      (array_kind ~space:Before) ak
+      (mutability ~space:Before) mut
       simple a
       simple b
-  | Block_load (Values { field_kind; tag; size; }, mut) ->
+  | Block_load (access_kind, mut) ->
     let pp_size ppf (size : Int64.t option) =
       match size with
       | None -> ()
-      | Some size -> Format.fprintf ppf "@ size %Li" size
+      | Some size -> Format.fprintf ppf "@ size(%Li)" size
     in
     let pp_field_kind ppf (field_kind : block_access_field_kind) =
       match field_kind with
       | Any_value -> ()
       | Immediate -> Format.fprintf ppf "@ imm"
     in
-    Format.fprintf ppf "@[<2>%%block_load %a%a%i%a@ (%a,@ %a)@]"
-      pp_field_kind field_kind
-      (mutability ~suffix:"@ " ()) mut
-      tag
-      pp_size size
+    let pp_access_kind ppf (access_kind : block_access_kind) =
+      match access_kind with
+      | Values { field_kind; tag; size } ->
+        Format.fprintf ppf "%a%i%a"
+          pp_field_kind field_kind
+          tag
+          pp_size size
+      | Naked_floats { size } ->
+        Format.fprintf ppf "float%a" pp_size size
+    in
+    Format.fprintf ppf "@[<2>%%block_load %a%a@ (%a,@ %a)@]"
+      (mutability ~space:After) mut
+      pp_access_kind access_kind
       simple a simple b
   | Phys_equal (k, comp) ->
     let name =
@@ -364,7 +386,7 @@ let binop ppf binop a b =
     in
     Format.fprintf ppf "@[<2>%s%a@ (%a,@ %a)@]"
       name
-      (pp_option ~prefix:"@ {" ~suffix:"}" kind) k
+      (pp_option ~space:Before kind) k
       simple a
       simple b
   | Infix op ->
@@ -374,15 +396,15 @@ let binop ppf binop a b =
       simple b
   | Int_arith (i, o) ->
       Format.fprintf ppf "@[<2>%%int_arith %a%a@ %a@ %a@]"
-        (standard_int ~suffix:"@ " ()) i
+        (standard_int ~space:After) i
         simple a
         binary_int_arith_op o
         simple b
   | Int_comp (i, s, c) ->
     begin
       Format.fprintf ppf "@[<2>%%int_comp %a%a%a@ %a@ %a@]"
-        (standard_int ~suffix:"@ " ()) i
-        (signed_or_unsigned ~suffix:"@ " ()) s
+        (standard_int ~space:After) i
+        (signed_or_unsigned ~space:After) s
         simple a
         int_comp c
         simple b
@@ -405,7 +427,7 @@ let unop ppf u =
   match u with
   | Array_length ak ->
     Format.fprintf ppf "@[<2>%%array_length%a@]"
-      (array_kind ~prefix:"@ " ()) ak
+      (array_kind ~space:Before) ak
   | Box_number bk ->
     box_or_unbox "Box" "Tag" bk
   | Get_tag ->
@@ -426,6 +448,10 @@ let unop ppf u =
     Format.fprintf ppf "@[<2>%%select_closure@ (%a@ -> %a)@]"
       closure_id move_from
       closure_id move_to
+  | String_length Bytes ->
+    str "%bytes_length"
+  | String_length String ->
+    str "%string_length"
   | Unbox_number bk ->
     box_or_unbox "unbox" "untag" bk
 
@@ -433,7 +459,7 @@ let ternop ppf t a1 a2 a3 =
   match t with
   | Array_set (ak, ia) ->
     Format.fprintf ppf "@[<2>%%array_set%a@ %a.(%a) %a %a@]"
-      (array_kind ~prefix:"@ " ()) ak
+      (array_kind ~space:Before) ak
       simple a1
       simple a2
       init_or_assign ia
@@ -450,7 +476,7 @@ let prim ppf = function
     ternop ppf t a1 a2 a3
   | Variadic (Make_block (tag, mut), elts) ->
     Format.fprintf ppf "@[<2>%%Block %a%i%a@]"
-      (mutability ~suffix:"@ " ()) mut
+      (mutability ~space:After) mut
       tag
       (simple_args ~omit_if_empty:false) elts
 
@@ -489,10 +515,13 @@ let closure_elements ppf = function
     Format.fprintf ppf "@;<1 -2>}@]"
 
 let fun_decl ppf (decl : fun_decl) =
+  let pp_at_closure_id ppf cid =
+    pp_option ~space:Before (pp_like "@@%a" closure_id) ppf cid
+  in
   Format.fprintf ppf "@[<2>closure@ %t%a%a@]"
     (fun ppf -> if decl.is_tupled then Format.fprintf ppf "tupled@ ")
     code_id decl.code_id
-    (pp_option ~prefix:"@ @@" closure_id) decl.closure_id
+    pp_at_closure_id decl.closure_id
 
 let named ppf = function
   | (Simple s : named) ->
@@ -507,19 +536,19 @@ let static_closure_binding ppf (scb : static_closure_binding) =
     symbol scb.symbol
     fun_decl scb.fun_decl
 
-let call_kind ?prefix ?suffix () ppf ck =
+let call_kind ~space ppf ck =
   match ck with
   | Function Indirect -> ()
   | Function (Direct { code_id = c; closure_id = cl }) ->
-    pp_with ?prefix ?suffix ppf "@[direct(%a%a)@]"
+    pp_spaced ~space ppf "@[direct(%a%a)@]"
       code_id c
-      (pp_option ~prefix:"@ @@" closure_id) cl
+      (pp_option ~space:Before (pp_like "@@%a" closure_id)) cl
   | C_call { alloc } ->
-    pp_with ?prefix ppf "ccall";
-    if not alloc then Format.fprintf ppf "@ noalloc";
-    pp_with ?suffix ppf ""
+    let noalloc_kwd = if alloc then None else Some "noalloc" in
+    pp_spaced ~space ppf "ccall%a"
+      (pp_option ~space:Before Format.pp_print_string) noalloc_kwd
 
-let inline_attribute ?prefix ?suffix () ppf (i : Inline_attribute.t) =
+let inline_attribute ~space ppf (i : Inline_attribute.t) =
   let str =
     match i with
     | Always_inline -> Some "inline(always)"
@@ -528,10 +557,14 @@ let inline_attribute ?prefix ?suffix () ppf (i : Inline_attribute.t) =
     | Unroll i -> Some (Format.sprintf "unroll(%d)" i)
     | Default_inline -> None
   in
-  pp_option ?prefix ?suffix Format.pp_print_string ppf str
+  pp_option ~space Format.pp_print_string ppf str
 
-let inline_attribute_opt ?prefix ?suffix () ppf i =
-  pp_option ?prefix ?suffix (inline_attribute ()) ppf i
+let inline_attribute_opt ~space ppf i =
+  pp_option ~space (inline_attribute ~space:Neither) ppf i
+
+let inlining_state ppf is =
+  (* CR lmaurer: Separate Inlining_state.t from our AST types *)
+  Inlining_state.print ppf is
 
 let or_blank f ppf ob =
   match ob with
@@ -547,8 +580,8 @@ let func_name_with_optional_arities ppf (n, arities) =
       (or_blank arity) params_arity
       arity ret_arity
 
-let symbol_scoping_rule ?prefix ?suffix () ppf sr =
-  pp_option Format.pp_print_string ?prefix ?suffix ppf
+let symbol_scoping_rule ~space ppf sr =
+  pp_option Format.pp_print_string ~space ppf
   @@
   match sr with
   | None | Some Syntactic -> None
@@ -582,11 +615,11 @@ let rec expr scope ppf = function
              } ->
     parens ~if_scope_is:Continuation_body scope ppf (fun _scope ppf ->
       Format.fprintf ppf
-        "@[<v 2>%a@ @[<v>@[<v 2>where%a%a %a@[<hv2>%a@] =@ %a@]%a@]@]"
+        "@[<v 2>%a@ @[<v>@[<v 2>@[where%a@]@[<hv2>@ %a%a%a@] =@ %a@]%a@]@]"
         (expr Where_body) body
-        recursive recu
-        (pp_option continuation_sort ~prefix:"@ ") sort
+        (recursive ~space:Before) recu
         continuation_id name
+        (pp_option continuation_sort ~space:Before) sort
         kinded_parameters params
         (expr Continuation_body) handler
         andk rem_cont
@@ -608,20 +641,22 @@ let rec expr scope ppf = function
   | Apply {
       call_kind = kind;
       inline = inline;
-      inlining_state = inlining_state;
+      inlining_state = is;
       continuation = ret;
       exn_continuation = ek;
       args;
       func;
       arities } ->
     let pp_inlining_state ppf () =
-      pp_option (fun ppf -> Format.fprintf ppf "@ inlining_state %a" Inlining_state.print)
-        ppf inlining_state
+      (* CR lmaurer: Change this when we get control over inlining state syntax
+         *)
+      pp_option ~space:Before (pp_like "inlining_state%a" inlining_state)
+        ppf is
     in
     Format.fprintf ppf
       "@[<hv 2>apply@[<2>%a%a%a@]@ %a%a@ @[<hov>-> %a@ %a@]@]"
-      (call_kind ~prefix:"@ " ()) kind
-      (inline_attribute_opt ~prefix:"@ " ()) inline
+      (call_kind ~space:Before) kind
+      (inline_attribute_opt ~space:Before) inline
       pp_inlining_state ()
       func_name_with_optional_arities (func, arities)
       (simple_args ~omit_if_empty:true) args
@@ -649,7 +684,7 @@ and let_expr scope ppf : let_ -> unit = function
 and let_symbol_expr scope ppf = function
   | { bindings; closure_elements; body; scoping_rule } ->
     Format.fprintf ppf "@[<v>@[<hv>@[<hv2>let %a%a@]@ in@]@ %a@]"
-      (symbol_scoping_rule ~suffix:"@ " ()) scoping_rule
+      (symbol_scoping_rule ~space:After) scoping_rule
       symbol_bindings (bindings, closure_elements)
       (expr scope) body
 
@@ -658,7 +693,7 @@ and andk ppf l =
   let cont { name; params; sort; handler } =
     Format.fprintf ppf
       "@ @[<v 2>andwhere%a %a@[<hv2>%a@] =@ %a@]"
-      (pp_option continuation_sort ~prefix:"@ ") sort
+      (pp_option continuation_sort ~space:Before) sort
       continuation_id name
       kinded_parameters params
       (expr Continuation_body) handler
@@ -692,10 +727,10 @@ and symbol_binding ppf (sb : symbol_binding) =
 and code_binding ppf ({ recursive = rec_; inline; id; newer_version_of;
                         param_arity; ret_arity; params_and_body } : code) =
   Format.fprintf ppf "code@[<h>%a%a@] @[<hov2>%a%a"
-    recursive rec_
-    (inline_attribute_opt ~prefix:"@ " ()) inline
+    (recursive ~space:Before) rec_
+    (inline_attribute_opt ~space:Before) inline
     code_id id
-    (pp_option ~prefix:"@ newer_version_of(" ~suffix:")" code_id)
+    (pp_option ~space:Before (pp_like "newer_version_of(%a)" code_id))
       newer_version_of;
   match params_and_body with
     | Deleted ->
@@ -716,7 +751,7 @@ and code_binding ppf ({ recursive = rec_; inline; id; newer_version_of;
         variable closure_var
         continuation_id ret_cont
         continuation_id exn_cont
-        (pp_option ~prefix:"@ : " arity) ret_arity
+        (pp_option ~space:Before (pp_like ": %a" arity)) ret_arity
         (expr Outer) body
 
 let flambda_unit ppf ({ body } : flambda_unit) =

@@ -337,6 +337,7 @@ let unop env (unop:Fexpr.unop) : Flambda_primitive.unary_primitive =
     let move_from = fresh_or_existing_closure_id env move_from in
     let move_to = fresh_or_existing_closure_id env move_to in
     Select_closure { move_from; move_to }
+  | String_length string_or_bytes -> String_length string_or_bytes
 
 let infix_binop (binop:Fexpr.infix_binop) : Flambda_primitive.binary_primitive =
   match binop with
@@ -349,15 +350,23 @@ let binop (binop:Fexpr.binop) : Flambda_primitive.binary_primitive =
   match binop with
   | Array_load (ak, mut) ->
     Array_load (ak, mut)
-  | Block_load (Values { tag; size; field_kind }, mutability) ->
-    let size : Targetint.OCaml.t Or_unknown.t =
-      match size with
+  | Block_load (access_kind, mutability) ->
+    let size s : _ Or_unknown.t =
+      match s with
       | None -> Unknown
-      | Some size -> Known (size |> Targetint.OCaml.of_int64)
+      | Some s -> Known (s |> Targetint.OCaml.of_int64)
     in
-    Block_load (Values { field_kind;
-                         tag = tag |> Tag.Scannable.create_exn;
-                         size; }, mutability)
+    let access_kind : Flambda_primitive.Block_access_kind.t =
+      match access_kind with
+      | Values { field_kind; tag; size = s } ->
+        let tag = tag |> Tag.Scannable.create_exn in
+        let size = size s in
+        Values { field_kind; tag; size }
+      | Naked_floats { size = s } ->
+        let size = size s in
+        Naked_floats { size }
+    in
+    Block_load (access_kind, mutability)
   | Phys_equal (kind, op) ->
     let kind =
       value_kind (kind |> Option.value ~default:(Value : Fexpr.kind))

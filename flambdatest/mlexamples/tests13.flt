@@ -82,7 +82,7 @@ let code rec map_foo_4 (f, seq, param) my_closure -> k * k1 =
                                    @`anon-fn[tests13.ml:29,15--28]`
                                in
                                let Pfield =
-                                 %block_load 0 size 2 (`*match*`, 0)
+                                 %block_load 0 size(2) (`*match*`, 0)
                                in
                                (apply f (Pfield) -> k2 * k1
                                   where k2 (apply_result) =
@@ -97,9 +97,8 @@ in
  let map_foo = closure map_foo_4 @map_foo with { bar_2 = bar } in
  let Pmakeblock = %Block 0 (map_foo) in
  cont k (Pmakeblock))
-  where
-    define_root_symbol k (module_block) =
-    let field_0 = %block_load 0 size 1 (module_block, 0) in
+  where k define_root_symbol (module_block) =
+    let field_0 = %block_load 0 size(1) (module_block, 0) in
     let $camlTests13 = Block 0 (field_0) in
     cont done ($camlTests13)
 ===>
@@ -154,7 +153,7 @@ and code rec map_foo_4_1 newer_version_of(map_foo_4) (f, seq, param)
                 ((let j = unboxed_clos_var_i_0 + 3 in
                   let ignore = %Opaque j in
                   apply direct(map_foo_4_1 @map_foo) inline(never)
-                         inlining_state (depth 1)
+                         inlining_state(depth 1)
                     $camlTests13__map_foo_9
                     ($`camlTests13__anon-fn[tests13.ml:19,31--43]_8`,
                      $`camlTests13__anon-fn[tests13.ml:19,44--59]_7`,
@@ -162,7 +161,7 @@ and code rec map_foo_4_1 newer_version_of(map_foo_4) (f, seq, param)
                     -> k2 * k1)
                    where k2 (g_result) =
                      let ignore = %Opaque g_result in
-                     let Pfield = %block_load 0 size 2 (`*match*`, 0) in
+                     let Pfield = %block_load 0 size(2) (`*match*`, 0) in
                      (apply f (Pfield) -> k2 * k1
                         where k2 (apply_result) =
                           let Pmakeblock =
