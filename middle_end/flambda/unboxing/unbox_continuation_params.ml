@@ -1122,12 +1122,18 @@ let make_unboxing_decisions0 denv ~arg_types_by_use_id ~params
       (List.combine arg_types_by_use_id
         (List.combine params param_types))
   in
+  let new_param_types = List.rev param_types_rev in
+  let env_extension =
+    List.fold_left2 (fun acc param ty ->
+      TEE.add_or_replace_equation acc (KP.name param) ty
+    ) (TEE.empty ()) params new_param_types
+  in
   let denv =
     DE.map_typing_env denv ~f:(fun typing_env ->
       TE.add_equations_on_params typing_env
-        ~params ~param_types:(List.rev param_types_rev))
+        ~params ~param_types:new_param_types)
   in
-  denv, extra_params_and_args
+  denv, env_extension, extra_params_and_args
 
 let make_unboxing_decisions denv ~arg_types_by_use_id ~params
       ~param_types extra_params_and_args =
@@ -1135,4 +1141,4 @@ let make_unboxing_decisions denv ~arg_types_by_use_id ~params
     make_unboxing_decisions0 denv ~arg_types_by_use_id ~params
       ~param_types extra_params_and_args
   else
-    denv, extra_params_and_args
+    denv, TEE.empty (), extra_params_and_args

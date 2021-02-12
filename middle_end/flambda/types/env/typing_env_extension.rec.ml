@@ -154,6 +154,10 @@ let meet env t1 t2 : _ Or_bottom.t =
     Ok (meet0 env t1 t2 [])
   with Bottom_meet -> Bottom
 
+let meet_using_typing_env env t1 t2 =
+  let meet_env = Meet_env.create env in
+  meet meet_env t1 t2
+
 let join env t1 t2 =
   let env = Meet_env.env env in
   let join_env =

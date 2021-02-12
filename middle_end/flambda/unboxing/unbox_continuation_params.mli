@@ -24,4 +24,4 @@ val make_unboxing_decisions
   -> params:KP.t list
   -> param_types:T.t list
   -> Continuation_extra_params_and_args.t
-  -> DE.t * Continuation_extra_params_and_args.t
+  -> DE.t * TEE.t * Continuation_extra_params_and_args.t

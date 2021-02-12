@@ -243,8 +243,11 @@ let simplify_non_recursive_let_cont_handler ~denv_before_body ~dacc_after_body
         let param_types =
           TE.find_params (DE.typing_env handler_env) params
         in
-        Unbox_continuation_params.make_unboxing_decisions handler_env
-          ~arg_types_by_use_id ~params ~param_types extra_params_and_args
+        let handler_env, _, extra_params_and_args =
+          Unbox_continuation_params.make_unboxing_decisions handler_env
+            ~arg_types_by_use_id ~params ~param_types extra_params_and_args
+        in
+        handler_env, extra_params_and_args
       | Return | Toplevel_return ->
         assert (not is_exn_handler);
         handler_env, extra_params_and_args
@@ -501,17 +504,6 @@ let rebuild_recursive_let_cont_handlers cont arity ~original_cont_scope_level
   let handlers = Continuation.Map.singleton cont handler in
   after_rebuild handlers uacc
 
-let ty_of_kind param =
-  let kind = KP.kind param in
-  let subkind = Flambda_kind.With_subkind.subkind kind in
-  match subkind with
-  | Anything -> Flambda_type.unknown (Flambda_kind.With_subkind.kind kind)
-  | Boxed_float -> Flambda_type.any_boxed_float ()
-  | Boxed_int32 -> Flambda_type.any_boxed_int32 ()
-  | Boxed_int64 -> Flambda_type.any_boxed_int64 ()
-  | Boxed_nativeint -> Flambda_type.any_boxed_nativeint ()
-  | Tagged_immediate -> Flambda_type.any_tagged_immediate ()
-
 (* This only takes one handler at present since we don't yet support
    simplification of multiple recursive handlers. *)
 let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
@@ -543,7 +535,11 @@ let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
   let dacc = DA.with_denv dacc_after_body denv in
   let dacc = DA.add_lifted_constants dacc prior_lifted_constants in
   let dacc = DA.map_denv dacc ~f:DE.set_not_at_unit_toplevel in
-  let param_types = List.map ty_of_kind params in
+  let param_types =
+    List.map (fun param ->
+      Flambda_type.unknown_with_subkind (KP.kind param)
+    ) params
+  in
   let arg_types_by_use_id =
     List.map (fun _ ->
       Apply_cont_rewrite_id.Map.empty
@@ -554,14 +550,27 @@ let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
       Flambda_type.Typing_env.meet_equations_on_params env ~params ~param_types
     )
   in
-  let _tenv, tmp_extra_params =
+  let denv, extra_env_extension, extra_params =
     Unbox_continuation_params.make_unboxing_decisions denv
       ~arg_types_by_use_id ~params ~param_types Continuation_extra_params_and_args.empty
   in
-  if Continuation_extra_params_and_args.is_empty tmp_extra_params then ()
+  let env_extension =
+    let or_bottom =
+      Flambda_type.Typing_env_extension.meet_using_typing_env
+        (DE.typing_env denv) env_extension extra_env_extension
+    in
+    match or_bottom with
+    | Bottom ->
+      (* CR: return unreachable instead of erroring *)
+      Misc.fatal_errorf "unreachable continuation handler"
+    | Ok env_extension -> env_extension
+  in
+  let dacc = DA.with_denv dacc denv in
+  if Continuation_extra_params_and_args.is_empty extra_params then ()
   else
-    Format.eprintf "=== SAUCISSE ===@\nextra_params for %a:@ %a@."
-      Continuation.print cont Continuation_extra_params_and_args.print tmp_extra_params;
+    Format.eprintf "=== SAUCISSE ===@\nextra_params for %a:@ %a@\nextra_env_extension: %a@\n@."
+      Continuation.print cont Continuation_extra_params_and_args.print extra_params
+      TEE.print extra_env_extension;
   simplify_one_continuation_handler dacc cont
     ~at_unit_toplevel:false Recursive
     cont_handler ~params ~env_extension ~handler
@@ -581,9 +590,10 @@ let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
           ) params
           |> KP.Set.of_list
         in
+        let used_extra_params =
         let rewrite =
           Apply_cont_rewrite.create ~original_params:params ~used_params
-            ~extra_params:[] ~extra_args:Apply_cont_rewrite_id.Map.empty
+            ~extra_params ~extra_args:Apply_cont_rewrite_id.Map.empty
             ~used_extra_params:KP.Set.empty
         in
         let uacc =
