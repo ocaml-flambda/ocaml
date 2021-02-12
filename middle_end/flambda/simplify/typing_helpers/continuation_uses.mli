@@ -43,6 +43,9 @@ val add_use
 
 val get_uses : t -> One_continuation_use.t list
 
+val get_arg_types_by_use_id : t ->
+  (Flambda_type.Typing_env.t * Flambda_type.t) Apply_cont_rewrite_id.Map.t list
+
 val compute_handler_env
    : t
   -> env_at_fork_plus_params_and_consts:Simplify_envs.Downwards_env.t

@@ -16,7 +16,7 @@
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
-let debug = false
+let debug = true
 
 open! Simplify_import
 

@@ -12,7 +12,9 @@
 (*                                                                        *)
 (**************************************************************************)
 
-let debug = false
+[@@@ocaml.warning "+a-4-30-40-41-42"]
+
+let debug = true
 
 (* Typedefs *)
 (* ******** *)
@@ -22,6 +24,7 @@ type elt = {
   params : Variable.t list;
   used_in_handler : Name_occurrences.t;
   apply_result_conts : Continuation.Set.t;
+  bindings : Name_occurrences.t Variable.Map.t;
   apply_cont_args :
     Name_occurrences.t Numbers.Int.Map.t Continuation.Map.t;
 }
@@ -29,24 +32,28 @@ type elt = {
 type t = {
   stack : elt list;
   map : elt Continuation.Map.t;
+  extra : Continuation_extra_params_and_args.t Continuation.Map.t;
 }
 
 (* Print *)
 (* ***** *)
 
 let print_elt ppf
-      { continuation; params; used_in_handler; apply_result_conts; apply_cont_args; } =
+      { continuation; params; used_in_handler;
+        apply_result_conts; bindings; apply_cont_args; } =
   Format.fprintf ppf "@[<hov 1>(\
                       @[<hov 1>(continuation %a)@]@ \
                       @[<hov 1>(params %a)@]@ \
                       @[<hov 1>(used_in_handler %a)@]@ \
                       @[<hov 1>(apply_result_conts %a)@]@ \
+                      @[<hov 1>(bindings %a)@]@ \
                       @[<hov 1>(apply_cont_args %a)@]\
                       )@]"
     Continuation.print continuation
     Variable.print_list params
     Name_occurrences.print used_in_handler
     Continuation.Set.print apply_result_conts
+    (Variable.Map.print Name_occurrences.print) bindings
     (Continuation.Map.print (Numbers.Int.Map.print Name_occurrences.print))
     apply_cont_args
 
@@ -58,13 +65,18 @@ let print_stack ppf stack =
 let print_map ppf map =
   Continuation.Map.print print_elt ppf map
 
-let print ppf { stack; map; } =
+let print_extra ppf extra =
+  Continuation.Map.print Continuation_extra_params_and_args.print ppf extra
+
+let print ppf { stack; map; extra } =
   Format.fprintf ppf "@[<hov 1>(\
                       @[<hov 1>(stack %a)@]@ \
-                      @[<hov 1>(map %a)@]\
+                      @[<hov 1>(map %a)@]@ \
+                      @[<hov 1>(extra %a)@]\
                       )@]"
     print_stack stack
     print_map map
+    print_extra extra
 
 (* Creation *)
 (* ******** *)
@@ -72,14 +84,26 @@ let print ppf { stack; map; } =
 let empty = {
   stack = [];
   map = Continuation.Map.empty;
+  extra = Continuation.Map.empty;
 }
 
 (* Updates *)
 (* ******* *)
 
+let add_extra_params_and_args cont extra t =
+  let extra =
+    Continuation.Map.update cont (function
+      | Some _ ->
+        Misc.fatal_errorf "Continuation extended a second time"
+      | None -> Some extra
+    ) t.extra
+  in
+  { t with extra; }
+
 let stack_cont continuation params t =
   let elt = {
     continuation; params;
+    bindings = Variable.Map.empty;
     used_in_handler = Name_occurrences.empty;
     apply_cont_args = Continuation.Map.empty;
     apply_result_conts = Continuation.Set.empty;
@@ -96,12 +120,24 @@ let unstack_cont cont t =
   | ({ continuation; _ } as elt) :: stack ->
     assert (Continuation.equal cont continuation);
     let map = Continuation.Map.add cont elt t.map in
-    { stack; map; }
+    { t with stack; map; }
 
 let update_top_of_stack ~t ~f =
   match t.stack with
   | [] -> Misc.fatal_errorf "empty stack of variable uses in flambda2"
   | elt :: stack -> { t with stack = f elt :: stack; }
+
+let add_binding var name_occurrences t =
+  update_top_of_stack ~t ~f:(fun elt ->
+    let bindings =
+      Variable.Map.update var (function
+        | None -> Some name_occurrences
+        | Some _ ->
+          Misc.fatal_errorf "The same variable has been bound twice"
+      ) elt.bindings
+    in
+    { elt with bindings; }
+  )
 
 let add_used_in_current_handler name_occurrences t =
   update_top_of_stack ~t ~f:(fun elt ->
@@ -216,16 +252,20 @@ end
 (* Analysis *)
 (* ******** *)
 
-let used_variables ~return_continuation ~exn_continuation map =
+let used_variables ~return_continuation ~exn_continuation map extra =
   (* Some auxiliary functions *)
   let add_used name_occurrences set =
     Name_occurrences.fold_variables name_occurrences ~init:set
-      ~f:(fun set var -> Variable.Set.add var set)
+      ~f:(fun set var ->
+        let num = Name_occurrences.count_variable_normal_mode name_occurrences var in
+        Format.eprintf "%a: %a@." Variable.print var Num_occurrences.print num;
+        Variable.Set.add var set)
   in
   (* Build the reversed graph of dependencies *)
   let graph, used =
     Continuation.Map.fold (fun _ {
-      apply_cont_args; apply_result_conts; used_in_handler; _
+      apply_cont_args; apply_result_conts; used_in_handler; bindings;
+      continuation = _; params = _;
     } (graph, used) ->
       (* Add the vars used in the handler *)
       let used = add_used used_in_handler used in
@@ -243,6 +283,13 @@ let used_variables ~return_continuation ~exn_continuation map =
               Misc.fatal_errorf "Continuation not found during rec analysis: %a@."
                 Continuation.print k
         ) apply_result_conts used
+      in
+      (* Build the graph of dependencies between bindings *)
+      let graph =
+        Variable.Map.fold (fun src name_occurrences graph ->
+          Name_occurrences.fold_variables name_occurrences ~init:graph
+            ~f:(fun g dst -> Var_graph.add_edge ~src ~dst g)
+        ) bindings graph
       in
       (* Build the graph of dependencies between continuation
          parameters and arguments. *)
@@ -283,6 +330,24 @@ let used_variables ~return_continuation ~exn_continuation map =
       ) apply_cont_args (graph, used)
     ) map (Var_graph.empty, Variable.Set.empty)
   in
+  let graph =
+    Continuation.Map.fold (
+      fun _ (extra_params_and_args : Continuation_extra_params_and_args.t) graph ->
+      Apply_cont_rewrite_id.Map.fold (fun _ extra_args graph ->
+        List.fold_left2 (fun graph extra_param extra_arg ->
+          let src = Kinded_parameter.var extra_param in
+          match (extra_arg : Continuation_extra_params_and_args.Extra_arg.t) with
+          | Already_in_scope simple ->
+            Name_occurrences.fold_variables (Simple.free_names simple) ~init:graph
+              ~f:(fun g dst -> Var_graph.add_edge ~src ~dst g)
+          | New_let_binding (src', prim) ->
+            Name_occurrences.fold_variables (Flambda_primitive.free_names prim)
+              ~f:(fun g dst -> Var_graph.add_edge ~src:src' ~dst g)
+              ~init:(Var_graph.add_edge ~src ~dst:src' graph)
+        ) graph extra_params_and_args.extra_params extra_args
+      ) extra_params_and_args.extra_args graph
+    ) extra graph
+  in
   if debug then (Format.eprintf "@.@\nGRAPH:@\n%a@\n@." Var_graph.print graph);
   if debug then (Format.eprintf "@.@\nUSED:@\n%a@\n@." Variable.Set.print used);
   let transitively_used =
@@ -291,9 +356,9 @@ let used_variables ~return_continuation ~exn_continuation map =
   in
   transitively_used
 
-let analyze ~return_continuation ~exn_continuation { stack; map; } =
+let analyze ~return_continuation ~exn_continuation { stack; map; extra; } =
   assert (stack = []);
-  let used = used_variables ~return_continuation ~exn_continuation map in
+  let used = used_variables ~return_continuation ~exn_continuation map extra in
   if debug then (Format.eprintf "@.@\nUSED VARIABLES:@\n%a@\n@." Variable.Set.print used);
   used
 

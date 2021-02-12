@@ -112,6 +112,17 @@ let simple_join typing_env uses ~params =
       let name = Kinded_parameter.name param in
       TE.add_equation handler_env name joined_type)
 
+let get_arg_types_by_use_id t =
+  List.fold_left (fun args use ->
+    List.map2 (fun arg_map arg_type ->
+      Apply_cont_rewrite_id.Map.add (U.id use)
+        (DE.typing_env (U.env_at_use use), arg_type)
+        arg_map)
+      args
+      (U.arg_types use))
+    (List.map (fun _ -> Apply_cont_rewrite_id.Map.empty) t.arity)
+    t.uses
+
 let compute_handler_env t
       ~env_at_fork_plus_params_and_consts
       ~consts_lifted_during_body
@@ -285,17 +296,7 @@ Format.eprintf "The extra params and args are:@ %a\n%!"
         | (_, _, (Inlinable | Non_inlinable)) :: _ ->
           denv, extra_params_and_args, false, is_single_use
     in
-    let arg_types_by_use_id =
-      List.fold_left (fun args use ->
-          List.map2 (fun arg_map arg_type ->
-              Apply_cont_rewrite_id.Map.add (U.id use)
-                (DE.typing_env (U.env_at_use use), arg_type)
-                arg_map)
-            args
-            (U.arg_types use))
-        (List.map (fun _ -> Apply_cont_rewrite_id.Map.empty) t.arity)
-        uses
-    in
+    let arg_types_by_use_id = get_arg_types_by_use_id t in
     Uses {
       handler_env;
       arg_types_by_use_id;
@@ -303,6 +304,7 @@ Format.eprintf "The extra params and args are:@ %a\n%!"
       is_single_inlinable_use;
       is_single_use;
     }
+
 
 let get_typing_env_no_more_than_one_use t =
   match t.uses with

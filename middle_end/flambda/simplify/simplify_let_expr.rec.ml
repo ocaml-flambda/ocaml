@@ -94,24 +94,50 @@ let simplify_let dacc let_expr ~down_to_up =
     (* Accumulate uses about variables
        CR gbury/pchambart : in the case of an invalid, we currently over-approximate
        the uses. In case of an invalid, we might want to instead flush the uses
-       of the current continuation (but this would require using a stack of uses). *)
-    let name_occurrences_in_bindings = List.filter_map (fun (_, simplified) ->
-      match (simplified : Simplified_named.t) with
-      | Reachable { free_names; _ } -> Some free_names
-      | Invalid _ -> None
-      ) bindings_outermost_first
-    in
-    let name_occurrences_in_bindings_and_lifted_constants =
+       of the current control flow branch (but this would require a more precise stack). *)
+    (* We currently over-approximate the use of variables in symbols: both in the lifted
+       constants, and in the bound constants, which we consider to be always used,
+       leading to the free_names in their defining expressions to be considered as used
+       unconditionally. *)
+    let free_names_in_lifted_constants =
       Simplify_envs.Lifted_constant_state.fold (DA.get_lifted_constants dacc)
-        ~init:name_occurrences_in_bindings
+        ~init:[]
         ~f:(fun acc lifted_constant ->
           Simplify_envs.Lifted_constant.free_names_of_defining_exprs lifted_constant :: acc
         )
+      |> Name_occurrences.union_list
     in
-    let dacc = DA.map_rec_uses dacc ~f:(
-      Rec_uses.add_used_in_current_handler
-        (Name_occurrences.union_list name_occurrences_in_bindings_and_lifted_constants)
-    ) in
+    let dacc = DA.map_rec_uses dacc ~f:(fun rec_uses ->
+      let rec_uses = Rec_uses.add_used_in_current_handler
+                       free_names_in_lifted_constants rec_uses
+      in
+      List.fold_left (fun acc (bindable_let_bound, simplified_named) ->
+        match (simplified_named : Simplified_named.t) with
+        | Invalid _ -> acc
+        | Reachable { free_names; named; } ->
+          let can_be_removed =
+            match named with
+            | Simple _
+            | Set_of_closures _ -> true
+            | Prim (prim, _) ->
+              Flambda_primitive.at_most_generative_effects prim
+          in
+          if not can_be_removed then
+            Rec_uses.add_used_in_current_handler free_names acc
+          else
+            begin match (bindable_let_bound : Bindable_let_bound.t) with
+            | Singleton v ->
+              Rec_uses.add_binding (Var_in_binding_pos.var v) free_names acc
+            | Set_of_closures { closure_vars; name_mode = _; } ->
+              List.fold_left (fun acc v ->
+                Rec_uses.add_binding (Var_in_binding_pos.var v) free_names acc
+              ) acc closure_vars
+            | Symbols _ ->
+              Rec_uses.add_used_in_current_handler free_names acc
+            end
+      ) rec_uses bindings_outermost_first
+    )
+    in
     (* First remember any lifted constants that were generated during the
        simplification of the defining expression and sort them, since they
        may be mutually recursive.  Then add back in to [dacc]

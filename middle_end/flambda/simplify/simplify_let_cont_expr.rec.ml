@@ -40,25 +40,14 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
         ~critical_deps_of_bindings:(KP.List.free_names params)
   in
   let free_names = UA.name_occurrences uacc in
-  let used_extra_params =
-    if is_single_inlinable_use then extra_params_and_args.extra_params
-    else
-      List.filter (fun extra_param ->
-          Name_occurrences.mem_var free_names (KP.var extra_param))
-        extra_params_and_args.extra_params
-  in
-  let uacc, used_params =
+  let uacc, params' =
     (* Removal of unused parameters of recursive continuations is not
        currently supported. *)
     match recursive with
     | Recursive ->
       (* In the recursive case, we have already added an apply_cont_rewrite
          for the recursive continuation to eliminate unused parameters in its
-         handler.
-         We thus check here that the apply_cont_rewrite that we would have
-         added does not contain any extra args. *)
-      if not (EPA.is_empty extra_params_and_args) then
-        Misc.fatal_errorf "Recursive continuation should not have extra params";
+         handler. *)
       begin match UE.find_apply_cont_rewrite (UA.uenv uacc) cont with
       | None ->
         Misc.fatal_errorf "An apply cont rewrite for the recursive continuation \
@@ -68,13 +57,21 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
         let used_params =
           List.filter (fun param -> KP.Set.mem param used_params_set) params
         in
-        uacc, used_params
+        let used_extra_params = Apply_cont_rewrite.extra_params rewrite in
+        uacc, used_params @ used_extra_params
       end
     | Non_recursive ->
       (* If the continuation is going to be inlined out, we don't need to
          spend time here calculating unused parameters, since the creation of
          [Let]-expressions around the continuation's handler will do that
          anyway. *)
+      let used_extra_params =
+        if is_single_inlinable_use then extra_params_and_args.extra_params
+        else
+          List.filter (fun extra_param ->
+            Name_occurrences.mem_var free_names (KP.var extra_param))
+            extra_params_and_args.extra_params
+      in
       let used_params =
         if is_single_inlinable_use then params
         else
@@ -108,9 +105,10 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
         UA.map_uenv uacc ~f:(fun uenv ->
           UE.add_apply_cont_rewrite uenv cont rewrite)
       in
-      uacc, used_params
+      uacc, used_params @ used_extra_params
   in
-  let params' = used_params @ used_extra_params in
+  (* TODO: filter the env_extension to only keep equations that refer to
+     parameters that are kept/used. *)
   let cont_handler =
     CH.create params' ~handler ~free_names_of_handler:(Known free_names)
       ~is_exn_handler:(CH.is_exn_handler cont_handler)
@@ -120,12 +118,12 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
     ~free_names_of_handler:free_names uacc
 
 let simplify_one_continuation_handler dacc cont ~at_unit_toplevel recursive
-      cont_handler ~params ~env_extension ~handler ~extra_params_and_args
+      cont_handler ~params ~env_extension ~handler
       ~is_single_inlinable_use ~down_to_up =
   let dacc = DA.extend_typing_environment dacc env_extension in
   Simplify_expr.simplify_expr dacc handler
     ~down_to_up:(fun dacc ~rebuild ->
-      down_to_up dacc ~rebuild:(fun uacc ~after_rebuild ->
+      down_to_up dacc ~rebuild:(fun uacc ~extra_params_and_args ~after_rebuild ->
         (* The name occurrences component of this [uacc] is cleared (see
            further down this file) before simplifying a handler.  This is done
            so we can precisely identify the free names of the handler. *)
@@ -255,6 +253,9 @@ let simplify_non_recursive_let_cont_handler ~denv_before_body ~dacc_after_body
         assert is_exn_handler;
         handler_env, extra_params_and_args
     in
+    let dacc = DA.map_rec_uses dacc ~f:(
+      Rec_uses.add_extra_params_and_args cont extra_params_and_args
+    ) in
     let at_unit_toplevel =
       (* We try to show that [handler] postdominates [body] (which is done by
          showing that [body] can only return through [cont]) and that if [body]
@@ -298,11 +299,11 @@ let simplify_non_recursive_let_cont_handler ~denv_before_body ~dacc_after_body
       |> DA.with_denv dacc
     in
     simplify_one_continuation_handler dacc cont ~at_unit_toplevel
-      Non_recursive cont_handler ~params ~env_extension ~handler ~extra_params_and_args
+      Non_recursive cont_handler ~params ~env_extension ~handler
       ~is_single_inlinable_use ~down_to_up:(fun dacc ~rebuild ->
         down_to_up dacc ~continuation_has_zero_uses:false
           ~rebuild:(fun uacc ~after_rebuild ->
-            rebuild uacc ~after_rebuild:(fun cont_handler ~params
+            rebuild uacc ~extra_params_and_args ~after_rebuild:(fun cont_handler ~params
                   ~handler ~free_names_of_handler uacc ->
               rebuild_non_recursive_let_cont_handler cont uses ~params ~handler
                 ~free_names_of_handler ~is_single_inlinable_use ~is_single_use
@@ -535,6 +536,7 @@ let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
   let dacc = DA.with_denv dacc_after_body denv in
   let dacc = DA.add_lifted_constants dacc prior_lifted_constants in
   let dacc = DA.map_denv dacc ~f:DE.set_not_at_unit_toplevel in
+
   let param_types =
     List.map (fun param ->
       Flambda_type.unknown_with_subkind (KP.kind param)
@@ -550,6 +552,23 @@ let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
       Flambda_type.Typing_env.meet_equations_on_params env ~params ~param_types
     )
   in
+  (* For simplicity, we currently make the unboxing decision twice.
+
+     Unbox_continuation_params.make_unboxing_decisions does many things:
+     - decide which parameters to unbox (all for which a precise enough kind/type is present)
+     - extend the denv with the types for the new unboxed parameters
+     - fold over the uses id of the continuation to generate the extra arguments
+       to add for the new unboxed parameters. This part is used to generate the
+       rewrite for each apply_cont of the continuation being defined.
+  
+     The first two part can be done at this point because we have enough information;
+     however in the recursive case, since we haven't yet seen / went down the handler
+     of the continuation, we are missing some uses id for the continuation, hence
+     the part about generating the corect rewrites must wait until the handler has been
+     traversed down. In order to ensure the second unboxing decisions makes the same
+     decision, we curently save the denv at this point.
+  *)
+  let denv_used_for_second_unboxing_decision = denv in
   let denv, extra_env_extension, extra_params =
     Unbox_continuation_params.make_unboxing_decisions denv
       ~arg_types_by_use_id ~params ~param_types Continuation_extra_params_and_args.empty
@@ -574,10 +593,35 @@ let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
   simplify_one_continuation_handler dacc cont
     ~at_unit_toplevel:false Recursive
     cont_handler ~params ~env_extension ~handler
-    ~extra_params_and_args:Continuation_extra_params_and_args.empty
     ~is_single_inlinable_use:false
     ~down_to_up:(fun dacc ~rebuild:rebuild_handler ->
       let dacc = DA.map_rec_uses dacc ~f:(Rec_uses.unstack_cont cont) in
+      let cont_uses_env = DA.continuation_uses_env dacc in
+      let arg_types_by_use_id =
+        match Continuation.Map.find cont (CUE.get_uses cont_uses_env) with
+        | exception Not_found ->
+          Misc.fatal_errorf "Recursive continuation has no uses"
+        | uses -> Continuation_uses.get_arg_types_by_use_id uses
+      in
+      (* Because we do the unboxing decisions twice, some care must be taken with
+         the names of the extra params: each decision generate fresh names. Since
+         we have already commited to the 1st batch of fresh names in the first
+         decision, we cannot use the names create by the second decision, so here
+         we just take the extra args computed, which include the recursive uses of
+         the continuation. This *should* be ok since the extra args should only
+         refer to names in the typing env *at the use of the apply_cont* and
+         not to the extra_params of the continuation. *)
+      let _, _, { Continuation_extra_params_and_args.extra_args; _ } =
+        Unbox_continuation_params.make_unboxing_decisions
+          denv_used_for_second_unboxing_decision
+          ~arg_types_by_use_id ~params ~param_types Continuation_extra_params_and_args.empty
+      in
+      let extra_params_and_args : Continuation_extra_params_and_args.t =
+        { extra_params = extra_params.extra_params; extra_args; }
+      in
+      let dacc = DA.map_rec_uses dacc ~f:(
+        Rec_uses.add_extra_params_and_args cont extra_params_and_args
+      ) in
       let cont_uses_env = CUE.remove (DA.continuation_uses_env dacc) cont in
       let dacc = DA.with_continuation_uses_env dacc ~cont_uses_env in
       down_to_up dacc ~rebuild:(fun uacc ~after_rebuild ->
@@ -591,10 +635,18 @@ let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
           |> KP.Set.of_list
         in
         let used_extra_params =
+          List.filter (fun param ->
+            let b = Variable.Set.mem (KP.var param) used_continuation_params in
+            if not b then Format.eprintf "(rec) unused extra : %a@." KP.print param;
+            b
+          ) extra_params_and_args.extra_params
+          |> KP.Set.of_list
+        in
         let rewrite =
           Apply_cont_rewrite.create ~original_params:params ~used_params
-            ~extra_params ~extra_args:Apply_cont_rewrite_id.Map.empty
-            ~used_extra_params:KP.Set.empty
+            ~extra_params:extra_params_and_args.extra_params
+            ~extra_args:extra_params_and_args.extra_args
+            ~used_extra_params
         in
         let uacc =
           UA.map_uenv uacc ~f:(fun uenv ->
@@ -608,7 +660,7 @@ let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
           UA.name_occurrences uacc
         in
         let uacc = UA.clear_name_occurrences uacc in
-        rebuild_handler uacc ~after_rebuild:(fun cont_handler ~params
+        rebuild_handler uacc ~extra_params_and_args ~after_rebuild:(fun cont_handler ~params
               ~handler:_ ~free_names_of_handler:_ uacc ->
           let uacc = UA.add_free_names uacc name_occurrences_subsequent_exprs in
           (* The parameters are removed from the free name information as they

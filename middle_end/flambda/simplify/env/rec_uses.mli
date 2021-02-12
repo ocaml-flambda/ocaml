@@ -49,6 +49,10 @@ val unstack_cont : Continuation.t -> t -> t
 (** Pop the current top of the stack. Used when exiting the current
     contionuation handler. *)
 
+val add_binding : Variable.t -> Name_occurrences.t -> t -> t
+(** Add a binding from the current handler. This enables the rec_uses to have
+    a fine-grained analysis of dependencies. *)
+
 val add_used_in_current_handler : Name_occurrences.t -> t -> t
 (** Add name occurrences used in the body of the current continuation's
     handler, **excluding** uses in apply_cont expressions, which are tracked
@@ -61,6 +65,10 @@ val add_apply_result_cont : Continuation.t -> t -> t
 val add_apply_cont_args : Continuation.t -> Name_occurrences.t list -> t -> t
 (** Add, for the current continuation handler, uses for an apply cont of the
     given continuation with given arguments occurrences. *)
+
+val add_extra_params_and_args :
+  Continuation.t -> Continuation_extra_params_and_args.t -> t -> t
+(** Add extra params and args to a continuation. *)
 
 
 (* {2 Analysis} *)
