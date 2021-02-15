@@ -46,6 +46,9 @@ let print_with_cache ~cache:_ ppf t =
 let fold ~equation t acc =
   Name.Map.fold equation t.equations acc
 
+let filter ~f t =
+  { equations = Name.Map.filter f t.equations; }
+
 let invariant _ { equations; } =
   (* CR gbury: check that the keys of the maps are bound in the env *)
   if !Clflags.flambda_invariant_checks then

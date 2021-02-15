@@ -40,7 +40,7 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
         ~critical_deps_of_bindings:(KP.List.free_names params)
   in
   let free_names = UA.name_occurrences uacc in
-  let uacc, params' =
+  let uacc, params', _removed_params' =
     (* Removal of unused parameters of recursive continuations is not
        currently supported. *)
     match recursive with
@@ -54,29 +54,34 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
                           %a should have already been added" Continuation.print cont
       | Some rewrite ->
         let used_params_set = Apply_cont_rewrite.used_params rewrite in
-        let used_params =
-          List.filter (fun param -> KP.Set.mem param used_params_set) params
+        let used_params, removed_params =
+          List.partition (fun param -> KP.Set.mem param used_params_set) params
         in
         let used_extra_params = Apply_cont_rewrite.extra_params rewrite in
-        uacc, used_params @ used_extra_params
+        let removed_extra_params =
+          List.filter (fun extra_param ->
+            not (List.exists (KP.equal extra_param) used_extra_params)
+          ) extra_params_and_args.extra_params
+        in
+        uacc, used_params @ used_extra_params, removed_params @ removed_extra_params
       end
     | Non_recursive ->
       (* If the continuation is going to be inlined out, we don't need to
          spend time here calculating unused parameters, since the creation of
          [Let]-expressions around the continuation's handler will do that
          anyway. *)
-      let used_extra_params =
-        if is_single_inlinable_use then extra_params_and_args.extra_params
+      let used_extra_params, removed_extra_params =
+        if is_single_inlinable_use then extra_params_and_args.extra_params, []
         else
-          List.filter (fun extra_param ->
+          List.partition (fun extra_param ->
             Name_occurrences.mem_var free_names (KP.var extra_param))
             extra_params_and_args.extra_params
       in
-      let used_params =
-        if is_single_inlinable_use then params
+      let used_params, removed_params =
+        if is_single_inlinable_use then params, []
         else
           let first = ref true in
-          List.filter (fun param ->
+          List.partition (fun param ->
             (* CR mshinwell: We should have a robust means of propagating which
                parameter is the exception bucket.  Then this hack can be
                removed. *)
@@ -88,8 +93,8 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
               let tmp = Variable.Set.mem (KP.var param) (UA.used_continuation_params uacc) in
               let occ = Name_occurrences.mem_var free_names (KP.var param) in
               if not tmp && occ then
-                  Format.eprintf "(non-rec) rec-unused: %a in %a@."
-                    KP.print param Continuation.print cont;
+                  Format.eprintf "(non-rec) rec-unused: %a in %a@\n  free_names: %a@."
+                    KP.print param Continuation.print cont Name_occurrences.print free_names;
               occ && tmp
             end)
             params
@@ -105,10 +110,23 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
         UA.map_uenv uacc ~f:(fun uenv ->
           UE.add_apply_cont_rewrite uenv cont rewrite)
       in
-      uacc, used_params @ used_extra_params
+      uacc, used_params @ used_extra_params, removed_params @ removed_extra_params
   in
-  (* TODO: filter the env_extension to only keep equations that refer to
-     parameters that are kept/used. *)
+  (* TODO: find a better way to filter out the env_extension *)
+  (*
+  let env_extension =
+    Flambda_type.Typing_env_extension.filter env_extension ~f:(fun name ty ->
+      let free_names = Flambda_type.free_names ty in
+      Name.pattern_match name
+        ~var:(fun v ->
+          not (List.exists (fun kp -> Variable.equal v (KP.var kp)) removed_params'))
+        ~symbol:(fun _ -> true) &&
+      List.for_all (fun kp ->
+        not (Name_occurrences.mem_var free_names (KP.var kp))
+      ) removed_params'
+    )
+  in
+  *)
   let cont_handler =
     CH.create params' ~handler ~free_names_of_handler:(Known free_names)
       ~is_exn_handler:(CH.is_exn_handler cont_handler)
@@ -120,6 +138,10 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
 let simplify_one_continuation_handler dacc cont ~at_unit_toplevel recursive
       cont_handler ~params ~env_extension ~handler
       ~is_single_inlinable_use ~down_to_up =
+  (* CR gbury: this function doesn't exactly have the semantics we expect;
+               we want a meet between the env and the etxension, but
+               the DA.extend_typing_environment may overwrite some
+               equations, cf @lthls *)
   let dacc = DA.extend_typing_environment dacc env_extension in
   Simplify_expr.simplify_expr dacc handler
     ~down_to_up:(fun dacc ~rebuild ->
@@ -560,7 +582,7 @@ let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
      - fold over the uses id of the continuation to generate the extra arguments
        to add for the new unboxed parameters. This part is used to generate the
        rewrite for each apply_cont of the continuation being defined.
-  
+
      The first two part can be done at this point because we have enough information;
      however in the recursive case, since we haven't yet seen / went down the handler
      of the continuation, we are missing some uses id for the continuation, hence

@@ -136,7 +136,16 @@ let add_binding var name_occurrences t =
           Misc.fatal_errorf "The same variable has been bound twice"
       ) elt.bindings
     in
-    { elt with bindings; }
+    let generate_phantom_lets =
+      !Clflags.debug && !Clflags.Flambda.Expert.phantom_lets
+    in
+    let used_in_handler =
+      if Variable.user_visible var && generate_phantom_lets then
+        Name_occurrences.add_variable elt.used_in_handler var Name_mode.phantom
+      else
+        elt.used_in_handler
+    in
+    { elt with bindings; used_in_handler; }
   )
 
 let add_used_in_current_handler name_occurrences t =
@@ -256,10 +265,7 @@ let used_variables ~return_continuation ~exn_continuation map extra =
   (* Some auxiliary functions *)
   let add_used name_occurrences set =
     Name_occurrences.fold_variables name_occurrences ~init:set
-      ~f:(fun set var ->
-        let num = Name_occurrences.count_variable_normal_mode name_occurrences var in
-        Format.eprintf "%a: %a@." Variable.print var Num_occurrences.print num;
-        Variable.Set.add var set)
+      ~f:(fun set var -> Variable.Set.add var set)
   in
   (* Build the reversed graph of dependencies *)
   let graph, used =

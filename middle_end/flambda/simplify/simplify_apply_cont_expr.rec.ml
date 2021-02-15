@@ -57,15 +57,17 @@ let inline_linearly_used_continuation uacc ~create_apply_cont ~params ~handler
              hand side of the binding refers to non-existing variables, which
              yield compilation errors. *)
             let used_continuation_params = UA.used_continuation_params uacc in
-            if not (Variable.Set.mem (KP.var param) used_continuation_params) then
-              acc
-            else begin
-              let bound =
-                Var_in_binding_pos.create (KP.var param) Name_mode.normal
-                |> Bindable_let_bound.singleton
-              in
-              (bound, Simplified_named.reachable (Named.create_simple arg)) :: acc
-            end)
+            let name_mode =
+              if Variable.Set.mem (KP.var param) used_continuation_params
+              then Name_mode.normal
+              else Name_mode.phantom
+            in
+            let bound =
+              Var_in_binding_pos.create (KP.var param) name_mode
+              |> Bindable_let_bound.singleton
+            in
+            (bound, Simplified_named.reachable (Named.create_simple arg)) :: acc
+        )
     )
     in
     let expr, uacc =

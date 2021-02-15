@@ -31,6 +31,11 @@ val fold
   -> 'a
   -> 'a
 
+val filter
+   : f:(Name.t -> Type_grammar.t -> bool)
+  -> t
+  -> t
+
 val empty : unit -> t
 
 val is_empty : t -> bool
