@@ -16,5 +16,13 @@
 
 [@@@ocaml.warning "+a-4-9-30-40-41-42"]
 
-include Parameter.S
+module type S = Parameter_intf.S
+
+module type Mode = sig
+  val name_mode : Name_mode.t
+  (** The name mode of the parameters *)
+end
+
+module Make(_ : Mode) : S
+(** Make a parameter module with the given name_mode. *)
 

@@ -214,7 +214,9 @@ MIDDLE_END_FLAMBDA_BASIC=\
   middle_end/flambda/basic/closure_id.cmo \
   middle_end/flambda/cmx/ids_for_export.cmo \
   middle_end/flambda/cmx/contains_ids.cmo \
+  middle_end/flambda/basic/parameter.cmo \
   middle_end/flambda/basic/kinded_parameter.cmo \
+  middle_end/flambda/basic/phantom_parameter.cmo \
   middle_end/flambda/basic/invariant_env.cmo \
   middle_end/flambda/basic/expr_std.cmo \
   middle_end/flambda/basic/trap_action.cmo \
