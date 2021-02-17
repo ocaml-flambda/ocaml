@@ -394,14 +394,21 @@ and subst_static_const env (static_const : Static_const.t)
     Set_of_closures (subst_set_of_closures env set_of_closures)
   | _ ->
     static_const
-and subst_code env (code : Code.t)
-      : Code.t =
+and subst_code env (code : Code.t) : Code.t =
   let params_and_body =
     match Code.params_and_body code with
     | Or_deleted.Present params_and_body ->
       let params_and_body = subst_params_and_body env params_and_body in
-      Or_deleted.Present (params_and_body,
-        Function_params_and_body.free_names params_and_body)
+      let names_and_closure_vars names =
+        Name_occurrences.(union
+          (restrict_to_closure_vars names)
+          (with_only_names_and_code_ids names |> without_code_ids))
+      in
+      let free_names =
+        Flambda.Function_params_and_body.free_names params_and_body
+        |> names_and_closure_vars
+      in
+      Or_deleted.Present (params_and_body, free_names)
     | Or_deleted.Deleted ->
       Or_deleted.Deleted
   in
@@ -1108,9 +1115,9 @@ let rec exprs env e1 e2 : Expr.t Comparison.t =
 and let_exprs env let_expr1 let_expr2 : Expr.t Comparison.t =
   let named1 = Let_expr.defining_expr let_expr1 in
   let named2 = Let_expr.defining_expr let_expr2 in
-  let named_comp = named_exprs env named1 named2 in
   Let_expr.pattern_match_pair let_expr1 let_expr2
     ~dynamic:(fun bindable_let_bound ~body1 ~body2 : Expr.t Comparison.t ->
+      let named_comp = named_exprs env named1 named2 in
       let body_comp = exprs env body1 body2 in
       match named_comp, body_comp with
       | Equivalent, Equivalent ->

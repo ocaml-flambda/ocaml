@@ -21,6 +21,25 @@ type symbol = (compilation_unit option * string) located
 type immediate = string
 type targetint = int64
 
+type special_continuation =
+  | Done (* top-level normal continuation *)
+  | Error (* top-level exception continuation *)
+
+type continuation =
+  | Named of continuation_id
+  | Special of special_continuation
+
+type result_continuation =
+  | Return of continuation
+  | Never_returns
+
+type continuation_sort =
+  | Normal
+  | Exn
+  | Define_root_symbol
+  (* There's also [Return] and [Toplevel_return], but those don't need to be
+   * specified explicitly *)
+
 type const =
   | Naked_immediate of immediate
   | Tagged_immediate of immediate
@@ -94,7 +113,18 @@ type invalid_term_semantics = Invalid_term_semantics.t =
   | Treat_as_unreachable
   | Halt_and_catch_fire
 
-type trap_action
+type raise_kind = Trap_action.raise_kind =
+  | Regular
+  | Reraise
+  | No_trace
+
+type trap_action =
+  | Push of { exn_handler : continuation }
+  | Pop of {
+      exn_handler : continuation;
+      raise_kind : raise_kind option;
+    }
+
 type kinded_parameter = {
   param : variable;
   kind : kind_with_subkind option;
@@ -204,13 +234,17 @@ type 'a comparison_behaviour = 'a Flambda_primitive.comparison_behaviour =
 type binary_int_arith_op = Flambda_primitive.binary_int_arith_op =
   | Add | Sub | Mul | Div | Mod | And | Or | Xor
 
+type int_shift_op = Flambda_primitive.int_shift_op =
+  | Lsl | Lsr | Asr
+
 type binary_float_arith_op = Flambda_primitive.binary_float_arith_op =
   | Add | Sub | Mul | Div
 
 type infix_binop =
   | Int_arith of binary_int_arith_op (* on tagged immediates *)
-  | Float_arith of binary_float_arith_op
+  | Int_shift of int_shift_op (* on tagged immediates *)
   | Int_comp of ordered_comparison comparison_behaviour (* on tagged imms *)
+  | Float_arith of binary_float_arith_op
   | Float_comp of comparison comparison_behaviour
 
 type binop =
@@ -222,6 +256,7 @@ type binop =
       standard_int
       * signed_or_unsigned
       * ordered_comparison comparison_behaviour
+  | Int_shift of standard_int * int_shift_op
   | Infix of infix_binop
 
 type ternop =
@@ -255,25 +290,6 @@ type call_kind =
   | C_call of {
       alloc : bool;
     }
-
-type special_continuation =
-  | Done (* top-level normal continuation *)
-  | Error (* top-level exception continuation *)
-
-type continuation =
-  | Named of continuation_id
-  | Special of special_continuation
-
-type result_continuation =
-  | Return of continuation
-  | Never_returns
-
-type continuation_sort =
-  | Normal
-  | Exn
-  | Define_root_symbol
-  (* There's also [Return] and [Toplevel_return], but those don't need to be
-   * specified explicitly *)
 
 type function_arities = {
   params_arity : arity option;

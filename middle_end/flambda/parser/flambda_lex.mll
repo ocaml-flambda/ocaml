@@ -34,6 +34,7 @@ let keyword_table =
     "and", KWD_AND;
     "andwhere", KWD_ANDWHERE;
     "apply", KWD_APPLY;
+    "asr", KWD_ASR;
     "Block", KWD_BLOCK;
     "boxed", KWD_BOXED;
     "ccall", KWD_CCALL;
@@ -63,12 +64,19 @@ let keyword_table =
     "int32", KWD_INT32;
     "int64", KWD_INT64;
     "let", KWD_LET;
+    "lsl", KWD_LSL;
+    "lsr", KWD_LSR;
     "mutable", KWD_MUTABLE;
     "nativeint", KWD_NATIVEINT;
     "never", KWD_NEVER;
     "newer_version_of", KWD_NEWER_VERSION_OF;
     "noalloc", KWD_NOALLOC;
+    "notrace", KWD_NOTRACE;
+    "pop", KWD_POP;
+    "push", KWD_PUSH;
     "rec", KWD_REC;
+    "regular", KWD_REGULAR;
+    "reraise", KWD_RERAISE;
     "set_of_closures", KWD_SET_OF_CLOSURES;
     "size", KWD_SIZE;
     "switch", KWD_SWITCH;
@@ -105,6 +113,7 @@ let prim_table =
     "get_tag", PRIM_GET_TAG;
     "int_arith", PRIM_INT_ARITH;
     "int_comp", PRIM_INT_COMP;
+    "int_shift", PRIM_INT_SHIFT;
     "is_int", PRIM_IS_INT;
     "num_conv", PRIM_NUM_CONV;
     "Opaque", PRIM_OPAQUE;

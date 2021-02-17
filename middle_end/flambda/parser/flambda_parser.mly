@@ -101,6 +101,7 @@ let make_boxed_const_int (i, m) : static_data =
 %token KWD_AND   [@symbol "and"]
 %token KWD_ANDWHERE [@symbol "andwhere"]
 %token KWD_APPLY [@symbol "apply"]
+%token KWD_ASR   [@symbol "asr"]
 %token KWD_BLOCK [@symbol "Block"]
 %token KWD_BOXED [@symbol "boxed"]
 %token KWD_CCALL  [@symbol "ccall"]
@@ -134,13 +135,20 @@ let make_boxed_const_int (i, m) : static_data =
 %token KWD_LAND  [@symbol "land"]
 %token KWD_LET   [@symbol "let"]
 %token KWD_LOR   [@symbol "lor"]
+%token KWD_LSL   [@symbol "lsl"]
+%token KWD_LSR   [@symbol "lsr"]
 %token KWD_LXOR  [@symbol "lxor"]
 %token KWD_MUTABLE [@symbol "mutable"]
 %token KWD_NATIVEINT [@symbol "nativeint"]
 %token KWD_NEVER  [@symbol "never"]
 %token KWD_NEWER_VERSION_OF [@symbol "newer_version_of"]
 %token KWD_NOALLOC [@symbol "noalloc"]
+%token KWD_NOTRACE [@symbol "notrace"]
+%token KWD_POP    [@symbol "pop"]
+%token KWD_PUSH   [@symbol "push"]
 %token KWD_REC    [@symbol "rec"]
+%token KWD_REGULAR [@symbol "regular"]
+%token KWD_RERAISE [@symbol "reraise"]
 %token KWD_SET_OF_CLOSURES [@symbol "set_of_closures"]
 %token KWD_SIZE   [@symbol "size"]
 %token KWD_SWITCH [@symbol "switch"]
@@ -167,6 +175,7 @@ let make_boxed_const_int (i, m) : static_data =
 %token PRIM_GET_TAG [@symbol "%get_tag"]
 %token PRIM_INT_ARITH [@symbol "%int_arith"]
 %token PRIM_INT_COMP [@symbol "%int_comp"]
+%token PRIM_INT_SHIFT [@symbol "%int_shift"]
 %token PRIM_IS_INT [@symbol "%is_int"]
 %token PRIM_NUM_CONV [@symbol "%num_conv"]
 %token PRIM_OPAQUE [@symbol "%Opaque"]
@@ -343,6 +352,7 @@ unop:
 infix_binop:
   | o = binary_int_arith_op { Int_arith o }
   | c = int_comp { Int_comp c }
+  | s = int_shift { Int_shift s }
   | o = binary_float_arith_op { Float_arith o }
   | c = float_comp { Float_comp c }
 ;
@@ -435,6 +445,13 @@ float_comp:
   | LESSEQUALDOT { Yielding_bool Le }
   | GREATEREQUALDOT { Yielding_bool Ge }
   | QMARKDOT { Yielding_int_like_compare_functions }
+;
+
+int_shift:
+  | KWD_LSL { Lsl }
+  | KWD_LSR { Lsr }
+  | KWD_ASR { Asr }
+;
 
 binop_app:
   | op = prefix_binop; LPAREN; arg1 = simple; COMMA; arg2 = simple; RPAREN
@@ -451,6 +468,9 @@ binop_app:
     i = standard_int; s = signed_or_unsigned;
     arg1 = simple; c = int_comp; arg2 = simple
     { Binary (Int_comp (i, s, c), arg1, arg2) }
+  | PRIM_INT_SHIFT;
+    i = standard_int; arg1 = simple; s = int_shift; arg2 = simple
+    { Binary (Int_shift (i, s), arg1, arg2) }
 ;
 
 ternop_app:
@@ -661,9 +681,22 @@ result_continuation:
 ;
 
 apply_cont_expr:
-  | cont = continuation; args = simple_args
-    { { cont; args; trap_action = None } }
+  | cont = continuation; trap_action = option(trap_action); args = simple_args
+    { { cont; args; trap_action } }
 ;
+
+trap_action:
+  | KWD_PUSH; LPAREN; exn_handler = continuation; RPAREN { Push { exn_handler } }
+  | KWD_POP; LPAREN;
+      raise_kind = option(raise_kind); exn_handler = continuation;
+    RPAREN
+    { Pop { exn_handler; raise_kind } }
+;
+
+raise_kind:
+  | KWD_REGULAR { Regular }
+  | KWD_RERAISE { Reraise }
+  | KWD_NOTRACE { No_trace }
 
 continuation_sort:
   | { None }

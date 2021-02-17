@@ -9,7 +9,7 @@ let code foo_0 (arr, f, i : imm tagged) my_closure -> k * k1 =
       cont k2
     where k3 =
       apply ccall noalloc inline(never)
-        ($`.extern`.caml_ml_array_bound_error : unit -> unit)
+        ($`.extern`.`.extern__caml_ml_array_bound_error` : unit -> unit)
         -> never * k1
     where k2 =
       let Parrayrefs = %array_load dynamic mutable arr.(i) in
@@ -24,7 +24,8 @@ let code foo_0 (arr, f, i : imm tagged) my_closure -> k * k1 =
                 cont k2
               where k3 =
                 apply ccall noalloc inline(never)
-                  ($`.extern`.caml_ml_array_bound_error : unit -> unit)
+                  ($`.extern`.`.extern__caml_ml_array_bound_error` : unit ->
+                    unit)
                   -> never * k1
               where k2 =
                 let Parraysets = %array_set dynamic arr.(i) <- apply_result
@@ -90,11 +91,12 @@ let code foo_0_1 newer_version_of(foo_0) (arr, f, i : imm tagged) my_closure
                 cont k (Parraysets)
               where k3 =
                 apply ccall noalloc inline(never)
-                  ($`.extern`.caml_ml_array_bound_error : unit -> unit)
+                  ($`.extern`.`.extern__caml_ml_array_bound_error` : unit ->
+                    unit)
                   -> never * k1))
     where k2 =
       apply ccall noalloc inline(never)
-        ($`.extern`.caml_ml_array_bound_error : unit -> unit)
+        ($`.extern`.`.extern__caml_ml_array_bound_error` : unit -> unit)
         -> never * k1
 in
 let $camlTests3__foo_2 = closure foo_0_1 @foo in

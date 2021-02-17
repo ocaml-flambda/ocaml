@@ -255,45 +255,22 @@ end = struct
       Compilation_unit.equal cunit (Compilation_unit.get_current_exn ())
     in
     if is_local
-      then (None, Symbol_name_map.find_exn t.symbols s) |> nowhere
-      else 
-        let cunit =
-          let ident =
-            Compilation_unit.get_persistent_ident cunit |> Ident.name
-          in
-          let linkage_name =
-            Compilation_unit.get_linkage_name cunit |> Linkage_name.to_string
-          in
-          let linkage_name =
-            if String.equal ident linkage_name then None else Some linkage_name
-          in
-          { Fexpr.ident; linkage_name }
+    then (None, Symbol_name_map.find_exn t.symbols s) |> nowhere
+    else 
+      let cunit =
+        let ident =
+          Compilation_unit.get_persistent_ident cunit |> Ident.name
         in
-        let linkage_name = Symbol.linkage_name s |> Linkage_name.to_string in
-        (* CR-soon lmaurer: This is putrid *)
-        let symbol_cunit_linkage_name, symbol_name =
-          let rec find_double_underscore str ix =
-            match String.index_from_opt str ix '_' with
-            | Some ix when ix + 1 < String.length str ->
-              begin
-                match String.get str (ix+1) with
-                | '_' -> ix
-                | _ -> find_double_underscore str (ix+1)
-              end
-            | _ ->
-              Misc.fatal_errorf
-                "Cant find double underscore in symbol linkage name: %s"
-                str
-          in
-          let ix = find_double_underscore linkage_name 0 in
-          String.sub linkage_name 0 ix,
-          String.sub linkage_name (ix+2) (String.length linkage_name - (ix+2))
+        let linkage_name =
+          Compilation_unit.get_linkage_name cunit |> Linkage_name.to_string
         in
-        assert
-          (String.equal
-            symbol_cunit_linkage_name
-            (cunit.linkage_name |> Option.value ~default:cunit.ident));
-        (Some cunit, symbol_name) |> nowhere
+        let linkage_name =
+          if String.equal ident linkage_name then None else Some linkage_name
+        in
+        { Fexpr.ident; linkage_name }
+      in
+      let linkage_name = Symbol.linkage_name s |> Linkage_name.to_string in
+      (Some cunit, linkage_name) |> nowhere
 
   let find_code_id_exn t c = Code_id_name_map.find_exn t.code_ids c
 
@@ -432,6 +409,8 @@ let binop (op : Flambda_primitive.binary_primitive) : Fexpr.binop =
   | Int_arith (i, o) ->                       Int_arith (i, o)
   | Int_comp (Tagged_immediate, Signed, c) -> Infix (Int_comp c)
   | Int_comp (i, s, c) ->                     Int_comp (i, s, c)
+  | Int_shift (Tagged_immediate, s) ->        Infix (Int_shift s)
+  | Int_shift (i, s) ->                       Int_shift (i, s)
   | Float_arith o ->                          Infix (Float_arith o)
   | Float_comp c ->                           Infix (Float_comp c)
   | _ ->
@@ -887,9 +866,16 @@ and apply_cont env app_cont : Fexpr.apply_cont =
     Env.find_continuation_exn env (Apply_cont_expr.continuation app_cont)
   in
   let trap_action =
-    match Apply_cont_expr.trap_action app_cont with
-    | Some _ -> Misc.fatal_error "TODO: trap action"
-    | None -> None
+    Apply_cont_expr.trap_action app_cont
+    |> Option.map (fun (action : Trap_action.t) : Fexpr.trap_action ->
+      match action with
+      | Push { exn_handler } ->
+        let exn_handler = Env.find_continuation_exn env exn_handler in
+        Push { exn_handler }
+      | Pop { exn_handler; raise_kind } ->
+        let exn_handler = Env.find_continuation_exn env exn_handler in
+        Pop { exn_handler; raise_kind }
+    )
   in
   let args = List.map (simple env) (Apply_cont_expr.args app_cont) in
   { cont; trap_action; args }

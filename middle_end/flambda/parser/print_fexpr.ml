@@ -214,10 +214,10 @@ let simple ppf : simple -> unit = function
   | Var v -> variable ppf v
   | Const c -> const ppf c
 
-let simple_args ~omit_if_empty ppf = function
+let simple_args ~space ~omit_if_empty ppf = function
   | [] when omit_if_empty -> ()
   | args ->
-    Format.fprintf ppf "@ (@[<hv>%a@])"
+    pp_spaced ~space ppf "(@[<hv>%a@])"
       (pp_comma_list simple) args
 
 let name ppf : name -> unit = function
@@ -307,15 +307,6 @@ let binary_int_arith_op ppf (o : binary_int_arith_op) =
   | Or -> "lor"
   | Xor -> "lxor"
 
-let binary_float_arith_op ppf (o : binary_float_arith_op) =
-  Format.pp_print_string ppf
-  @@
-  match o with
-  | Add -> "+."
-  | Sub -> "-."
-  | Mul -> "*."
-  | Div -> "/."
-
 let int_comp ppf (o : ordered_comparison comparison_behaviour) =
   Format.pp_print_string ppf
   @@
@@ -325,6 +316,23 @@ let int_comp ppf (o : ordered_comparison comparison_behaviour) =
   | Yielding_bool Le -> "<="
   | Yielding_bool Ge -> ">="
   | Yielding_int_like_compare_functions -> "?"
+
+let int_shift_op ppf (s : int_shift_op) =
+  Format.pp_print_string ppf
+  @@
+  match s with
+  | Lsl -> "lsl"
+  | Lsr -> "lsr"
+  | Asr -> "asr"
+
+let binary_float_arith_op ppf (o : binary_float_arith_op) =
+  Format.pp_print_string ppf
+  @@
+  match o with
+  | Add -> "+."
+  | Sub -> "-."
+  | Mul -> "*."
+  | Div -> "/."
 
 let float_comp ppf (o : comparison comparison_behaviour) =
   Format.pp_print_string ppf
@@ -341,8 +349,9 @@ let float_comp ppf (o : comparison comparison_behaviour) =
 let infix_binop ppf (b : infix_binop) =
   match b with
   | Int_arith o -> binary_int_arith_op ppf o
-  | Float_arith o -> binary_float_arith_op ppf o
   | Int_comp c -> int_comp ppf c
+  | Int_shift s -> int_shift_op ppf s
+  | Float_arith o -> binary_float_arith_op ppf o
   | Float_comp c -> float_comp ppf c
 
 let binop ppf binop a b =
@@ -382,7 +391,7 @@ let binop ppf binop a b =
     let name =
       match comp with
       | Eq -> "%phys_eq"
-      | Neq -> "%phys_neq"
+      | Neq -> "%phys_ne"
     in
     Format.fprintf ppf "@[<2>%s%a@ (%a,@ %a)@]"
       name
@@ -395,21 +404,24 @@ let binop ppf binop a b =
       infix_binop op
       simple b
   | Int_arith (i, o) ->
-      Format.fprintf ppf "@[<2>%%int_arith %a%a@ %a@ %a@]"
-        (standard_int ~space:After) i
-        simple a
-        binary_int_arith_op o
-        simple b
+    Format.fprintf ppf "@[<2>%%int_arith %a%a@ %a@ %a@]"
+      (standard_int ~space:After) i
+      simple a
+      binary_int_arith_op o
+      simple b
   | Int_comp (i, s, c) ->
-    begin
-      Format.fprintf ppf "@[<2>%%int_comp %a%a%a@ %a@ %a@]"
-        (standard_int ~space:After) i
-        (signed_or_unsigned ~space:After) s
-        simple a
-        int_comp c
-        simple b
-        ;
-    end
+    Format.fprintf ppf "@[<2>%%int_comp %a%a%a@ %a@ %a@]"
+      (standard_int ~space:After) i
+      (signed_or_unsigned ~space:After) s
+      simple a
+      int_comp c
+      simple b
+  | Int_shift (i, s) ->
+    Format.fprintf ppf "@[<2>%%int_shift %a%a@ %a@ %a@]"
+      (standard_int ~space:After) i
+      simple a
+      int_shift_op s
+      simple b
 
 let unop ppf u =
   let str s = Format.pp_print_string ppf s in
@@ -478,25 +490,40 @@ let prim ppf = function
     Format.fprintf ppf "@[<2>%%Block %a%i%a@]"
       (mutability ~space:After) mut
       tag
-      (simple_args ~omit_if_empty:false) elts
+      (simple_args ~space:Before ~omit_if_empty:false) elts
 
 let parameter ppf { param; kind = k } =
   kinded_variable ppf (param, k)
 
-let kinded_parameters ppf = function
+let kinded_parameters ~space ppf = function
   | [] -> ()
   | args ->
-    Format.fprintf ppf "@ (@[<hv>%a@])"
+    pp_spaced ~space ppf "(@[<hv>%a@])"
       (pp_comma_list parameter) args
+
+let raise_kind ppf rt =
+  Format.pp_print_string ppf
+  @@
+  match rt with
+  | Regular -> "regular"
+  | Reraise -> "reraise"
+  | No_trace -> "notrace"
+
+let trap_action ppf = function
+  | Push { exn_handler } ->
+    Format.fprintf ppf "push(%a)" continuation exn_handler
+  | Pop { exn_handler; raise_kind = rk } ->
+    Format.fprintf ppf "@[<h>pop(%a%a)@]"
+      (pp_option ~space:After raise_kind) rk
+      continuation exn_handler
 
 let apply_cont ppf (ac : Fexpr.apply_cont) =
   match ac with
-  | { cont; trap_action = None; args } ->
-    Format.fprintf ppf "@[<hv2>%a%a@]"
+  | { cont; trap_action = action; args } ->
+    Format.fprintf ppf "@[<hv2>%a%a%a@]"
       continuation cont
-      (simple_args ~omit_if_empty:true) args
-  | _ ->
-      failwith "TODO Apply_cont"
+      (pp_option ~space:Before trap_action) action
+      (simple_args ~space:Before ~omit_if_empty:true) args
 
 let switch_case ppf (v, c) =
   Format.fprintf ppf "@;| %i -> %a"
@@ -620,7 +647,7 @@ let rec expr scope ppf = function
         (recursive ~space:Before) recu
         continuation_id name
         (pp_option continuation_sort ~space:Before) sort
-        kinded_parameters params
+        (kinded_parameters ~space:Before) params
         (expr Continuation_body) handler
         andk rem_cont
     )
@@ -659,7 +686,7 @@ let rec expr scope ppf = function
       (inline_attribute_opt ~space:Before) inline
       pp_inlining_state ()
       func_name_with_optional_arities (func, arities)
-      (simple_args ~omit_if_empty:true) args
+      (simple_args ~space:Before ~omit_if_empty:true) args
       result_continuation ret
       exn_continuation ek
 
@@ -695,7 +722,7 @@ and andk ppf l =
       "@ @[<v 2>andwhere%a %a@[<hv2>%a@] =@ %a@]"
       (pp_option continuation_sort ~space:Before) sort
       continuation_id name
-      kinded_parameters params
+      (kinded_parameters ~space:Before) params
       (expr Continuation_body) handler
   in
   List.iter cont l
@@ -747,7 +774,7 @@ and code_binding ppf ({ recursive = rec_; inline; id; newer_version_of;
         arity ret_arity
     | Present { params; closure_var; ret_cont; exn_cont; body } ->
       Format.fprintf ppf "%a@ %a@ -> %a@ * %a%a@] =@ %a"
-        kinded_parameters params
+        (kinded_parameters ~space:Before) params
         variable closure_var
         continuation_id ret_cont
         continuation_id exn_cont

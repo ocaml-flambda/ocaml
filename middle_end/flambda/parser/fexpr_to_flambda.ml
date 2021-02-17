@@ -98,6 +98,7 @@ let fresh_exn_cont env { Fexpr.txt = name; loc = _ } =
   let e = Exn_continuation.create ~exn_handler:c ~extra_args:[] in
   e,
   { env with
+    continuations = CM.add name (c, 1) env.continuations;
     exn_continuations = CM.add name e env.exn_continuations }
 
 let fresh_var env { Fexpr.txt = name; loc = _ } =
@@ -177,7 +178,7 @@ let get_symbol (env:env) sym =
         (Ident.create_persistent ident)
         (Linkage_name.create (linkage_name |> Option.value ~default:ident))
     in
-    Symbol.create cunit (name |> Linkage_name.create)
+    Symbol.unsafe_create cunit (name |> Linkage_name.create)
   | { Fexpr.txt = None, txt; loc } ->
     find_with ~descr:"symbol" ~find:SM.find_opt env.symbols { txt; loc }
 
@@ -342,8 +343,9 @@ let unop env (unop:Fexpr.unop) : Flambda_primitive.unary_primitive =
 let infix_binop (binop:Fexpr.infix_binop) : Flambda_primitive.binary_primitive =
   match binop with
   | Int_arith o -> Int_arith (Tagged_immediate, o)
-  | Float_arith o -> Float_arith o
   | Int_comp c -> Int_comp (Tagged_immediate, Signed, c)
+  | Int_shift s -> Int_shift (Tagged_immediate, s)
+  | Float_arith o -> Float_arith o
   | Float_comp c -> Float_comp c
 
 let binop (binop:Fexpr.binop) : Flambda_primitive.binary_primitive =
@@ -378,6 +380,8 @@ let binop (binop:Fexpr.binop) : Flambda_primitive.binary_primitive =
     Int_arith (i, o)
   | Int_comp (i, s, c) ->
     Int_comp (i, s, c)
+  | Int_shift (i, s) ->
+    Int_shift (i, s)
 
 let ternop (ternop:Fexpr.ternop) : Flambda_primitive.ternary_primitive =
   match ternop with
@@ -455,7 +459,17 @@ let set_of_closures env fun_decls closure_elements =
   Set_of_closures.create fun_decls ~closure_elements
 
 let apply_cont env ({ cont; args; trap_action } : Fexpr.apply_cont) =
-  if Option.is_some trap_action then failwith "TODO trap actions";
+  let trap_action : Trap_action.t option =
+    trap_action |> Option.map (fun (ta : Fexpr.trap_action) : Trap_action.t ->
+      match ta with
+      | Push { exn_handler } ->
+        let exn_handler, _ = find_cont env exn_handler in
+        Push { exn_handler }
+      | Pop { exn_handler; raise_kind } ->
+        let exn_handler, _ = find_cont env exn_handler in
+        Pop { exn_handler; raise_kind }
+    )
+  in
   let c, arity = find_cont env cont in
   if List.length args <> arity then
     begin
@@ -467,7 +481,7 @@ let apply_cont env ({ cont; args; trap_action } : Fexpr.apply_cont) =
       Misc.fatal_errorf "wrong continuation arity %s" cont_str
     end;
   let args = List.map (simple env) args in
-  Flambda.Apply_cont.create c ~args ~dbg:Debuginfo.none
+  Flambda.Apply_cont.create c ~args ~dbg:Debuginfo.none ?trap_action
 
 let continuation_sort (sort : Fexpr.continuation_sort) : Continuation.Sort.t =
   match sort with
@@ -756,9 +770,18 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
                 exn_continuation params ~body ~my_closure ~dbg
                 ~free_names_of_body:Unknown
             in
+            (* CR lmaurer: Add
+             * [Name_occurrences.with_only_names_and_closure_vars] *)
+            let names_and_closure_vars names =
+              Name_occurrences.(
+                union
+                  (restrict_to_closure_vars names)
+                  (with_only_names_and_code_ids names |> without_code_ids)
+              )
+            in
             let free_names =
               Flambda.Function_params_and_body.free_names params_and_body
-              |> Name_occurrences.without_code_ids
+              |> names_and_closure_vars
             in
             Present (params_and_body, free_names)
         in
