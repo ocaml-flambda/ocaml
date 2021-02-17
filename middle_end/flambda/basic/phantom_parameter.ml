@@ -23,3 +23,8 @@ let of_kinded_param param =
   let kind = Kinded_parameter.kind param in
   create var kind
 
+let to_kinded_param param =
+  let var' = var param in
+  let kind' = kind param in
+  Kinded_parameter.create var' kind'
+

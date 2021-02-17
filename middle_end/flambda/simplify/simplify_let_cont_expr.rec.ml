@@ -143,7 +143,7 @@ let rebuild_non_recursive_let_cont_handler cont
          [Simplify_apply_cont.rebuild_apply_cont] because we need to decide
          sooner than that whether to keep the [Let_cont] (in order to keep
          free name sets correct). *)
-      if is_single_inlinable_use then begin
+      if is_single_inlinable_use && phantom_params = [] then begin
         (* Note that [Continuation_uses] won't set [is_single_inlinable_use]
            if [cont] is an exception handler. *)
         assert (not (CH.is_exn_handler cont_handler));
@@ -333,7 +333,8 @@ let simplify_non_recursive_let_cont dacc non_rec ~down_to_up =
            When we do the toplevel calculation before simplifying the
            handler, we will mark any of the parameters that are in fact at
            toplevel as such. *)
-        DE.add_parameters_with_unknown_types (DA.denv dacc) params
+        DE.add_parameters_with_unknown_types (DA.denv dacc)
+          (params @ (List.map Phantom_parameter.to_kinded_param phantom_params))
           ~at_unit_toplevel:false
       in
       let dacc_for_body =
@@ -442,7 +443,11 @@ let simplify_non_recursive_let_cont dacc non_rec ~down_to_up =
                               begin match Apply_cont.args apply_cont with
                               | [] ->
                                 Option.is_none
-                                  (Apply_cont.trap_action apply_cont)
+                                  (Apply_cont.trap_action apply_cont) &&
+                                CH.pattern_match handler ~f:(
+                                  fun _ phantom_params ~handler:_ ->
+                                    phantom_params = []
+                                )
                               | _::_ -> false
                               end
                           | Let _ | Apply _ | Switch _ | Invalid _
