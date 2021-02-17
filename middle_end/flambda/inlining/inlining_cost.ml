@@ -368,6 +368,7 @@ let variadic_prim_size prim args =
 
 let prim_size (prim : Flambda_primitive.t) =
   match prim with
+  | Nullary Optimised_out _ -> 0
   | Unary (p, _) -> unary_prim_size p
   | Binary (p, _, _) -> binary_prim_size p
   | Ternary (p, _, _, _) -> ternary_prim_size p
@@ -381,6 +382,8 @@ let smaller' denv expr ~than:threshold =
     if !size > threshold then raise Exit;
     match Expr.descr expr with
     | Let let_expr ->
+      (* CR gbury/pchambart: phantom let-bindings should not be
+                             counted towards the size *)
       named_size denv (Let.defining_expr let_expr);
       Let.pattern_match let_expr
         ~f:(fun _bindable_let_bound ~body -> expr_size denv body)

@@ -187,6 +187,14 @@ type signed_or_unsigned =
   | Signed
   | Unsigned
 
+(** Primitive taking exactly zero arguments *)
+type nullary_primitive =
+  | Optimised_out of Flambda_kind.t
+  (** Used for phantom bindings for which there is not enough information
+      remaining to build a meaningful value.
+      Can only be used in a phantom let-binding. *)
+
+
 (** Untagged binary integer arithmetic operations.
 
     [Swap_byte_endianness] on a [Tagged_immediate] treats the immediate as
@@ -309,6 +317,7 @@ type variadic_primitive =
 
 (** The application of a primitive to its arguments. *)
 type t =
+  | Nullary of nullary_primitive
   | Unary of unary_primitive * Simple.t
   | Binary of binary_primitive * Simple.t * Simple.t
   | Ternary of ternary_primitive * Simple.t * Simple.t * Simple.t
@@ -328,6 +337,7 @@ val args : t -> Simple.t list
     primitive matters, not the arguments. *)
 module Without_args : sig
   type t =
+    | Nullary of nullary_primitive
     | Unary of unary_primitive
     | Binary of binary_primitive
     | Ternary of ternary_primitive
@@ -362,6 +372,7 @@ type result_kind =
   | Unit
   (** The primitive returns the constant unit value. *)
 
+val result_kind_of_nullary_primitive : nullary_primitive -> result_kind
 val result_kind_of_unary_primitive : unary_primitive -> result_kind
 val result_kind_of_binary_primitive : binary_primitive -> result_kind
 val result_kind_of_ternary_primitive : ternary_primitive -> result_kind
@@ -371,6 +382,7 @@ val result_kind_of_variadic_primitive : variadic_primitive -> result_kind
 val result_kind : t -> result_kind
 
 (** Like the [result_kind]s, but returns the appropriate [Flambda_kind]. *)
+val result_kind_of_nullary_primitive' : nullary_primitive -> Flambda_kind.t
 val result_kind_of_unary_primitive' : unary_primitive -> Flambda_kind.t
 val result_kind_of_binary_primitive' : binary_primitive -> Flambda_kind.t
 val result_kind_of_ternary_primitive' : ternary_primitive -> Flambda_kind.t
@@ -430,6 +442,7 @@ end
 include Identifiable.S with type t := t
 
 val equal : t -> t -> bool
+val equal_nullary_primitive : nullary_primitive -> nullary_primitive -> bool
 val equal_unary_primitive : unary_primitive -> unary_primitive -> bool
 val equal_binary_primitive : binary_primitive -> binary_primitive -> bool
 val equal_ternary_primitive : ternary_primitive -> ternary_primitive -> bool

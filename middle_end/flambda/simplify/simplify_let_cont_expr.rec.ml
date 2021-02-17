@@ -40,20 +40,21 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
         ~critical_deps_of_bindings:(KP.List.free_names params)
   in
   let free_names = UA.name_occurrences uacc in
-  let used_params =
+  let used_params, new_phantom_params =
     (* Removal of unused parameters of recursive continuations is not
        currently supported. *)
     match recursive with
-    | Recursive -> params
+    | Recursive -> params, []
     | Non_recursive ->
       (* If the continuation is going to be inlined out, we don't need to
          spend time here calculating unused parameters, since the creation of
          [Let]-expressions around the continuation's handler will do that
          anyway. *)
-      if is_single_inlinable_use then params
+      if is_single_inlinable_use then params, []
       else
         let first = ref true in
-        List.filter (fun param ->
+        let used_as_normal, not_used_as_normal =
+          List.partition (fun param ->
             (* CR mshinwell: We should have a robust means of propagating which
                parameter is the exception bucket.  Then this hack can be
                removed. *)
@@ -62,9 +63,35 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
               true
             end else begin
               first := false;
-              Name_occurrences.mem_var free_names (KP.var param)
+              let num =
+                Name_occurrences.count_variable_normal_mode
+                  free_names (KP.var param)
+              in
+              match num with
+              | Zero -> false
+              | One | More_than_one -> true
             end)
-          params
+            params
+        in
+        let new_phantom_params =
+          List.filter (fun param ->
+            Name_occurrences.mem_var free_names (KP.var param)
+          ) not_used_as_normal
+        in
+        used_as_normal, new_phantom_params
+  in
+  let handler, uacc =
+    Expr_builder.make_new_let_bindings uacc ~body:handler
+      ~bindings_outermost_first:(List.map (fun param ->
+        let v = KP.var param in
+        let k = K.With_subkind.kind (KP.kind param) in
+        let var = Var_in_binding_pos.create v Name_mode.phantom in
+        let bound = Bindable_let_bound.singleton var in
+        let prim = Flambda_primitive.(Nullary (Optimised_out k)) in
+        let named = Named.create_prim prim Debuginfo.none in
+        let simplified = Simplified_named.reachable named in
+        bound, simplified
+      ) new_phantom_params)
   in
   let used_extra_params =
     if is_single_inlinable_use then extra_params_and_args.extra_params

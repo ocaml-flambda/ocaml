@@ -524,6 +524,8 @@ let arg_list env l =
    given to [Env.inline_variable]. *)
 let prim env dbg p =
   match (p : Flambda_primitive.t) with
+  | Nullary Optimised_out _ ->
+    Misc.fatal_errorf "TODO: phantom let-bindings in un_cps"
   | Unary (f, x) ->
     let x, env, eff = simple env x in
     let extra, res = unary_primitive env dbg f x in

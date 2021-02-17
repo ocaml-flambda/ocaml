@@ -85,6 +85,9 @@ let simplify_primitive dacc (prim : P.t) dbg ~result_var =
     | Applied result -> result
     | Not_applied dacc ->
       match prim, args with
+      | Nullary prim, [] ->
+        Simplify_nullary_primitive.simplify_nullary_primitive dacc
+          prim dbg ~result_var
       | Unary (prim, _), [arg, arg_ty] ->
         Simplify_unary_primitive.simplify_unary_primitive dacc
           prim ~arg ~arg_ty dbg ~result_var
@@ -98,7 +101,7 @@ let simplify_primitive dacc (prim : P.t) dbg ~result_var =
       | Variadic (variadic_prim, _), args_with_tys ->
         Simplify_variadic_primitive.simplify_variadic_primitive dacc
           variadic_prim ~args_with_tys dbg ~result_var
-      | (Unary _ | Binary _ | Ternary _), ([] | _::_) ->
+      | (Nullary _ | Unary _ | Binary _ | Ternary _), ([] | _::_) ->
         Misc.fatal_errorf "Mismatch between primitive %a and args %a"
           P.print prim
           Simple.List.print (List.map fst args)
