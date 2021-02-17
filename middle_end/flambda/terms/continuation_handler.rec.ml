@@ -92,7 +92,8 @@ module T0 = struct
     { handler; num_normal_occurrences_of_params; }
 end
 
-module A = Name_abstraction.Make_list (Kinded_parameter) (T0)
+module Aphantom = Name_abstraction.Make_list (Phantom_parameter) (T0)
+module A = Name_abstraction.Make_list (Kinded_parameter) (Aphantom)
 
 type t = {
   abst : A.t;
@@ -102,8 +103,8 @@ type t = {
 
 let invariant _env _t = ()
 
-let create params ~handler ~(free_names_of_handler : _ Or_unknown.t)
-      ~is_exn_handler =
+let create params phantom_params
+      ~handler ~(free_names_of_handler : _ Or_unknown.t) ~is_exn_handler =
   let num_normal_occurrences_of_params =
     match free_names_of_handler with
     | Unknown -> Variable.Map.empty
@@ -148,7 +149,8 @@ let create params ~handler ~(free_names_of_handler : _ Or_unknown.t)
       handler;
     }
   in
-  let abst = A.create params t0 in
+  let abst_phantom = Aphantom.create phantom_params t0 in
+  let abst = A.create params abst_phantom in
   { abst;
     behaviour;
     is_exn_handler;
@@ -156,13 +158,18 @@ let create params ~handler ~(free_names_of_handler : _ Or_unknown.t)
 
 let pattern_match' t ~f =
   A.pattern_match t.abst
-    ~f:(fun params { handler; num_normal_occurrences_of_params; } ->
-      f params ~num_normal_occurrences_of_params ~handler)
+    ~f:(fun params abst_phantom ->
+      Aphantom.pattern_match abst_phantom
+        ~f:(fun phantom_params { handler; num_normal_occurrences_of_params; } ->
+          f params phantom_params ~num_normal_occurrences_of_params ~handler))
 
 let pattern_match t ~f =
   A.pattern_match t.abst
-    ~f:(fun params { handler; num_normal_occurrences_of_params = _; } ->
-      f params ~handler)
+    ~f:(fun params abst_phantom ->
+      Aphantom.pattern_match abst_phantom
+        ~f:(fun phantom_params
+             { handler; num_normal_occurrences_of_params = _; } ->
+          f params phantom_params ~handler))
 
 module Pattern_match_pair_error = struct
   type t = Parameter_lists_have_different_lengths
@@ -173,14 +180,19 @@ module Pattern_match_pair_error = struct
 end
 
 let pattern_match_pair t1 t2 ~f =
-  pattern_match t1 ~f:(fun params1 ~handler:_ ->
-    pattern_match t2 ~f:(fun params2 ~handler:_ ->
+  pattern_match t1 ~f:(fun params1 phantom_params1 ~handler:_ ->
+    pattern_match t2 ~f:(fun params2 phantom_params2 ~handler:_ ->
       (* CR lmaurer: Should this check be done by
          [Name_abstraction.Make_list]? *)
-      if List.compare_lengths params1 params2 = 0 then
+      if List.compare_lengths params1 params2 = 0 &&
+         List.compare_lengths phantom_params1 phantom_params2 = 0 then
         A.pattern_match_pair t1.abst t2.abst ~f:(
-          fun params { handler = handler1; _ } { handler = handler2; _ } ->
-            Ok (f params ~handler1 ~handler2))
+          fun params abst_phantom1 abst_phantom2 ->
+            Aphantom.pattern_match_pair abst_phantom1 abst_phantom2 ~f:(
+              fun phantom_params
+                { handler = handler1; _ }
+                { handler = handler2; _ } ->
+                Ok (f params phantom_params ~handler1 ~handler2)))
       else
         Error Pattern_match_pair_error.Parameter_lists_have_different_lengths))
 
@@ -190,7 +202,7 @@ let print_using_where_with_cache (recursive : Recursive.t) ~cache ppf k
   if not first then begin
     fprintf ppf "@ "
   end;
-  pattern_match t ~f:(fun params ~handler ->
+  pattern_match t ~f:(fun params phantom_params ~handler ->
     begin match Expr.descr handler with
     | Apply_cont _ | Invalid _ -> fprintf ppf "@[<hov 1>"
     | _ -> fprintf ppf "@[<v 1>"
@@ -205,6 +217,9 @@ let print_using_where_with_cache (recursive : Recursive.t) ~cache ppf k
       (Flambda_colours.normal ());
     if List.length params > 0 then begin
       fprintf ppf " %a" Kinded_parameter.List.print params
+    end;
+    if List.length phantom_params > 0 then begin
+      fprintf ppf " %a" Phantom_parameter.List.print phantom_params
     end;
     fprintf ppf "@<0>%s:@<0>%s@ %a"
       (Flambda_colours.elide ())

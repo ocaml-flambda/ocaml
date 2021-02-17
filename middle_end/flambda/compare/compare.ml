@@ -434,9 +434,9 @@ and subst_let_cont env (let_cont_expr : Let_cont_expr.t) =
       )
 and subst_cont_handler env cont_handler =
   Continuation_handler.pattern_match cont_handler
-    ~f:(fun params ~handler ->
+    ~f:(fun params phantom_params ~handler ->
       let handler = subst_expr env handler in
-      Continuation_handler.create params ~handler
+      Continuation_handler.create params phantom_params ~handler
         ~free_names_of_handler:Unknown
         ~is_exn_handler:(Continuation_handler.is_exn_handler cont_handler)
     )
@@ -1289,10 +1289,10 @@ and let_cont_exprs env (let_cont1 : Let_cont.t) (let_cont2 : Let_cont.t)
     Different { approximant = subst_let_cont env let_cont1 }
 and cont_handlers env handler1 handler2 =
   Continuation_handler.pattern_match_pair handler1 handler2
-    ~f:(fun params ~handler1:expr1 ~handler2:expr2 ->
+    ~f:(fun params phantom_params ~handler1:expr1 ~handler2:expr2 ->
       exprs env expr1 expr2
       |> Comparison.map ~f:(fun handler ->
-          Continuation_handler.create params ~handler
+          Continuation_handler.create params phantom_params ~handler
             ~free_names_of_handler:Unknown
             ~is_exn_handler:(Continuation_handler.is_exn_handler handler2))
       |> Comparison.add_condition ~cond:(

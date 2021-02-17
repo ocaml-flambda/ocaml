@@ -18,3 +18,8 @@
 
 include Parameter.Make(struct let name_mode = Name_mode.phantom end)
 
+let of_kinded_param param =
+  let var = Kinded_parameter.var param in
+  let kind = Kinded_parameter.kind param in
+  create var kind
+

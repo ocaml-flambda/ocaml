@@ -45,8 +45,13 @@ module Make(M : Mode) : S = struct
         Hashtbl.hash (Variable.hash param, Flambda_kind.With_subkind.hash kind)
 
       let print ppf { param; kind; } =
+        let color =
+          match Name_mode.descr M.name_mode with
+          | Normal | In_types -> Flambda_colours.parameter ()
+          | Phantom -> Flambda_colours.elide ()
+        in
         Format.fprintf ppf "@[(@<0>%s%a@<0>%s @<1>\u{2237} %a)@]"
-          (Flambda_colours.parameter ())
+          color
           Variable.print param
           (Flambda_colours.normal ())
           Flambda_kind.With_subkind.print kind

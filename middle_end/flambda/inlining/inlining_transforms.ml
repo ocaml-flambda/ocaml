@@ -139,7 +139,7 @@ let inline dacc ~callee ~args function_decl
                     in
                     let handler = Expr.create_apply_cont apply_cont in
                     Continuation_handler.create
-                      (Kinded_parameter.List.create kinded_params)
+                      (Kinded_parameter.List.create kinded_params) []
                       ~handler
                       ~free_names_of_handler:Unknown
                       ~is_exn_handler:false
@@ -172,7 +172,7 @@ let inline dacc ~callee ~args function_decl
                                             compiler-generated raises not to
                                             have any debug info *)
                 in
-                Continuation_handler.create kinded_params ~handler
+                Continuation_handler.create kinded_params [] ~handler
                   ~free_names_of_handler:Unknown
                   ~is_exn_handler:true
               in
@@ -181,7 +181,7 @@ let inline dacc ~callee ~args function_decl
                 let push_wrapper_cont = Continuation.create () in
                 let handler = body_with_pop in
                 let push_wrapper_handler =
-                  Continuation_handler.create [] ~handler
+                  Continuation_handler.create [] [] ~handler
                     ~free_names_of_handler:Unknown
                     ~is_exn_handler:false
                 in

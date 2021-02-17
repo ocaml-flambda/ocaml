@@ -135,7 +135,7 @@ let add_wrapper_for_fixed_arity_continuation0 uacc cont_or_apply_cont
     let new_wrapper expr ~free_names =
       let new_cont = Continuation.create () in
       let new_handler =
-        Continuation_handler.create kinded_params ~handler:expr
+        Continuation_handler.create kinded_params [] ~handler:expr
           ~free_names_of_handler:free_names
           ~is_exn_handler:false
       in
@@ -258,7 +258,7 @@ let split_direct_over_application apply ~param_arity =
   let after_full_application_handler =
     let func_param = KP.create func_var K.With_subkind.any_value in
     let free_names_of_expr = Apply.free_names perform_over_application in
-    Continuation_handler.create [func_param]
+    Continuation_handler.create [func_param] []
       ~handler:(Expr.create_apply perform_over_application)
       ~free_names_of_handler:(Known free_names_of_expr)
       ~is_exn_handler:false

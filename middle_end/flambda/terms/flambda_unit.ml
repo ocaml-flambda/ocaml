@@ -157,7 +157,7 @@ module Iter = struct
     expr f_c f_s body
 
   and continuation_handler f_c f_s _ h =
-    Continuation_handler.pattern_match h ~f:(fun _ ~handler ->
+    Continuation_handler.pattern_match h ~f:(fun _ _ ~handler ->
         expr f_c f_s handler
       )
 

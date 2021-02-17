@@ -902,7 +902,8 @@ and let_cont_rec env res conts body =
 
 and continuation_handler_split h =
   Continuation_handler.pattern_match' h
-    ~f:(fun params ~num_normal_occurrences_of_params ~handler ->
+    ~f:(fun params _phantom_params ~num_normal_occurrences_of_params ~handler ->
+      (* CR gbury: add some cmm phantom bindings for the phantom params *)
       params, num_normal_occurrences_of_params, handler)
 
 and continuation_arg_tys h =

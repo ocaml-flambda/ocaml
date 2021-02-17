@@ -333,7 +333,8 @@ end and Continuation_handler : sig
 
   (** Create the representation of a single continuation handler. *)
   val create
-     : Kinded_parameter.t list
+      : Kinded_parameter.t list
+    -> Phantom_parameter.t list
     -> handler:Expr.t
     -> free_names_of_handler:Name_occurrences.t Or_unknown.t
     -> is_exn_handler:bool
@@ -344,6 +345,7 @@ end and Continuation_handler : sig
   val pattern_match'
      : t
     -> f:(Kinded_parameter.t list
+      -> Phantom_parameter.t list
       -> num_normal_occurrences_of_params:Num_occurrences.t Variable.Map.t
       -> handler:Expr.t
       -> 'a)
@@ -352,6 +354,7 @@ end and Continuation_handler : sig
   val pattern_match
      : t
     -> f:(Kinded_parameter.t list
+      -> Phantom_parameter.t list
       -> handler:Expr.t
       -> 'a)
     -> 'a
@@ -368,6 +371,7 @@ end and Continuation_handler : sig
      : t
     -> t
     -> f:(Kinded_parameter.t list
+      -> Phantom_parameter.t list
       -> handler1:Expr.t
       -> handler2:Expr.t
       -> 'a)

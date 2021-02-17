@@ -18,3 +18,5 @@
 
 include Parameter.S
 
+val of_kinded_param : Kinded_parameter.t -> t
+

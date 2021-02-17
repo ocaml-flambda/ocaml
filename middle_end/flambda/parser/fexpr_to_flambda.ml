@@ -486,7 +486,7 @@ let rec expr env (e : Fexpr.expr) : Flambda.Expr.t =
         expr handler_env handler.handler
       in
       let handler =
-        Flambda.Continuation_handler.create params ~handler
+        Flambda.Continuation_handler.create params [] ~handler
           ~free_names_of_handler:Unknown
           ~is_exn_handler:is_exn_handler
       in

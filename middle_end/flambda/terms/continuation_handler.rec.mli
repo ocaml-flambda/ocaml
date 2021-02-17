@@ -39,6 +39,7 @@ val print_using_where_with_cache
     handler. *)
 val create
    : Kinded_parameter.t list
+  -> Phantom_parameter.t list
   -> handler:Expr.t
   -> free_names_of_handler:Name_occurrences.t Or_unknown.t
   -> is_exn_handler:bool
@@ -50,6 +51,7 @@ val create
 val pattern_match'
    : t
   -> f:(Kinded_parameter.t list
+    -> Phantom_parameter.t list
     -> num_normal_occurrences_of_params:Num_occurrences.t Variable.Map.t
     -> handler:Expr.t
     -> 'a)
@@ -58,6 +60,7 @@ val pattern_match'
 val pattern_match
    : t
   -> f:(Kinded_parameter.t list
+    -> Phantom_parameter.t list
     -> handler:Expr.t
     -> 'a)
   -> 'a
@@ -74,6 +77,7 @@ val pattern_match_pair
    : t
   -> t
   -> f:(Kinded_parameter.t list
+    -> Phantom_parameter.t list
     -> handler1:Expr.t
     -> handler2:Expr.t
     -> 'a)

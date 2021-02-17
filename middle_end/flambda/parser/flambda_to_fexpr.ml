@@ -718,7 +718,8 @@ and let_cont_expr env (lc : Flambda.Let_cont_expr.t) =
 and cont_handler env cont_id h =
   let is_exn_handler = Flambda.Continuation_handler.is_exn_handler h in
   Flambda.Continuation_handler.pattern_match h
-    ~f:(fun params ~handler : Fexpr.continuation_handler ->
+    ~f:(fun params phantom_params ~handler : Fexpr.continuation_handler ->
+      if phantom_params <> [] then Misc.fatal_errorf "TODO:fix this";
       let params, env =
         Misc.Stdlib.List.map_accum_left kinded_parameter env params
       in

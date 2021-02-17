@@ -231,7 +231,7 @@ let rec bind_rec ~backend exn_cont
         bind_rec ~backend exn_cont ~register_const_string
           primitive dbg cont
       in
-      Continuation_handler.create [] ~handler
+      Continuation_handler.create [] [] ~handler
         ~free_names_of_handler:Unknown
         ~is_exn_handler:false
     in
@@ -241,7 +241,7 @@ let rec bind_rec ~backend exn_cont
         expression_for_failure ~backend exn_cont
           ~register_const_string primitive dbg failure
       in
-      Continuation_handler.create [] ~handler
+      Continuation_handler.create [] [] ~handler
         ~free_names_of_handler:Unknown
         ~is_exn_handler:false
     in
@@ -249,7 +249,7 @@ let rec bind_rec ~backend exn_cont
       List.fold_left (fun rest expr_primitive ->
           let condition_passed_cont = Continuation.create () in
           let condition_passed_cont_handler =
-            Continuation_handler.create [] ~handler:rest
+            Continuation_handler.create [] [] ~handler:rest
               ~free_names_of_handler:Unknown
               ~is_exn_handler:false
           in
