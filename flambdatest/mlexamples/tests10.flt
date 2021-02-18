@@ -1,0 +1,23 @@
+let $camlTests10__first_const9 = Block 0 () in
+let code rec f_0 (param) my_closure -> k * k1 =
+  let Pmakeblock = %Block 0 (my_closure, my_closure) in
+  cont k (Pmakeblock)
+in
+(let f = closure f_0 @f in
+ let Pmakeblock = %Block 0 (f) in
+ cont k (Pmakeblock))
+  where k define_root_symbol (module_block) =
+    let field_0 = %block_load 0 size(1) (module_block, 0) in
+    let $camlTests10 = Block 0 (field_0) in
+    cont done ($camlTests10)
+===>
+let code rec f_0 deleted : val -> val in
+let $camlTests10__f_1 =
+  closure f_0_1 @f
+and code rec f_0_1 newer_version_of(f_0) (param) my_closure -> k * k1 =
+  cont k ($camlTests10__Pmakeblock24)
+and $camlTests10__Pmakeblock24 =
+  Block 0 ($camlTests10__f_1, $camlTests10__f_1)
+in
+let $camlTests10 = Block 0 ($camlTests10__f_1) in
+cont done ($camlTests10)
