@@ -497,7 +497,7 @@ let prove_unique_tag_and_size env t
       | Some (tag, size) -> Proved (tag, size)
 
 type variant_proof = {
-  const_ctors : Target_imm.Set.t;
+  const_ctors : Target_imm.Set.t (* Or_unknown.t *);
   non_const_ctors_with_sizes : Targetint.OCaml.t Tag.Scannable.Map.t;
 }
 
@@ -512,18 +512,20 @@ let prove_variant env t : variant_proof proof_allowing_kind_mismatch =
     | Known imms ->
       let const_ctors : _ Or_unknown.t =
         match prove_naked_immediates env imms with
-        | Unknown -> Unknown
+        | Unknown -> Format.eprintf "unknown!@."; Unknown
         | Invalid -> Known Target_imm.Set.empty
         | Proved const_ctors -> Known const_ctors
       in
       match const_ctors with
       | Unknown -> Unknown
       | Known const_ctors ->
+        (*
         let valid =
           Target_imm.Set.for_all Target_imm.is_non_negative const_ctors
         in
-        if not valid then Invalid
-        else
+        if not valid then (Format.eprintf "invalid !@."; Invalid)
+           else
+        *)
           match blocks_imms.blocks with
           | Unknown -> Unknown
           | Known blocks ->

@@ -229,6 +229,11 @@ let simplify_non_recursive_let_cont_handler ~denv_before_body ~dacc_after_body
           EPA.empty cont_handler uacc ~after_rebuild)
   | Uses { handler_env; arg_types_by_use_id; extra_params_and_args;
            is_single_inlinable_use; is_single_use; } ->
+    if Continuation_uses.number_of_uses
+         (Continuation.Map.find cont (CUE.get_uses cont_uses_env)) = 2 then
+      Format.eprintf "=== CONT USE ENV ===@\n%a@\n%a@\n%a@\n@." 
+        Continuation.print cont CUE.print cont_uses_env
+        TE.print (DE.typing_env handler_env);
     let handler_env, extra_params_and_args =
       (* Unbox the parameters of the continuation if possible.
          Any such unboxing will induce a rewrite (or wrapper) on

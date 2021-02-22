@@ -303,11 +303,14 @@ module Make (U : Unboxing_spec) = struct
     let arg_types_by_use_id =
       Apply_cont_rewrite_id.Map.filter_map
         (fun _ (typing_env_at_use, arg_type_at_use) ->
+          Format.eprintf "param: %a@." KP.print param_being_unboxed;
           let use_info =
             U.Use_info.create typing_env_at_use ~type_at_use:arg_type_at_use
           in
           match use_info with
-          | Do_not_unbox_this_parameter -> None
+          | Do_not_unbox_this_parameter ->
+            Format.eprintf "DO_not_use_this %a !!@." KP.print param_being_unboxed;
+            None
           | Ok use_info ->
             Some (typing_env_at_use, arg_type_at_use, use_info))
         arg_types_by_use_id
@@ -558,6 +561,7 @@ struct
       (* To avoid having to insert a [Switch], for the moment we only unbox
          when the type at each use is that of either an immediate or a block
          of a unique size, but not any more general variant. *)
+      Format.eprintf "Create @.";
       match T.prove_tags_and_sizes typing_env type_at_use with
       | Proved tags_to_sizes ->
         begin match Tag.Map.get_singleton tags_to_sizes with
@@ -678,12 +682,16 @@ struct
         ~untagged_index_var =
     match index with
     | Is_int
-    | Tag -> T.any_value ()
+    | Tag ->
+      Format.eprintf "any_value! @.";
+      T.any_value ()
     | Const_ctor ->
+      Format.eprintf "cont ctor !@.";
       T.open_variant_from_const_ctors_type
         ~const_ctors:(T.alias_type_of K.naked_immediate (
           Simple.var untagged_index_var))
     | Field { index; } ->
+      Format.eprintf "field %a@." Targetint.OCaml.print index;
       T.open_variant_from_non_const_ctor_with_size_at_least
         ~n:(Targetint.OCaml.add index Targetint.OCaml.one)
         ~field_n_minus_one:index_var
@@ -698,12 +706,11 @@ struct
     let result_var =
       Var_in_binding_pos.create index_var Name_mode.normal
     in
-    (*
-    Format.eprintf "Shape:@ %a@ arg_type_at_use:@ %a@ env:@ %a\n%!"
+    Format.eprintf "Shape:@ %a@ %a@ arg_type_at_use:@ %a@ env:@ %a\n%!"
+      Var_in_binding_pos.print result_var
       T.print shape
-      T.print arg_type_at_use
-      TE.print typing_env_at_use;
-    *)
+      T.print base_ty
+      TE.print typing_env;
     T.meet_shape typing_env base_ty
       ~shape ~result_var ~result_kind
 
@@ -1026,7 +1033,8 @@ let unboxed_number_decisions = [
 ]
 
 let rec make_unboxing_decision denv ~depth ~arg_types_by_use_id
-      ~param_being_unboxed ~param_type extra_params_and_args =
+          ~param_being_unboxed ~param_type extra_params_and_args =
+  Format.eprintf "UNBOX: %a@." KP.print param_being_unboxed;
   if depth > max_unboxing_depth then
     denv, param_type, extra_params_and_args
   else
@@ -1060,9 +1068,7 @@ let rec make_unboxing_decision denv ~depth ~arg_types_by_use_id
     | Wrong_kind | Invalid | Unknown ->
       match T.prove_variant (DE.typing_env denv) param_type with
       | Proved variant ->
-        (*
-        Format.eprintf "Starting variant unboxing\n%!";
-        *)
+        Format.eprintf "Starting variant unboxing\n@.";
         let variant = Variant.create variant in
         let fields =
           let size = Targetint.OCaml.to_int (Variant.max_size variant) in
@@ -1098,6 +1104,8 @@ let rec make_unboxing_decision denv ~depth ~arg_types_by_use_id
             extra_params_and_args ~unbox_value:make_unboxing_decision
             info closure_vars
         | Proved (_, _, (Unknown | Bottom)) | Wrong_kind | Invalid | Unknown ->
+          Format.eprintf "last chance : %a @\n%a@\n@\n! ?@."
+            T.print param_type TE.print (DE.typing_env denv);
           let rec try_unboxing = function
             | [] -> denv, param_type, extra_params_and_args
             | (prover, unboxer, tag) :: decisions ->
@@ -1131,11 +1139,13 @@ let make_unboxing_decisions0 denv ~arg_types_by_use_id ~params
       (List.combine arg_types_by_use_id
         (List.combine params param_types))
   in
+  Format.eprintf "== ENV BEFORE ===@\n%a@\n@." TE.print (DE.typing_env denv);
   let denv =
     DE.map_typing_env denv ~f:(fun typing_env ->
       TE.add_equations_on_params typing_env
         ~params ~param_types:(List.rev param_types_rev))
   in
+  Format.eprintf "== ENV AFTER ===@\n%a@\n@." TE.print (DE.typing_env denv);
   denv, extra_params_and_args
 
 let make_unboxing_decisions denv ~arg_types_by_use_id ~params

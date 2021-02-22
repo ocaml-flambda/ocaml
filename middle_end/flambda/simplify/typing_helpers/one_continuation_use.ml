@@ -33,12 +33,14 @@ let create kind ~env_at_use:env id ~arg_types =
     env;
   }
 
-let print ppf { env = _; id = _; kind = _; arg_types; } =
+let print ppf { env; id = _; kind = _; arg_types; } =
   Format.fprintf ppf "@[<hov 1>(\
       @[<hov 1>(arg_types@ %a)@]@ \
+      @[<hov 1>(typing_env %a)@]@ \
       )@]"
     (Format.pp_print_list ~pp_sep:Format.pp_print_space Flambda_type.print)
     arg_types
+    T.Typing_env.print (DE.typing_env env)
 
 let id t = t.id
 let use_kind t = t.kind
