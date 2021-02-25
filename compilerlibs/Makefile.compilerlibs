@@ -311,6 +311,7 @@ MIDDLE_END_FLAMBDA_SIMPLIFY=\
   middle_end/flambda/simplify/env/continuation_uses_env.cmo \
   middle_end/flambda/cmx/flambda_cmx.cmo \
   middle_end/flambda/simplify/env/continuation_uses_env_intf.cmo \
+  middle_end/flambda/simplify/env/rec_uses.cmo \
   middle_end/flambda/simplify/env/downwards_acc.cmo \
   middle_end/flambda/simplify/env/upwards_acc.cmo \
   middle_end/flambda/simplify/expr_builder.cmo \

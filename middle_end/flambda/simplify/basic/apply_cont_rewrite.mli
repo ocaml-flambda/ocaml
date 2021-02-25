@@ -35,6 +35,7 @@ val create
   -> used_extra_params:Kinded_parameter.Set.t
   -> t
 
+val used_params : t -> Kinded_parameter.Set.t
 val extra_params : t -> Kinded_parameter.t list
 
 val extra_args

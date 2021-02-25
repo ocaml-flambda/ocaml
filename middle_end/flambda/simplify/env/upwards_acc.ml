@@ -32,13 +32,14 @@ type t = {
   name_occurrences : Name_occurrences.t;
   used_closure_vars : Name_occurrences.t;
   shareable_constants : Symbol.t Static_const.Map.t;
+  used_continuation_params : Variable.Set.t;
   cost_metrics: Flambda.Cost_metrics.t;
 }
 
 let print ppf
       { uenv; creation_dacc = _; code_age_relation; lifted_constants;
         name_occurrences; used_closure_vars; all_code = _;
-        shareable_constants; cost_metrics } =
+        shareable_constants; cost_metrics; used_continuation_params; } =
   Format.fprintf ppf "@[<hov 1>(\
       @[<hov 1>(uenv@ %a)@]@ \
       @[<hov 1>(code_age_relation@ %a)@]@ \
@@ -46,6 +47,7 @@ let print ppf
       @[<hov 1>(name_occurrences@ %a)@]@ \
       @[<hov 1>(used_closure_vars@ %a)@]@ \
       @[<hov 1>(shareable_constants@ %a)@]\
+      @[<hov 1>(used_continuation_params %a)@]@ \
       @[<hov 1>(cost_metrics %a)@]\
       )@]"
     UE.print uenv
@@ -54,9 +56,10 @@ let print ppf
     Name_occurrences.print name_occurrences
     Name_occurrences.print used_closure_vars
     (Static_const.Map.print Symbol.print) shareable_constants
+    Variable.Set.print used_continuation_params
     Flambda.Cost_metrics.print cost_metrics
 
-let create uenv dacc =
+let create ~used_continuation_params uenv dacc =
   { uenv;
     creation_dacc = dacc;
     code_age_relation = TE.code_age_relation (DA.typing_env dacc);
@@ -69,6 +72,7 @@ let create uenv dacc =
        dealing with a [Let_cont]). *)
     used_closure_vars = DA.used_closure_vars dacc;
     shareable_constants = DA.shareable_constants dacc;
+    used_continuation_params;
     cost_metrics = Flambda.Cost_metrics.zero;
   }
 
@@ -76,6 +80,7 @@ let creation_dacc t = t.creation_dacc
 let uenv t = t.uenv
 let code_age_relation t = t.code_age_relation
 let lifted_constants t = t.lifted_constants
+let used_continuation_params t = t.used_continuation_params
 let cost_metrics t = t.cost_metrics
 
 (* Don't add empty LCS to the list *)

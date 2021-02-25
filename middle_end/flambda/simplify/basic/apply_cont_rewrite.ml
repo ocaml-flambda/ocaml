@@ -92,6 +92,7 @@ let create ~original_params ~used_params ~extra_params ~extra_args
     extra_args;
   }
 
+let used_params t = t.used_params
 let extra_params t = t.used_extra_params
 
 let extra_args t id =

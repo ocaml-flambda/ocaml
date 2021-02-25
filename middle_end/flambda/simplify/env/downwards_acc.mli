@@ -40,6 +40,12 @@ val map_denv
 (** Replace the environment component of the given downwards accumulator. *)
 val with_denv : t -> Downwards_env.t -> t
 
+(** Extract the rec usage accumulator *)
+val rec_uses : t -> Rec_uses.t
+
+(** Map the rec_uses of the gicen downwards accumulator. *)
+val map_rec_uses : t -> f:(Rec_uses.t -> Rec_uses.t) -> t
+
 (* CR mshinwell: Why do these take scope arguments when [DE] knows the
    current scope level? *)
 include Continuation_uses_env_intf.S with type t := t
@@ -110,3 +116,4 @@ val add_use_of_closure_var : t -> Var_within_closure.t -> t
 val used_closure_vars : t -> Name_occurrences.t
 
 val with_used_closure_vars : t -> used_closure_vars:Name_occurrences.t -> t
+
