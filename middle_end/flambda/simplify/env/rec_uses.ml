@@ -98,7 +98,7 @@ let add_extra_params_and_args cont extra t =
   in
   { t with extra; }
 
-let stack_cont continuation params t =
+let enter_continuation continuation params t =
   let elt = {
     continuation; params;
     bindings = Variable.Map.empty;
@@ -110,9 +110,9 @@ let stack_cont continuation params t =
   { t with stack = elt :: t.stack; }
 
 let init_toplevel continuation params _t =
-  stack_cont continuation params empty
+  enter_continuation continuation params empty
 
-let unstack_cont cont t =
+let exit_continuation cont t =
   match t.stack with
   | [] -> Misc.fatal_errorf "empty stack of variable uses in flambda2"
   | ({ continuation; _ } as elt) :: stack ->
@@ -188,7 +188,7 @@ module Var_graph = struct
 
   type t = Variable.Set.t Variable.Map.t
 
-  let _print ppf t =
+  let print ppf t =
     Variable.Map.print Variable.Set.print ppf t
 
   let empty : t = Variable.Map.empty
@@ -217,121 +217,159 @@ module Var_graph = struct
         reachable t visited queue
       else begin
         let visited = Variable.Set.add v visited in
-        Variable.Set.iter (fun dst ->
-          if not (Variable.Set.mem dst visited) then Queue.push dst queue
-        ) (edges t ~src:v);
+        Variable.Set.iter (fun dst -> Queue.push dst queue)
+          (Variable.Set.diff (edges t ~src:v) visited);
         reachable t visited queue
       end
 
 end
 
-(* Reachability analysis *)
-(* ********************* *)
+(* Dependency graph *)
+(* **************** *)
 
-let used_variables ~return_continuation ~exn_continuation map extra =
+module Dependency_graph = struct
+
+  type t = {
+    dependencies : Var_graph.t;
+    unconditionnaly_used : Variable.Set.t;
+  }
+
+  let empty = {
+    dependencies = Var_graph.empty;
+    unconditionnaly_used = Variable.Set.empty;
+  }
+
+  let _print ppf { dependencies; unconditionnaly_used; } =
+    Format.fprintf ppf "@[<hov 1>(\
+        @[<hov 1>(dependencies@ %a)@]@ \
+        @[<hov 1>(unconditionnaly_used@ %a)@]\
+        )@]"
+      Var_graph.print dependencies
+      Variable.Set.print unconditionnaly_used
+
   (* Some auxiliary functions *)
-  let add_used name_occurrences set =
-    Name_occurrences.fold_variables name_occurrences ~init:set
-      ~f:(fun set var -> Variable.Set.add var set)
-  in
-  (* Build the reversed graph of dependencies *)
-  let graph, used =
-    Continuation.Map.fold (fun _ {
-      apply_cont_args; apply_result_conts; used_in_handler; bindings;
-      continuation = _; params = _;
-    } (graph, used) ->
-      (* Add the vars used in the handler *)
-      let used = add_used used_in_handler used in
-      (* Add the vars of continuation used as function call return as used *)
-      let used =
-        Continuation.Set.fold (fun k used ->
+  let add_dependency ~src ~dst ({ dependencies; _ } as t) =
+    let dependencies = Var_graph.add_edge ~src ~dst dependencies in
+    { t with dependencies; }
+
+  let add_var_used ({ unconditionnaly_used; _ } as t) v =
+    let unconditionnaly_used =  Variable.Set.add v unconditionnaly_used in
+    { t with unconditionnaly_used; }
+
+  let add_name_occurrences name_occurrences ({ unconditionnaly_used = init; _ } as t) =
+    let unconditionnaly_used =
+      Name_occurrences.fold_variables name_occurrences ~init
+        ~f:(fun set var -> Variable.Set.add var set)
+    in
+    { t with unconditionnaly_used; }
+
+  let add_continuation_info map ~return_continuation ~exn_continuation
+        _ { apply_cont_args; apply_result_conts; used_in_handler; bindings;
+            continuation = _; params = _; } t =
+    (* Add the vars used in the handler *)
+    let t = add_name_occurrences used_in_handler t in
+    (* Add the vars of continuation used as function call return as used *)
+    let t =
+      Continuation.Set.fold (fun k t ->
+        match Continuation.Map.find k map with
+        | elt -> List.fold_left add_var_used t elt.params
+        | exception Not_found ->
+          if Continuation.equal return_continuation k ||
+             Continuation.equal exn_continuation k
+          then t
+          else
+            Misc.fatal_errorf "Continuation not found during rec analysis: %a@."
+              Continuation.print k
+      ) apply_result_conts t
+    in
+    (* Build the graph of dependencies between bindings *)
+    let t =
+      Variable.Map.fold (fun src name_occurrences graph ->
+        Name_occurrences.fold_variables name_occurrences ~init:graph
+          ~f:(fun t dst -> add_dependency ~src ~dst t)
+      ) bindings t
+    in
+    (* Build the graph of dependencies between continuation
+       parameters and arguments. *)
+    Continuation.Map.fold (fun k args t ->
+      if Continuation.equal return_continuation k ||
+         Continuation.equal exn_continuation k then begin
+        Numbers.Int.Map.fold (fun _ name_occurrences t ->
+          add_name_occurrences name_occurrences t
+        ) args t
+      end else begin
+        let params =
           match Continuation.Map.find k map with
-          | elt ->
-            List.fold_left (fun used v -> Variable.Set.add v used) used elt.params
+          | elt -> Array.of_list elt.params
           | exception Not_found ->
-            if Continuation.equal return_continuation k ||
-               Continuation.equal exn_continuation k
-            then used
-            else
-              Misc.fatal_errorf "Continuation not found during rec analysis: %a@."
-                Continuation.print k
-        ) apply_result_conts used
-      in
-      (* Build the graph of dependencies between bindings *)
-      let graph =
-        Variable.Map.fold (fun src name_occurrences graph ->
-          Name_occurrences.fold_variables name_occurrences ~init:graph
-            ~f:(fun g dst -> Var_graph.add_edge ~src ~dst g)
-        ) bindings graph
-      in
-      (* Build the graph of dependencies between continuation
-         parameters and arguments. *)
-      Continuation.Map.fold (fun k args (graph, used) ->
-        if Continuation.equal return_continuation k ||
-           Continuation.equal exn_continuation k then begin
-          let used =
-            Numbers.Int.Map.fold (fun _ name_occurrences used ->
-              add_used name_occurrences used
-            ) args used
-          in
-          graph, used
-        end else begin
-          let params =
-            match Continuation.Map.find k map with
-            | elt -> Array.of_list elt.params
-            | exception Not_found ->
-              Misc.fatal_errorf "Continuation not found during rec analysis: %a@."
-                Continuation.print k
-          in
-          let graph =
-            Numbers.Int.Map.fold (fun i name_occurrence graph ->
-              (* Note on the direction of the edge:
-                 We later do a reachability analysis to compute the
-                 transitive cloture of the used variables.
-                 Therefore an edge from src to dst means: if src is used, then
-                 dst is also used.
-                 Aplied here, this means : if the param of a continuation is used,
-                 then any argument provided for that param is also used.
-                 The other way wouldn't make much sense. *)
-              let src = params.(i) in
-              Name_occurrences.fold_variables name_occurrence ~init:graph
-                ~f:(fun g dst -> Var_graph.add_edge ~src ~dst g)
-            ) args graph
-          in
-          graph, used
-        end
-      ) apply_cont_args (graph, used)
-    ) map (Var_graph.empty, Variable.Set.empty)
-  in
-  (* Here we add to the graph the edges corresponding to the extra params
-     and args. *)
-  let graph =
-    Continuation.Map.fold (
-      fun _ (extra_params_and_args : Continuation_extra_params_and_args.t) graph ->
-      Apply_cont_rewrite_id.Map.fold (fun _ extra_args graph ->
-        List.fold_left2 (fun graph extra_param extra_arg ->
-          let src = Kinded_parameter.var extra_param in
-          match (extra_arg : Continuation_extra_params_and_args.Extra_arg.t) with
-          | Already_in_scope simple ->
-            Name_occurrences.fold_variables (Simple.free_names simple) ~init:graph
-              ~f:(fun g dst -> Var_graph.add_edge ~src ~dst g)
-          | New_let_binding (src', prim) ->
-            Name_occurrences.fold_variables (Flambda_primitive.free_names prim)
-              ~f:(fun g dst -> Var_graph.add_edge ~src:src' ~dst g)
-              ~init:(Var_graph.add_edge ~src ~dst:src' graph)
-        ) graph extra_params_and_args.extra_params extra_args
-      ) extra_params_and_args.extra_args graph
-    ) extra graph
-  in
-  let queue = Queue.create () in
-  Variable.Set.iter (fun v -> Queue.push v queue) used;
-  let transitively_used = Var_graph.reachable graph Variable.Set.empty queue in
-  transitively_used
+            Misc.fatal_errorf "Continuation not found during rec analysis: %a@."
+              Continuation.print k
+        in
+        Numbers.Int.Map.fold (fun i name_occurrence t ->
+          (* Note on the direction of the edge:
+             We later do a reachability analysis to compute the
+             transitive cloture of the used variables.
+             Therefore an edge from src to dst means: if src is used, then
+             dst is also used.
+             Aplied here, this means : if the param of a continuation is used,
+             then any argument provided for that param is also used.
+             The other way wouldn't make much sense. *)
+          let src = params.(i) in
+          Name_occurrences.fold_variables name_occurrence ~init:t
+            ~f:(fun t dst -> add_dependency ~src ~dst t)
+        ) args t
+      end
+    ) apply_cont_args t
+
+  let create ~return_continuation ~exn_continuation map extra =
+    (* Build the dependencies using the regular params and args of continations,
+       and the let-bindings in continuations handlers. *)
+    let t =
+      Continuation.Map.fold
+        (add_continuation_info map
+        ~return_continuation ~exn_continuation)
+        map empty
+    in
+    (* Take into account the extra params and args. *)
+    let t =
+      Continuation.Map.fold (
+        fun _ (extra_params_and_args : Continuation_extra_params_and_args.t) t ->
+          Apply_cont_rewrite_id.Map.fold (fun _ extra_args t ->
+            List.fold_left2 (fun t extra_param extra_arg ->
+              let src = Kinded_parameter.var extra_param in
+              match (extra_arg : Continuation_extra_params_and_args.Extra_arg.t) with
+              | Already_in_scope simple ->
+                Name_occurrences.fold_variables (Simple.free_names simple) ~init:t
+                  ~f:(fun t dst -> add_dependency ~src ~dst t)
+              | New_let_binding (src', prim) ->
+                Name_occurrences.fold_variables (Flambda_primitive.free_names prim)
+                  ~f:(fun t dst -> add_dependency ~src:src' ~dst t)
+                  ~init:(add_dependency ~src ~dst:src' t)
+            ) t extra_params_and_args.extra_params extra_args
+          ) extra_params_and_args.extra_args t
+      ) extra t
+    in
+    t
+
+  let required_variables { dependencies; unconditionnaly_used; } =
+    let queue = Queue.create () in
+    Variable.Set.iter (fun v -> Queue.push v queue) unconditionnaly_used;
+    Var_graph.reachable dependencies Variable.Set.empty queue
+
+end
+
+(* Analysis *)
+(* ******** *)
+
+type result = {
+  required_variables : Variable.Set.t;
+}
 
 let analyze ~return_continuation ~exn_continuation { stack; map; extra; } =
   assert (stack = []);
-  let used = used_variables ~return_continuation ~exn_continuation map extra in
-  used
-
-
+  let deps =
+    Dependency_graph.create ~return_continuation ~exn_continuation map extra
+  in
+  let required_variables = Dependency_graph.required_variables deps in
+  { required_variables; }
 

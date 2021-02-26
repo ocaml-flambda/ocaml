@@ -43,7 +43,7 @@ val with_denv : t -> Downwards_env.t -> t
 (** Extract the rec usage accumulator *)
 val rec_uses : t -> Rec_uses.t
 
-(** Map the rec_uses of the gicen downwards accumulator. *)
+(** Map the rec_uses of the given downwards accumulator. *)
 val map_rec_uses : t -> f:(Rec_uses.t -> Rec_uses.t) -> t
 
 (* CR mshinwell: Why do these take scope arguments when [DE] knows the

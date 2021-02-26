@@ -41,11 +41,11 @@ val init_toplevel : Continuation.t -> Variable.t list -> t -> t
 (** Initialize the rec_uses so that the stack consists of a single
     toplevel continuation. *)
 
-val stack_cont : Continuation.t -> Variable.t list -> t -> t
+val enter_continuation : Continuation.t -> Variable.t list -> t -> t
 (** Add a new continuation on the stack. Used when entering a
     continuation handler. *)
 
-val unstack_cont : Continuation.t -> t -> t
+val exit_continuation : Continuation.t -> t -> t
 (** Pop the current top of the stack. Used when exiting the current
     contionuation handler. *)
 
@@ -73,11 +73,17 @@ val add_extra_params_and_args :
 
 (* {2 Analysis} *)
 
+type result = {
+  required_variables : Variable.Set.t;
+  (** The set of all variables that are effectively used to compute the
+      returned value of the function being analyzed. *)
+}
+(** The result of an analysis of the uses of variables in continuations. *)
+
 val analyze :
   return_continuation:Continuation.t ->
   exn_continuation:Continuation.t ->
-  t -> Variable.Set.t
-(** Analyze the rec uses.
-    TODO: have a more useful return type. *)
+  t -> result
+(** Analyze the uses. *)
 
 

@@ -80,7 +80,7 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
           List.partition (fun extra_param ->
             Name_occurrences.mem_var free_names (KP.var extra_param)
             (* &&
-            Variable.Set.mem (KP.var extra_param) (UA.used_continuation_params uacc) *)
+            Variable.Set.mem (KP.var extra_param) (UA.required_variables uacc) *)
           ) extra_params_and_args.extra_params
       in
       let used_as_normal_or_rec, not_used_as_normal_or_rec =
@@ -104,11 +104,11 @@ let rebuild_one_continuation_handler cont ~at_unit_toplevel
               | Zero -> false
               | One | More_than_one ->
                 (* CR gbury: the rec_use check (which uses
-                   `UA.used_continuation_params`), should supercedes the
+                   `UA.required_variables`), should supercedes the
                    free_names check for unused parameters. Maybe the
                    count_variable_normal_mode check could be omitted and completely
                    replaced by the rec_use check at one point. *)
-                Variable.Set.mem (KP.var param) (UA.used_continuation_params uacc)
+                Variable.Set.mem (KP.var param) (UA.required_variables uacc)
             end) params
         end
       in
@@ -381,7 +381,7 @@ let simplify_non_recursive_let_cont dacc non_rec ~down_to_up =
         ~down_to_up:(fun dacc_after_body ~rebuild:rebuild_body ->
           let dacc_after_body =
             DA.map_rec_uses dacc_after_body ~f:(
-              Rec_uses.stack_cont cont (Kinded_parameter.List.vars params)
+              Rec_uses.enter_continuation cont (Kinded_parameter.List.vars params)
             )
           in
           (* Then, before the upwards traversal of the body, we do the
@@ -400,7 +400,7 @@ let simplify_non_recursive_let_cont dacc non_rec ~down_to_up =
                context). *)
             ~down_to_up:(fun dacc ~continuation_has_zero_uses
                     ~rebuild:rebuild_handler ->
-              let dacc = DA.map_rec_uses dacc ~f:(Rec_uses.unstack_cont cont) in
+              let dacc = DA.map_rec_uses dacc ~f:(Rec_uses.exit_continuation cont) in
               down_to_up dacc ~rebuild:(fun uacc ~after_rebuild ->
                 let uenv_without_cont = UA.uenv uacc in
                 (* Now, on the upwards traversal, the handler is rebuilt.
@@ -564,7 +564,7 @@ let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
       ~original_cont_scope_level ~down_to_up =
   let dacc_after_body =
     DA.map_rec_uses dacc_after_body ~f:(
-      Rec_uses.stack_cont cont (Kinded_parameter.List.vars params)
+      Rec_uses.enter_continuation cont (Kinded_parameter.List.vars params)
     )
   in
   let denv, _arg_types =
@@ -594,14 +594,14 @@ let simplify_recursive_let_cont_handlers ~denv_before_body ~dacc_after_body
     cont_handler ~params ~handler
     ~extra_params_and_args ~is_single_inlinable_use:false
     ~down_to_up:(fun dacc ~rebuild:rebuild_handler ->
-      let dacc = DA.map_rec_uses dacc ~f:(Rec_uses.unstack_cont cont) in
+      let dacc = DA.map_rec_uses dacc ~f:(Rec_uses.exit_continuation cont) in
       let cont_uses_env = CUE.remove (DA.continuation_uses_env dacc) cont in
       let dacc = DA.with_continuation_uses_env dacc ~cont_uses_env in
       down_to_up dacc ~rebuild:(fun uacc ~after_rebuild ->
-        let used_continuation_params = UA.used_continuation_params uacc in
+        let required_variables = UA.required_variables uacc in
         let used_params =
           List.filter (fun param ->
-            Variable.Set.mem (KP.var param) used_continuation_params
+            Variable.Set.mem (KP.var param) required_variables
           ) params
           |> KP.Set.of_list
         in
