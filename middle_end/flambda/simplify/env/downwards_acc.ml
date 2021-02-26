@@ -50,7 +50,6 @@ let print ppf
     LCS.print lifted_constants
     Rec_uses.print rec_uses
 
-
 let create denv continuation_uses_env =
   { denv;
     continuation_uses_env;
@@ -196,5 +195,4 @@ let all_continuations_used t =
 
 let with_used_closure_vars t ~used_closure_vars =
   { t with used_closure_vars = used_closure_vars; }
-
 
