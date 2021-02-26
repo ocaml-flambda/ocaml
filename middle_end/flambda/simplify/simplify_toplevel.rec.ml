@@ -26,7 +26,7 @@ let simplify_toplevel dacc expr ~return_continuation ~return_arity
     Continuation.create ~name:"dummy_toplevel_continuation" ()
   in
   let dacc =
-    DA.map_rec_uses dacc ~f:(Rec_uses.init_toplevel toplevel_cont [])
+    DA.map_rec_uses dacc ~f:(Rec_uses.init_toplevel dummy_toplevel_cont [])
   in
   let expr, uacc =
     Simplify_expr.simplify_expr dacc expr ~down_to_up:(fun dacc ~rebuild ->
