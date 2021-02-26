@@ -22,11 +22,19 @@ let simplify_toplevel dacc expr ~return_continuation ~return_arity
       exn_continuation ~return_cont_scope ~exn_cont_scope =
   (* The uses analysis needs a continuation for the toplevel code
      of the function, so we create a dummy one here. *)
-  let toplevel_cont = Continuation.create ~name:"dummy_toplevel_continuation" () in
-  let dacc = DA.map_rec_uses dacc ~f:(Rec_uses.init_toplevel toplevel_cont []) in
+  let dummy_toplevel_cont =
+    Continuation.create ~name:"dummy_toplevel_continuation" ()
+  in
+  let dacc =
+    DA.map_rec_uses dacc ~f:(Rec_uses.init_toplevel toplevel_cont [])
+  in
   let expr, uacc =
     Simplify_expr.simplify_expr dacc expr ~down_to_up:(fun dacc ~rebuild ->
-      let dacc = DA.map_rec_uses dacc ~f:(Rec_uses.exit_continuation toplevel_cont) in
+      let dacc =
+        DA.map_rec_uses dacc ~f:(
+          Rec_uses.exit_continuation dummy_toplevel_cont
+        )
+      in
       let rec_uses = DA.rec_uses dacc in
       let { required_variables; } : Rec_uses.result =
         Rec_uses.analyze rec_uses ~return_continuation
