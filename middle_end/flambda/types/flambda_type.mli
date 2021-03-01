@@ -154,6 +154,13 @@ module Typing_env : sig
     -> Simple.t
     -> Simple.t * Flambda_kind.t
 
+  (** Raises [Not_found] if no canonical [Simple] was found. *)
+  val get_alias_then_canonical_simple_exn
+     : t
+    -> ?min_name_mode:Name_mode.t
+    -> flambda_type
+    -> Simple.t
+
   val add_to_code_age_relation : t -> newer:Code_id.t -> older:Code_id.t -> t
 
   val code_age_relation : t -> Code_age_relation.t

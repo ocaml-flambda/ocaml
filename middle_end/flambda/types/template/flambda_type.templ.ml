@@ -512,7 +512,7 @@ let prove_variant env t : variant_proof proof_allowing_kind_mismatch =
     | Known imms ->
       let const_ctors : _ Or_unknown.t =
         match prove_naked_immediates env imms with
-        | Unknown -> Format.eprintf "unknown!@."; Unknown
+        | Unknown -> Unknown
         | Invalid -> Known Target_imm.Set.empty
         | Proved const_ctors -> Known const_ctors
       in
