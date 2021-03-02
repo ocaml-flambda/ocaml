@@ -136,10 +136,6 @@ let make_optimist_decision ~depth tenv param_type : decision =
   else
     match T.prove_unique_tag_and_size tenv param_type with
     | Proved (tag, size) ->
-      ignore tag;
-      ignore size;
-      Do_not_unbox
-      (*
       let field_kind, field_base_name =
         if Tag.equal tag Tag.double_array_tag
         then K.naked_float, "unboxed_float_field"
@@ -173,27 +169,11 @@ let make_optimist_decision ~depth tenv param_type : decision =
           var, make_optimist_decision ~depth:(depth + 1) tenv var_type
         ) field_vars field_types
       in
-         Unbox (Unique_tag_and_size { tag; fields; })
-    *)
+      Unbox (Unique_tag_and_size { tag; fields; })
     | Wrong_kind | Invalid | Unknown ->
       begin match T.prove_is_a_boxed_float tenv param_type with
       | Proved () ->
         let naked_float = Variable.create "unboxed_float" in
-(*
-        let naked_float_name =
-          Name_in_binding_pos.create (Name.var naked_float) Name_mode.normal
-        in
-        let shape = T.boxed_float_alias_to ~naked_float in
-        let naked_float_kind = K.naked_float in
-        let tenv = TE.add_definition tenv naked_float_name naked_float_kind in
-        let env_extension =
-          match T.meet tenv param_type shape with
-          | Ok (_, env_extension) -> env_extension
-          | Bottom ->
-            Misc.fatal_errorf "Meet failed whereas prove previously succeeded"
-        in
-        let tenv = TE.add_env_extension tenv env_extension in
-*)
         Unbox (Number (K.Naked_number_kind.Naked_float, naked_float))
       | Wrong_kind | Invalid | Unknown -> Do_not_unbox
       end
@@ -313,6 +293,8 @@ let compute_extra_params_and_args_for_one_decision
   (KP.t * EPA.Extra_arg.t Apply_cont_rewrite_id.Map.t) list =
   match decision with
   | Do_not_unbox -> []
+  | Unbox Unique_tag_and_size { tag = _; fields = _; } ->
+    assert false
   | Unbox Number (Naked_float, unboxed_float) ->
     let extra_param = KP.create unboxed_float Flambda_kind.With_subkind.naked_float in
     let extra_args =
