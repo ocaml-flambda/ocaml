@@ -572,6 +572,12 @@ val prove_single_closures_entry'
 
 val prove_strings : Typing_env.t -> t -> String_info.Set.t proof
 
+val prove_unboxed_float_simple
+   : Typing_env.t
+  -> min_name_mode:Name_mode.t
+  -> t
+  -> Simple.t proof
+
 val prove_block_field_simple
    : Typing_env.t
   -> min_name_mode:Name_mode.t

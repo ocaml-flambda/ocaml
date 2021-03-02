@@ -711,6 +711,27 @@ let prove_strings env t : String_info.Set.t proof =
   | Naked_immediate _ | Naked_float _ | Naked_int32 _ | Naked_int64 _
   | Naked_nativeint _ -> wrong_kind ()
 
+let prove_unboxed_float_simple env ~min_name_mode t : Simple.t proof =
+  let wrong_kind () =
+    Misc.fatal_errorf "Kind error: expected [Value]:@ %a" print t
+  in
+  match expand_head t env with
+  | Const _ -> wrong_kind ()
+  | Value Unknown -> Unknown
+  | Value (Ok (Boxed_float ty)) ->
+    begin match get_alias_exn ty with
+    | simple ->
+      begin match
+        Typing_env.get_canonical_simple_exn env ~min_name_mode simple
+      with
+      | simple -> Proved simple
+      | exception Not_found -> Unknown
+      end
+    | exception Not_found -> Unknown
+    end
+  | Value _ -> Invalid
+  | _ -> wrong_kind ()
+
 let prove_block_field_simple env ~min_name_mode t field_index : Simple.t proof =
   let wrong_kind () =
     Misc.fatal_errorf "Kind error: expected [Value]:@ %a" print t

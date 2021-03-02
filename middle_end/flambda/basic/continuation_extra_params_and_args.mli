@@ -47,6 +47,12 @@ val add
   -> extra_args:Extra_arg.t Apply_cont_rewrite_id.Map.t
   -> t
 
+val add_list
+   : t
+  -> extra_params:Kinded_parameter.t list
+  -> extra_args:Extra_arg.t list Apply_cont_rewrite_id.Map.t
+  -> t
+
 val concat : t -> t -> t
 
 val extra_params : t -> Kinded_parameter.t list

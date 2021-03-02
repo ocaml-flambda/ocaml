@@ -88,6 +88,29 @@ let add t ~extra_param ~extra_args =
     extra_args;
   }
 
+let add_list t ~extra_params ~extra_args =
+  let extra_args =
+    if Apply_cont_rewrite_id.Map.is_empty t.extra_args then extra_args
+    else
+      Apply_cont_rewrite_id.Map.merge (fun id already_extra_args extra_args ->
+          match already_extra_args, extra_args with
+          | None, None -> None
+          | Some l, None ->
+            Misc.fatal_errorf "Cannot change domain (1) %a %i"
+              Apply_cont_rewrite_id.print id
+              (List.length l)
+          | None, Some _ ->
+            Misc.fatal_error "Cannot change domain"
+          | Some already_extra_args, Some extra_args ->
+            Some (extra_args @ already_extra_args))
+        t.extra_args
+        extra_args
+  in
+  { extra_params = extra_params @ t.extra_params;
+    extra_args;
+  }
+
+
 let concat t1 t2 =
   if is_empty t2 then t1
   else if is_empty t1 then t2
