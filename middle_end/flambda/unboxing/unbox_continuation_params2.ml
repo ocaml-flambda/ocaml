@@ -266,9 +266,9 @@ let rec compute_extra_args_for_one_decision_and_use
         in
         let extra_args =
           compute_extra_args_for_one_decision_and_use
-            extra_args typing_env_at_use new_extra_arg field_decision
+            (new_extra_arg :: extra_args) typing_env_at_use new_extra_arg field_decision
         in
-        (new_extra_arg :: extra_args, Target_imm.(add one field_nth))
+        (extra_args, Target_imm.(add one field_nth))
       ) (extra_args, Target_imm.zero)  fields
     in
     extra_args
@@ -301,8 +301,7 @@ let compute_extra_params decision =
             K.With_subkind.any_value
         in
         let extra_param = KP.create field_var kind in
-        let extra_params = aux extra_params field_decision in
-        extra_param :: extra_params
+        aux (extra_params :: extra_params) field_decision
       ) extra_params fields
     | Unbox Number (Naked_float, unboxed_float) ->
       let extra_param = KP.create unboxed_float Flambda_kind.With_subkind.naked_float in
