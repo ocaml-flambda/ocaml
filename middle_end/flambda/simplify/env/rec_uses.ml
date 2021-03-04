@@ -204,23 +204,15 @@ module Var_graph = struct
     | res -> res
     | exception Not_found -> Variable.Set.empty
 
-  (* breadth-first reachability analysis
-     CR gbury: would using sets (and thus union and diff) instead of a
-               queue be better ? Enqueuing new nodes would be faster, but
-               we'd lose the bread-first aspect, and revert to some kind of
-               lexicographic order of traversal. *)
-  let rec reachable t visited queue =
+  (* breadth-first reachability analysis. *)
+  let rec reachable t enqueued queue =
     match Queue.take queue with
-    | exception Queue.Empty -> visited
+    | exception Queue.Empty -> enqueued
     | v ->
-      if Variable.Set.mem v visited then
-        reachable t visited queue
-      else begin
-        let visited = Variable.Set.add v visited in
-        Variable.Set.iter (fun dst -> Queue.push dst queue)
-          (Variable.Set.diff (edges t ~src:v) visited);
-        reachable t visited queue
-      end
+      let neighbours = edges t ~src:v in
+      let new_neighbours = Variable.Set.diff neighbours enqueued in
+      Variable.Set.iter (fun dst -> Queue.push dst queue) new_neighbours;
+      reachable t (Variable.Set.union enqueued new_neighbours) queue
 
 end
 
@@ -231,37 +223,37 @@ module Dependency_graph = struct
 
   type t = {
     dependencies : Var_graph.t;
-    unconditionnaly_used : Variable.Set.t;
+    unconditionally_used : Variable.Set.t;
   }
 
   let empty = {
     dependencies = Var_graph.empty;
-    unconditionnaly_used = Variable.Set.empty;
+    unconditionally_used = Variable.Set.empty;
   }
 
-  let _print ppf { dependencies; unconditionnaly_used; } =
+  let _print ppf { dependencies; unconditionally_used; } =
     Format.fprintf ppf "@[<hov 1>(\
         @[<hov 1>(dependencies@ %a)@]@ \
-        @[<hov 1>(unconditionnaly_used@ %a)@]\
+        @[<hov 1>(unconditionally_used@ %a)@]\
         )@]"
       Var_graph.print dependencies
-      Variable.Set.print unconditionnaly_used
+      Variable.Set.print unconditionally_used
 
   (* Some auxiliary functions *)
   let add_dependency ~src ~dst ({ dependencies; _ } as t) =
     let dependencies = Var_graph.add_edge ~src ~dst dependencies in
     { t with dependencies; }
 
-  let add_var_used ({ unconditionnaly_used; _ } as t) v =
-    let unconditionnaly_used =  Variable.Set.add v unconditionnaly_used in
-    { t with unconditionnaly_used; }
+  let add_var_used ({ unconditionally_used; _ } as t) v =
+    let unconditionally_used =  Variable.Set.add v unconditionally_used in
+    { t with unconditionally_used; }
 
-  let add_name_occurrences name_occurrences ({ unconditionnaly_used = init; _ } as t) =
-    let unconditionnaly_used =
+  let add_name_occurrences name_occurrences ({ unconditionally_used = init; _ } as t) =
+    let unconditionally_used =
       Name_occurrences.fold_variables name_occurrences ~init
         ~f:(fun set var -> Variable.Set.add var set)
     in
-    { t with unconditionnaly_used; }
+    { t with unconditionally_used; }
 
   let add_continuation_info map ~return_continuation ~exn_continuation
         _ { apply_cont_args; apply_result_conts; used_in_handler; bindings;
@@ -351,10 +343,10 @@ module Dependency_graph = struct
     in
     t
 
-  let required_variables { dependencies; unconditionnaly_used; } =
+  let required_variables { dependencies; unconditionally_used; } =
     let queue = Queue.create () in
-    Variable.Set.iter (fun v -> Queue.push v queue) unconditionnaly_used;
-    Var_graph.reachable dependencies Variable.Set.empty queue
+    Variable.Set.iter (fun v -> Queue.push v queue) unconditionally_used;
+    Var_graph.reachable dependencies unconditionally_used queue
 
 end
 
