@@ -20,6 +20,8 @@ module Extra_arg : sig
   type t =
     | Already_in_scope of Simple.t
     | New_let_binding of Variable.t * Flambda_primitive.t
+    | New_let_binding_with_named_args of
+        Variable.t * (Simple.t list -> Flambda_primitive.t)
 
   val print : Format.formatter -> t -> unit
 

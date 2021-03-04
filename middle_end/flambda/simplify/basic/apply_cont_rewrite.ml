@@ -106,6 +106,10 @@ let extra_args t id =
     []
   | extra_args -> extra_args
 
+type rewrite_use_ctx =
+  | Apply_cont
+  | Apply_expr of Simple.t list
+
 type rewrite_use_result =
   | Apply_cont of Apply_cont.t
   | Expr of (
@@ -114,7 +118,7 @@ type rewrite_use_result =
 
 let no_rewrite apply_cont = Apply_cont apply_cont
 
-let rewrite_use t id apply_cont : rewrite_use_result =
+let rewrite_use t ~ctx id apply_cont : rewrite_use_result =
   let args = Apply_cont.args apply_cont in
   if List.compare_lengths args t.original_params <> 0 then begin
     Misc.fatal_errorf "Arguments to this [Apply_cont]@ (%a)@ do not match@ \
@@ -143,7 +147,23 @@ let rewrite_use t id apply_cont : rewrite_use_result =
             (Var_in_binding_pos.create temp Name_mode.normal,
              Cost_metrics.prim prim,
              Named.create_prim prim Debuginfo.none)
-              :: extra_lets
+            :: extra_lets
+          in
+          extra_args_rev, extra_lets
+        | New_let_binding_with_named_args (temp, gen_prim) ->
+          let prim =
+            match (ctx :rewrite_use_ctx) with
+            | Apply_expr args -> gen_prim args
+            | Apply_cont ->
+              Misc.fatal_errorf "Apply_cont rewrites should not need to name \
+                                 arguments, since they are aleady named."
+          in
+          let extra_args_rev = Simple.var temp :: extra_args_rev in
+          let extra_lets =
+            (Var_in_binding_pos.create temp Name_mode.normal,
+             Cost_metrics.prim prim,
+             Named.create_prim prim Debuginfo.none)
+            :: extra_lets
           in
           extra_args_rev, extra_lets)
       ([], [])
@@ -194,7 +214,7 @@ let rewrite_exn_continuation t id exn_cont =
       (fun param (arg : Continuation_extra_params_and_args.Extra_arg.t) ->
         match arg with
         | Already_in_scope simple -> simple, KP.kind param
-        | New_let_binding _ ->
+        | New_let_binding _ | New_let_binding_with_named_args _ ->
           Misc.fatal_error "[New_let_binding] not expected here")
       t.used_extra_params extra_args_list
   in

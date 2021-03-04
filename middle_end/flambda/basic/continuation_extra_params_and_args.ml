@@ -20,6 +20,8 @@ module Extra_arg = struct
   type t =
     | Already_in_scope of Simple.t
     | New_let_binding of Variable.t * Flambda_primitive.t
+    | New_let_binding_with_named_args of
+        Variable.t * (Simple.t list -> Flambda_primitive.t)
 
   let print ppf t =
     match t with
@@ -30,6 +32,9 @@ module Extra_arg = struct
       Format.fprintf ppf "@[<hov 1>(New_let_binding@ %a@ %a)@]"
         Variable.print var
         Flambda_primitive.print prim
+    | New_let_binding_with_named_args (var, _) ->
+      Format.fprintf ppf "@[<hov 1>(New_let_binding_with_named_args@ %a@ <fun>)@]"
+        Variable.print var
 
   module List = struct
     type nonrec t = t list
@@ -47,8 +52,8 @@ type t = {
 
 let print ppf { extra_params; extra_args; } =
   Format.fprintf ppf "@[<hov 1>(\
-      @[<hov 1>(extra_params@ %a)@ \
-      @[<hov 1>(extra_args@ %a)\
+      @[<hov 1>(extra_params@ %a)@]@ \
+      @[<hov 1>(extra_args@ %a)@]\
       )@]"
     Kinded_parameter.List.print extra_params
     (Apply_cont_rewrite_id.Map.print Extra_arg.List.print) extra_args

@@ -51,9 +51,47 @@ type decisions = (KP.t * decision) list
 (* Printing *)
 (* ******** *)
 
-let print_decision ppf = function
+let print_const_ctor_num ppf = function
+  | Zero -> Format.fprintf ppf "zero"
+  | At_least_one -> Format.fprintf ppf "at_least_one"
+
+let rec print_decision ppf = function
   | Do_not_unbox -> Format.fprintf ppf "do_not_unbox"
-  | Unbox _dec -> Format.fprintf ppf "unbox"
+  | Unbox Unique_tag_and_size { tag; fields; } ->
+    Format.fprintf ppf "@[<hov 1>(\
+      @[<hov 1>(tag@ %a)@]@ \
+      @[<hov 1>(fields@ %a)@]\
+      )@]"
+      Tag.print tag
+      print_block_fields fields
+  | Unbox Variant { constant_constructors; fields_by_tag; } ->
+    Format.fprintf ppf "@[<hov 1>(\
+      @[<hov 1>(constant_constructors@ %a)@]@ \
+      @[<hov 1>(fields_by_tag@ %a)@]\
+    )@]"
+      print_const_ctor_num constant_constructors
+      (Tag.Scannable.Map.print print_block_fields) fields_by_tag
+  | Unbox Closure_single_entry ->
+    Format.fprintf ppf "@[<hov 1>(closure_single_entry)@]"
+  | Unbox Number (kind, var) ->
+    Format.fprintf ppf "@[<hov 1>(\
+      @[<hov 1>(var@ %a)@]@ \
+      @[<hov 1>(kind@ %a)@]\
+    )@]"
+    Flambda_kind.Naked_number_kind.print kind
+    Variable.print var
+
+and print_block_fields ppf l =
+  let aux ppf (var, decision) =
+    Format.fprintf ppf "@[<hov 1>(\
+      @[<hov 1>(var@ %a)@]@ \
+      @[<hov 1>(decision@ %a)@]\
+      )@]"
+      Variable.print var
+      print_decision decision
+  in
+  let pp_sep = Format.pp_print_space in
+  Format.fprintf ppf "@[<hov 1>(%a)@]" (Format.pp_print_list ~pp_sep aux) l
 
 let print ppf l =
   let pp_sep = Format.pp_print_space in
@@ -70,9 +108,12 @@ let print ppf l =
 
 module Float = struct
 
+  let default_prim simple =
+    Flambda_primitive.(Unary (Unbox_number Naked_float, simple))
+
   let default_simple simple =
     let var = Variable.create "unboxed_float" in
-    let prim = Flambda_primitive.(Unary (Unbox_number Naked_float, simple)) in
+    let prim = default_prim simple in
     EPA.Extra_arg.New_let_binding (var, prim)
 
   let make_simple_of_proof float_simple p =
@@ -90,14 +131,15 @@ end
 
 module Field = struct
 
+  let default_prim bak block_simple field =
+    let field_const = Simple.const (Const.tagged_immediate field) in
+    Flambda_primitive.(
+      Binary (Block_load (bak, Immutable), block_simple, field_const)
+    )
+
   let default_simple bak block_simple field =
     let var = Variable.create "field_at_use" in
-    let field_const = Simple.const (Const.tagged_immediate field) in
-    let prim =
-      Flambda_primitive.(
-        Binary (Block_load (bak, Immutable), block_simple, field_const)
-      )
-    in
+    let prim = default_prim bak block_simple field in
     EPA.Extra_arg.New_let_binding (var, prim)
 
   let make_simple_of_proof bak block_simple field p =
@@ -225,7 +267,6 @@ let make_decisions
       (denv, optimist :: rev_decisions)
     ) (denv, []) (List.combine params (List.combine params_types arg_types_by_use_id))
   in
-  Format.eprintf "typing env after unboxing:@\n%a@." TE.print (DE.typing_env denv);
   let decisions = List.combine params (List.rev rev_decisions) in
   denv, decisions
 
@@ -233,8 +274,19 @@ let make_decisions
 (* Compute the extra args *)
 (* ********************** *)
 
+type unboxed_arg =
+  | Available of Simple.t
+  | Generated of Variable.t
+  | Added_by_wrapper_at_rewrite_use of { nth_arg : int; }
+
+let arg_being_unboxed_of_extra_arg extra_arg =
+  match (extra_arg : EPA.Extra_arg.t) with
+  | Already_in_scope simple -> Available simple
+  | New_let_binding (var, _)
+  | New_let_binding_with_named_args (var, _) -> Generated var
+
 let rec compute_extra_args_for_one_decision_and_use
-      extra_args typing_env_at_use extra_arg_at_use decision =
+      extra_args typing_env_at_use unboxed_arg decision =
   match decision with
   | Do_not_unbox -> extra_args
   | Unbox Unique_tag_and_size { tag; fields; } ->
@@ -252,21 +304,28 @@ let rec compute_extra_args_for_one_decision_and_use
     let extra_args, _ =
       List.fold_left (fun (extra_args, field_nth) (_, field_decision) ->
         let new_extra_arg =
-          match (extra_arg_at_use : EPA.Extra_arg.t) with
-          | Already_in_scope arg_at_use ->
+          match unboxed_arg with
+          | Available arg_at_use ->
             let arg_type = T.alias_type_of K.value arg_at_use in
             let proof =
               T.prove_block_field_simple typing_env_at_use
                 ~min_name_mode:Name_mode.normal arg_type field_nth
             in
             Field.make_simple_of_proof bak arg_at_use field_nth proof
-          | New_let_binding (var, _prim) ->
+          | Generated var ->
             let arg_at_use = Simple.var var in
             Field.default_simple bak arg_at_use field_nth
+          | Added_by_wrapper_at_rewrite_use { nth_arg; } ->
+            let var = Variable.create "unboxed_field" in
+            EPA.Extra_arg.New_let_binding_with_named_args (var, (fun args ->
+              let arg_simple = List.nth args nth_arg in
+              Field.default_prim bak arg_simple field_nth
+            ))
         in
         let extra_args =
           compute_extra_args_for_one_decision_and_use
-            (new_extra_arg :: extra_args) typing_env_at_use new_extra_arg field_decision
+            (new_extra_arg :: extra_args) typing_env_at_use
+            (arg_being_unboxed_of_extra_arg new_extra_arg) field_decision
         in
         (extra_args, Target_imm.(add one field_nth))
       ) (extra_args, Target_imm.zero)  fields
@@ -274,17 +333,23 @@ let rec compute_extra_args_for_one_decision_and_use
     extra_args
   | Unbox Number (Naked_float, _unboxed_float) ->
     let new_extra_arg =
-      match (extra_arg_at_use : EPA.Extra_arg.t) with
-      | Already_in_scope arg_at_use ->
+      match unboxed_arg with
+      | Available arg_at_use ->
         let arg_type = T.alias_type_of K.value arg_at_use in
         let proof =
           T.prove_unboxed_float_simple typing_env_at_use
             ~min_name_mode:Name_mode.normal arg_type
         in
         Float.make_simple_of_proof arg_at_use proof
-      | New_let_binding (var, _prim) ->
+      | Generated var ->
         let arg_at_use = Simple.var var in
         Float.default_simple arg_at_use
+      | Added_by_wrapper_at_rewrite_use { nth_arg; } ->
+        let var = Variable.create "unboxed_float" in
+        EPA.Extra_arg.New_let_binding_with_named_args (var, (fun args ->
+          let arg_simple = List.nth args nth_arg in
+          Float.default_prim arg_simple
+        ))
     in
     new_extra_arg :: extra_args
   | _ -> assert false
@@ -301,7 +366,7 @@ let compute_extra_params decision =
             K.With_subkind.any_value
         in
         let extra_param = KP.create field_var kind in
-        aux (extra_params :: extra_params) field_decision
+        aux (extra_param :: extra_params) field_decision
       ) extra_params fields
     | Unbox Number (Naked_float, unboxed_float) ->
       let extra_param = KP.create unboxed_float Flambda_kind.With_subkind.naked_float in
@@ -310,7 +375,7 @@ let compute_extra_params decision =
   in
   aux [] decision
 
-let compute_extra_params_and_args_for_one_decision arg_type_by_use_id = function
+let compute_extra_params_and_args_for_one_decision nth_arg arg_type_by_use_id = function
   | Do_not_unbox -> None
   | decision ->
     let extra_params = compute_extra_params decision in
@@ -320,20 +385,21 @@ let compute_extra_params_and_args_for_one_decision arg_type_by_use_id = function
                 ~min_name_mode:Name_mode.normal arg_type_at_use with
         | simple ->
           compute_extra_args_for_one_decision_and_use [] typing_env_at_use
-            (EPA.Extra_arg.Already_in_scope simple) decision
+            (Available simple) decision
         | exception Not_found ->
-          Format.eprintf "arg_type_at_use: %a@." T.print arg_type_at_use;
-          Misc.fatal_errorf "No canonical alias was found for the initial \
-                             argument when unboxing it"
+          compute_extra_args_for_one_decision_and_use [] typing_env_at_use
+            (Added_by_wrapper_at_rewrite_use { nth_arg; }) decision
       ) arg_type_by_use_id
     in
     Some (extra_params, extra_args)
 
 let compute_extra_params_and_args
-  ~arg_types_by_use_id decisions existing_extra_params_and_args =
+      ~arg_types_by_use_id decisions existing_extra_params_and_args =
+  let nth = ref ~-1 in
   let extras =
     List.map2 (fun arg_type_by_use_id (_, decision) ->
-      compute_extra_params_and_args_for_one_decision arg_type_by_use_id decision
+      incr nth;
+      compute_extra_params_and_args_for_one_decision !nth arg_type_by_use_id decision
     ) arg_types_by_use_id decisions
   in
   List.fold_left (fun acc -> function

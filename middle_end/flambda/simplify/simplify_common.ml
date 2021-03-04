@@ -108,8 +108,9 @@ let add_wrapper_for_fixed_arity_continuation0 uacc cont_or_apply_cont
       (* In this case, any generated [Apply_cont] will sit inside a wrapper
          that binds [kinded_params]. *)
       let args = List.map KP.simple kinded_params in
+      let ctx = Apply_cont_rewrite.Apply_expr args in
       let apply_cont = Apply_cont.create cont ~args ~dbg:Debuginfo.none in
-      begin match Apply_cont_rewrite.rewrite_use rewrite use_id apply_cont with
+      begin match Apply_cont_rewrite.rewrite_use rewrite ~ctx use_id apply_cont with
       | Apply_cont apply_cont ->
         new_wrapper (Expr.create_apply_cont apply_cont)
           ~free_names:(Known (Apply_cont.free_names apply_cont))
@@ -125,7 +126,7 @@ let add_wrapper_for_fixed_arity_continuation0 uacc cont_or_apply_cont
       end
     | Apply_cont apply_cont ->
       let apply_cont = Apply_cont.update_continuation apply_cont cont in
-      match Apply_cont_rewrite.rewrite_use rewrite use_id apply_cont with
+      match Apply_cont_rewrite.rewrite_use rewrite ~ctx:Apply_cont use_id apply_cont with
       | Apply_cont apply_cont -> Apply_cont apply_cont
       | Expr build_expr ->
         let expr, cost_metrics, free_names =

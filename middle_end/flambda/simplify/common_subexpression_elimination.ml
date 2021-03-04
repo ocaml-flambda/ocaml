@@ -140,7 +140,8 @@ let cse_with_eligible_lhs ~typing_env_at_fork ~cse_at_each_use ~params prev_cse
                 if Name.Map.mem (KP.name param) extra_equations
                 then None
                 else Some (KP.simple param)
-              | Already_in_scope _ | New_let_binding _ ->
+              | Already_in_scope _ | New_let_binding _
+              | New_let_binding_with_named_args _ ->
                 find_name simple params args
               end
           in

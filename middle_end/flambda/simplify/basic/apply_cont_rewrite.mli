@@ -42,6 +42,10 @@ val extra_args
   -> Apply_cont_rewrite_id.t
   -> Continuation_extra_params_and_args.Extra_arg.t list
 
+type rewrite_use_ctx =
+  | Apply_cont
+  | Apply_expr of Simple.t list
+
 type rewrite_use_result = private
   | Apply_cont of Apply_cont.t
   | Expr of (
@@ -51,7 +55,8 @@ type rewrite_use_result = private
 val no_rewrite : Apply_cont.t -> rewrite_use_result
 
 val rewrite_use
-   : t
+  : t
+  -> ctx:rewrite_use_ctx
   -> Apply_cont_rewrite_id.t
   -> Apply_cont.t
   -> rewrite_use_result
