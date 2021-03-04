@@ -47,7 +47,7 @@ val enter_continuation : Continuation.t -> Variable.t list -> t -> t
 
 val exit_continuation : Continuation.t -> t -> t
 (** Pop the current top of the stack. Used when exiting the current
-    contionuation handler. *)
+    continuation handler. *)
 
 val add_binding : Variable.t -> Name_occurrences.t -> t -> t
 (** Add a binding from the current handler. This enables the rec_uses to have
@@ -85,4 +85,3 @@ val analyze :
   exn_continuation:Continuation.t ->
   t -> result
 (** Analyze the uses. *)
-
