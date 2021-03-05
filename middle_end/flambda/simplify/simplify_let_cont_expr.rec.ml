@@ -251,6 +251,7 @@ let simplify_non_recursive_let_cont_handler ~denv_before_body ~dacc_after_body
         Format.eprintf "@.== UNBOX %a ==@\n" Continuation.print cont;
         let handler_env, decisions =
           Unbox_continuation_params2.make_decisions handler_env
+            ~continuation_is_recursive:false
             ~arg_types_by_use_id params param_types
         in
         Format.eprintf "%a@." Unbox_continuation_params2.print decisions;
