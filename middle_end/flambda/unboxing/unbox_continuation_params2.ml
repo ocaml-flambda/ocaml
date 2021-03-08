@@ -120,6 +120,12 @@ let print ppf l =
 (* Unboxers *)
 (* ******** *)
 
+type number_decider = {
+  param_name : string;
+  kind : Flambda_kind.Naked_number_kind.t;
+  prove_is_a_boxed_number : TE.t -> T.t -> unit T.proof_allowing_kind_mismatch;
+}
+
 type unboxer = {
   var_name : string;
   invalid_const : Const.t;
@@ -129,6 +135,12 @@ type unboxer = {
 }
 
 module Immediate = struct
+
+  let decider = {
+    param_name = "naked_immediate";
+    kind = K.Naked_number_kind.Naked_immediate;
+    prove_is_a_boxed_number = T.prove_is_a_tagged_immediate;
+  }
 
   let unboxing_prim simple =
     Flambda_primitive.(Unary (Unbox_number Untagged_immediate, simple))
@@ -144,6 +156,12 @@ end
 
 module Float = struct
 
+  let decider = {
+    param_name = "unboxed_float";
+    kind = K.Naked_number_kind.Naked_float;
+    prove_is_a_boxed_number = T.prove_is_a_boxed_float;
+  }
+
   let unboxing_prim simple =
     Flambda_primitive.(Unary (Unbox_number Naked_float, simple))
 
@@ -152,6 +170,66 @@ module Float = struct
     invalid_const = Const.naked_float Numbers.Float_by_bit_pattern.zero;
     unboxing_prim;
     prove_simple = T.prove_unboxed_float_simple;
+  }
+
+end
+
+module Int32 = struct
+
+  let decider = {
+    param_name = "unboxed_int32";
+    kind = K.Naked_number_kind.Naked_int32;
+    prove_is_a_boxed_number = T.prove_is_a_boxed_int32;
+  }
+
+  let unboxing_prim simple =
+    Flambda_primitive.(Unary (Unbox_number Naked_int32, simple))
+
+  let unboxer = {
+    var_name = "unboxed_int32";
+    invalid_const = Const.naked_int32 Int32.zero;
+    unboxing_prim;
+    prove_simple = T.prove_unboxed_int32_simple;
+  }
+
+end
+
+module Int64 = struct
+
+  let decider = {
+    param_name = "unboxed_int64";
+    kind = K.Naked_number_kind.Naked_int64;
+    prove_is_a_boxed_number = T.prove_is_a_boxed_int64;
+  }
+
+  let unboxing_prim simple =
+    Flambda_primitive.(Unary (Unbox_number Naked_int64, simple))
+
+  let unboxer = {
+    var_name = "unboxed_int64";
+    invalid_const = Const.naked_int64 Int64.zero;
+    unboxing_prim;
+    prove_simple = T.prove_unboxed_int64_simple;
+  }
+
+end
+
+module Nativeint = struct
+
+  let decider = {
+    param_name = "unboxed_nativeint";
+    kind = K.Naked_number_kind.Naked_nativeint;
+    prove_is_a_boxed_number = T.prove_is_a_boxed_nativeint;
+  }
+
+  let unboxing_prim simple =
+    Flambda_primitive.(Unary (Unbox_number Naked_nativeint, simple))
+
+  let unboxer = {
+    var_name = "unboxed_nativeint";
+    invalid_const = Const.naked_nativeint Targetint.zero;
+    unboxing_prim;
+    prove_simple = T.prove_unboxed_nativeint_simple;
   }
 
 end
@@ -187,41 +265,53 @@ let make_optimistic_const_ctor () =
   let ctor = const_ctor, decision in
   At_least_one { is_int; ctor; }
 
-let rec make_optimist_decision ~depth tenv param_type : decision =
-  match T.prove_is_a_boxed_float tenv param_type with
+let make_optimistic_number_decision tenv param_type decider : decision option =
+  match decider.prove_is_a_boxed_number tenv param_type with
   | Proved () ->
-    let naked_float = Variable.create "unboxed_float" in
-    Unbox (Number (K.Naked_number_kind.Naked_float, naked_float))
+    let naked_number = Variable.create decider.param_name in
+    Some (Unbox (Number (decider.kind, naked_number)))
   | Wrong_kind | Invalid | Unknown ->
-    match T.prove_is_a_tagged_immediate tenv param_type with
-    | Proved () ->
-      let naked_immediate = Variable.create "naked_immediate" in
-      Unbox (Number (K.Naked_number_kind.Naked_immediate, naked_immediate))
-    | Wrong_kind | Invalid | Unknown ->
-      if depth > max_unboxing_depth then Do_not_unbox
-      else match T.prove_unique_tag_and_size tenv param_type with
-        | Proved (tag, size) ->
-          let fields = make_optimistic_fields ~depth tenv param_type tag size in
-          Unbox (Unique_tag_and_size { tag; fields; })
-        | Wrong_kind | Invalid | Unknown ->
-          match T.prove_variant_like tenv param_type with
-          | Proved { const_ctors; non_const_ctors_with_sizes; } ->
-            let tag = Variable.create "tag" in
-            let constant_constructors =
-              match const_ctors with
-              | Unknown -> make_optimistic_const_ctor ()
-              | Known set ->
-                if Target_imm.Set.is_empty set then Zero
-                else make_optimistic_const_ctor ()
-            in
-            let fields_by_tag =
-              Tag.Scannable.Map.mapi (fun scannable_tag size ->
-                let tag = Tag.Scannable.to_tag scannable_tag in
-                make_optimistic_fields ~depth tenv param_type tag size
-              ) non_const_ctors_with_sizes
-            in
-            Unbox (Variant { tag; constant_constructors; fields_by_tag; })
-          | Wrong_kind | Invalid | Unknown -> Do_not_unbox
+    None
+
+let decide tenv param_type deciders : decision option =
+  List.find_map (make_optimistic_number_decision tenv param_type) deciders
+
+let deciders = [
+  Immediate.decider;
+  Float.decider;
+  Int32.decider;
+  Int64.decider;
+  Nativeint.decider;
+]
+
+let rec make_optimist_decision ~depth tenv param_type : decision =
+  match decide tenv param_type deciders with
+  | Some decision -> decision
+  | None ->
+    if depth > max_unboxing_depth then Do_not_unbox
+    else match T.prove_unique_tag_and_size tenv param_type with
+      | Proved (tag, size) ->
+        let fields = make_optimistic_fields ~depth tenv param_type tag size in
+        Unbox (Unique_tag_and_size { tag; fields; })
+      | Wrong_kind | Invalid | Unknown ->
+        match T.prove_variant_like tenv param_type with
+        | Proved { const_ctors; non_const_ctors_with_sizes; } ->
+          let tag = Variable.create "tag" in
+          let constant_constructors =
+            match const_ctors with
+            | Unknown -> make_optimistic_const_ctor ()
+            | Known set ->
+              if Target_imm.Set.is_empty set then Zero
+              else make_optimistic_const_ctor ()
+          in
+          let fields_by_tag =
+            Tag.Scannable.Map.mapi (fun scannable_tag size ->
+              let tag = Tag.Scannable.to_tag scannable_tag in
+              make_optimistic_fields ~depth tenv param_type tag size
+            ) non_const_ctors_with_sizes
+          in
+          Unbox (Variant { tag; constant_constructors; fields_by_tag; })
+        | Wrong_kind | Invalid | Unknown -> Do_not_unbox
 
 and make_optimistic_fields ~depth tenv param_type (tag : Tag.t) size : block_fields =
   let field_kind, field_base_name =
@@ -262,6 +352,20 @@ and make_optimistic_fields ~depth tenv param_type (tag : Tag.t) size : block_fie
 
 (* Decision tree -> actual typing env *)
 (* ********************************** *)
+
+let denv_of_number_decision naked_kind shape param_var naked_var denv : DE.t=
+  let param_type = T.alias_type_of K.value (Simple.var param_var) in
+  let naked_name =
+    Var_in_binding_pos.create naked_var Name_mode.normal
+  in
+  let denv = DE.define_variable denv naked_name naked_kind in
+  let env_extension =
+    match T.meet (DE.typing_env denv) param_type shape with
+    | Ok (_ty, env_extension) -> env_extension
+    | Bottom ->
+      Misc.fatal_errorf "Meet failed whereas prove previously succeeded"
+  in
+  DE.extend_typing_environment denv env_extension
 
 let rec denv_of_decision denv param_var decision : DE.t =
   match decision with
@@ -380,35 +484,25 @@ let rec denv_of_decision denv param_var decision : DE.t =
       ) denv block_fields
     ) fields_by_tag denv
   | Unbox Number (Naked_immediate, naked_immediate) ->
-    let param_type = T.alias_type_of K.value (Simple.var param_var) in
-    let naked_imm_name =
-      Var_in_binding_pos.create naked_immediate Name_mode.normal
-    in
     let shape = T.tagged_immediate_alias_to ~naked_immediate in
-    let naked_imm_kind = K.naked_immediate in
-    let denv = DE.define_variable denv naked_imm_name naked_imm_kind in
-    let env_extension =
-      match T.meet (DE.typing_env denv) param_type shape with
-      | Ok (_ty, env_extension) -> env_extension
-      | Bottom ->
-        Misc.fatal_errorf "Meet failed whereas prove previously succeeded"
-    in
-    DE.extend_typing_environment denv env_extension
+    denv_of_number_decision K.naked_immediate shape
+      param_var naked_immediate denv
   | Unbox Number (Naked_float, naked_float) ->
-    let param_type = T.alias_type_of K.value (Simple.var param_var) in
-    let naked_float_name =
-      Var_in_binding_pos.create naked_float Name_mode.normal
-    in
     let shape = T.boxed_float_alias_to ~naked_float in
-    let naked_float_kind = K.naked_float in
-    let denv = DE.define_variable denv naked_float_name naked_float_kind in
-    let env_extension =
-      match T.meet (DE.typing_env denv) param_type shape with
-      | Ok (_ty, env_extension) -> env_extension
-      | Bottom ->
-        Misc.fatal_errorf "Meet failed whereas prove previously succeeded"
-    in
-    DE.extend_typing_environment denv env_extension
+    denv_of_number_decision K.naked_float shape
+      param_var naked_float denv
+  | Unbox Number (Naked_int32, naked_int32) ->
+    let shape = T.boxed_int32_alias_to ~naked_int32 in
+    denv_of_number_decision K.naked_int32 shape
+      param_var naked_int32 denv
+  | Unbox Number (Naked_int64, naked_int64) ->
+    let shape = T.boxed_int64_alias_to ~naked_int64 in
+    denv_of_number_decision K.naked_int64 shape
+      param_var naked_int64 denv
+  | Unbox Number (Naked_nativeint, naked_nativeint) ->
+    let shape = T.boxed_nativeint_alias_to ~naked_nativeint in
+    denv_of_number_decision K.naked_nativeint shape
+      param_var naked_nativeint denv
   | _ -> assert false
 
 
@@ -513,6 +607,24 @@ let rec compute_extra_args_for_one_decision_and_use
         typing_env_at_use arg_being_unboxed
     in
     new_extra_arg :: extra_args
+  | Unbox Number (Naked_int32, _unboxed_int32) ->
+    let new_extra_arg =
+      extra_arg_of_arg_being_unboxed Int32.unboxer
+        typing_env_at_use arg_being_unboxed
+    in
+    new_extra_arg :: extra_args
+  | Unbox Number (Naked_int64, _unboxed_int64) ->
+    let new_extra_arg =
+      extra_arg_of_arg_being_unboxed Int64.unboxer
+        typing_env_at_use arg_being_unboxed
+    in
+    new_extra_arg :: extra_args
+  | Unbox Number (Naked_nativeint, _unboxed_nativeint) ->
+    let new_extra_arg =
+      extra_arg_of_arg_being_unboxed Nativeint.unboxer
+        typing_env_at_use arg_being_unboxed
+    in
+    new_extra_arg :: extra_args
   | Unbox Number (Naked_immediate, _naked_immediate) ->
     let new_extra_arg =
       extra_arg_of_arg_being_unboxed Immediate.unboxer
@@ -537,6 +649,15 @@ let compute_extra_params decision =
       ) extra_params fields
     | Unbox Number (Naked_float, unboxed_float) ->
       let extra_param = KP.create unboxed_float K.With_subkind.naked_float in
+      extra_param :: extra_params
+    | Unbox Number (Naked_int32, unboxed_int32) ->
+      let extra_param = KP.create unboxed_int32 K.With_subkind.naked_int32 in
+      extra_param :: extra_params
+    | Unbox Number (Naked_int64, unboxed_int64) ->
+      let extra_param = KP.create unboxed_int64 K.With_subkind.naked_int64 in
+      extra_param :: extra_params
+    | Unbox Number (Naked_nativeint, unboxed_nativeint) ->
+      let extra_param = KP.create unboxed_nativeint K.With_subkind.naked_nativeint in
       extra_param :: extra_params
     | Unbox Number (Naked_immediate, naked_immediate) ->
       let extra_param = KP.create naked_immediate K.With_subkind.naked_immediate in

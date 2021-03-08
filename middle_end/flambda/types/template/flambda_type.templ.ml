@@ -564,11 +564,17 @@ let prove_is_a_tagged_immediate env t : _ proof_allowing_kind_mismatch =
   | Value Unknown -> Unknown
   | Value (Ok (Variant { blocks; immediates; is_unique = _; })) ->
     begin match blocks, immediates with
-    | Unknown, Unknown | Unknown, Known _ | Known _, Unknown -> Unknown
-    | Known blocks, Known imms ->
-      if Row_like.For_blocks.is_bottom blocks && not (is_bottom env imms)
+    | Known blocks, Unknown ->
+      if Row_like.For_blocks.is_bottom blocks
       then Proved ()
-      else Invalid
+      else Unknown
+    | Unknown, Unknown | Unknown, Known _ -> Unknown
+    | Known blocks, Known imms ->
+      if is_bottom env imms
+      then Invalid
+      else if Row_like.For_blocks.is_bottom blocks
+      then Proved ()
+      else Unknown
     end
   | Value _ -> Invalid
   | _ -> Wrong_kind
@@ -747,6 +753,69 @@ let prove_unboxed_float_simple env ~min_name_mode t : Simple.t proof =
   | Const _ -> wrong_kind ()
   | Value Unknown -> Unknown
   | Value (Ok (Boxed_float ty)) ->
+    begin match get_alias_exn ty with
+    | simple ->
+      begin match
+        Typing_env.get_canonical_simple_exn env ~min_name_mode simple
+      with
+      | simple -> Proved simple
+      | exception Not_found -> Unknown
+      end
+    | exception Not_found -> Unknown
+    end
+  | Value _ -> Invalid
+  | _ -> wrong_kind ()
+
+let prove_unboxed_int64_simple env ~min_name_mode t : Simple.t proof =
+  let wrong_kind () =
+    Misc.fatal_errorf "Kind error: expected [Value]:@ %a" print t
+  in
+  match expand_head t env with
+  | Const _ -> wrong_kind ()
+  | Value Unknown -> Unknown
+  | Value (Ok (Boxed_int64 ty)) ->
+    begin match get_alias_exn ty with
+    | simple ->
+      begin match
+        Typing_env.get_canonical_simple_exn env ~min_name_mode simple
+      with
+      | simple -> Proved simple
+      | exception Not_found -> Unknown
+      end
+    | exception Not_found -> Unknown
+    end
+  | Value _ -> Invalid
+  | _ -> wrong_kind ()
+
+let prove_unboxed_int32_simple env ~min_name_mode t : Simple.t proof =
+  let wrong_kind () =
+    Misc.fatal_errorf "Kind error: expected [Value]:@ %a" print t
+  in
+  match expand_head t env with
+  | Const _ -> wrong_kind ()
+  | Value Unknown -> Unknown
+  | Value (Ok (Boxed_int32 ty)) ->
+    begin match get_alias_exn ty with
+    | simple ->
+      begin match
+        Typing_env.get_canonical_simple_exn env ~min_name_mode simple
+      with
+      | simple -> Proved simple
+      | exception Not_found -> Unknown
+      end
+    | exception Not_found -> Unknown
+    end
+  | Value _ -> Invalid
+  | _ -> wrong_kind ()
+
+let prove_unboxed_nativeint_simple env ~min_name_mode t : Simple.t proof =
+  let wrong_kind () =
+    Misc.fatal_errorf "Kind error: expected [Value]:@ %a" print t
+  in
+  match expand_head t env with
+  | Const _ -> wrong_kind ()
+  | Value Unknown -> Unknown
+  | Value (Ok (Boxed_nativeint ty)) ->
     begin match get_alias_exn ty with
     | simple ->
       begin match

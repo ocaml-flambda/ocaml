@@ -584,6 +584,24 @@ val prove_unboxed_float_simple
   -> t
   -> Simple.t proof
 
+val prove_unboxed_int32_simple
+   : Typing_env.t
+  -> min_name_mode:Name_mode.t
+  -> t
+  -> Simple.t proof
+
+val prove_unboxed_int64_simple
+   : Typing_env.t
+  -> min_name_mode:Name_mode.t
+  -> t
+  -> Simple.t proof
+
+val prove_unboxed_nativeint_simple
+   : Typing_env.t
+  -> min_name_mode:Name_mode.t
+  -> t
+  -> Simple.t proof
+
 val prove_block_field_simple
    : Typing_env.t
   -> min_name_mode:Name_mode.t
