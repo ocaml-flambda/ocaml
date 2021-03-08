@@ -16,6 +16,9 @@
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
+(* TODO remove this *)
+[@@@ocaml.warning "-26-27"]
+
 open! Simplify_import
 module Const = Reg_width_things.Const (* TODO: add this in Simplify_import ? *)
 
@@ -255,7 +258,7 @@ end
 (* Unfold a type into a decision tree *)
 (* ********************************** *)
 
-let max_unboxing_depth = 2
+let max_unboxing_depth = 42
 
 let make_optimistic_const_ctor () =
   let is_int = Variable.create "is_int" in
@@ -353,7 +356,7 @@ and make_optimistic_fields ~depth tenv param_type (tag : Tag.t) size : block_fie
 (* Decision tree -> actual typing env *)
 (* ********************************** *)
 
-let denv_of_number_decision naked_kind shape param_var naked_var denv : DE.t=
+let denv_of_number_decision naked_kind shape param_var naked_var denv : DE.t =
   let param_type = T.alias_type_of K.value (Simple.var param_var) in
   let naked_name =
     Var_in_binding_pos.create naked_var Name_mode.normal
@@ -431,7 +434,7 @@ let rec denv_of_decision denv param_var decision : DE.t =
     (* next *)
     let denv, const_ctors =
       match constant_constructors with
-      | Zero -> denv, T.bottom K.value
+      | Zero -> denv, T.bottom K.naked_immediate
       | At_least_one { ctor = (ctor_var, _); _ } ->
         let v = Var_in_binding_pos.create ctor_var Name_mode.normal in
         let denv = DE.define_variable denv v K.value in
@@ -567,7 +570,8 @@ let extra_arg_of_arg_being_unboxed unboxer typing_env_at_use arg_being_unboxed =
 
 
 let rec compute_extra_args_for_one_decision_and_use
-      extra_args typing_env_at_use arg_being_unboxed decision =
+          extra_args typing_env_at_use arg_being_unboxed decision :
+  EPA.Extra_arg.t list =
   match decision with
   | Do_not_unbox -> extra_args
   | Unbox Unique_tag_and_size { tag; fields; } ->
@@ -599,8 +603,163 @@ let rec compute_extra_args_for_one_decision_and_use
     in
     extra_args
   | Unbox Variant { tag; constant_constructors; fields_by_tag; } ->
-    ignore (tag, constant_constructors, fields_by_tag);
-    assert false
+    let simple_being_unboxed =
+      match arg_being_unboxed with
+      | Available simple -> simple
+      | Generated var -> Simple.var var
+      | Added_by_wrapper_at_rewrite_use _ ->
+        Misc.fatal_errorf
+          "Should have been filtered out earlier during filter_decision."
+    in
+    let arg_type = T.alias_type_of K.value simple_being_unboxed in
+    begin match T.prove_variant_like typing_env_at_use arg_type with
+    | Wrong_kind ->
+      Misc.fatal_errorf "Kind error while unboxing a variant"
+    | Unknown ->
+      Misc.fatal_errorf "This case should have been filtered out before: \
+                         in the recursive case because uinboxing variants is forbidden, or \
+                         in the non-recursive case, the join of the types at use should have \
+                         prevent unboxing of the parameter."
+    | Invalid ->
+      (* Invalid here means that the apply_cont is unreachable, i.e. the args
+         we generated will never be actually used at runtime, so the values of
+         the args do not matter, they are here to make the kind checker happy. *)
+      let mk x = EPA.Extra_arg.Already_in_scope x in
+      let tag_extra_arg = mk Simple.untagged_const_zero in
+      let const_ctor_extra_args =
+        match constant_constructors with
+        | Zero -> []
+        | At_least_one { is_int = _; ctor = (ctor_var, ctor_decision); } ->
+          let is_int_extra_arg = mk Simple.untagged_const_zero in
+          let ctor_extra_simple = Simple.const_zero in
+          let ctor_extra_arg = mk ctor_extra_simple in
+          let unboxed_ctor_extra_args =
+            compute_extra_args_for_one_decision_and_use []
+              typing_env_at_use (Available ctor_extra_simple) ctor_decision
+          in
+          is_int_extra_arg :: ctor_extra_arg :: unboxed_ctor_extra_args
+      in
+      let extra_args =
+        Tag.Scannable.Map.fold (fun _ block_fields extra_args ->
+          List.fold_left (fun extra_args (_, field_decision) ->
+            let new_extra_arg = mk Simple.const_zero in
+            compute_extra_args_for_one_decision_and_use
+              (new_extra_arg :: extra_args) typing_env_at_use
+              (arg_being_unboxed_of_extra_arg new_extra_arg) field_decision
+          ) extra_args block_fields
+        ) fields_by_tag extra_args
+      in
+      tag_extra_arg :: (const_ctor_extra_args @ extra_args)
+    | Proved { const_ctors; non_const_ctors_with_sizes; } ->
+      let mk x = EPA.Extra_arg.Already_in_scope x in
+      let are_there_constant_constructors =
+        match const_ctors with
+        | Unknown -> true
+        | Known set -> not (Target_imm.Set.is_empty set)
+      in
+      let are_there_non_constant_constructors =
+        not (Tag.Scannable.Map.is_empty non_const_ctors_with_sizes)
+      in
+      begin match are_there_constant_constructors,
+                  are_there_non_constant_constructors with
+      | false, false ->
+        Misc.fatal_errorf "This should have been Invalid and not Proved"
+      | true, true ->
+        Misc.fatal_errorf "This should have been filtered out during filter_decisions."
+      | true, false ->
+        let tag_extra_arg = mk Simple.untagged_const_zero in
+        let const_ctor_extra_args =
+          match constant_constructors with
+          | Zero -> assert false
+          | At_least_one { is_int = _; ctor = (_, ctor_decision); } ->
+            let is_int_extra_arg = mk Simple.untagged_const_true in
+            let const_ctor_extra_arg = mk simple_being_unboxed in
+            let unboxed_const_ctor_extra_args =
+              compute_extra_args_for_one_decision_and_use []
+              typing_env_at_use (Available simple_being_unboxed) ctor_decision
+            in
+            is_int_extra_arg :: const_ctor_extra_arg :: unboxed_const_ctor_extra_args
+        in
+        let extra_args =
+          Tag.Scannable.Map.fold (fun _ block_fields extra_args ->
+            List.fold_left (fun extra_args (_, field_decision) ->
+              let new_extra_arg = mk Simple.const_zero in
+              compute_extra_args_for_one_decision_and_use
+                (new_extra_arg :: extra_args) typing_env_at_use
+                (arg_being_unboxed_of_extra_arg new_extra_arg) field_decision
+            ) extra_args block_fields
+          ) fields_by_tag extra_args
+        in
+        tag_extra_arg :: (const_ctor_extra_args @ extra_args)
+      | false, true ->
+        let const_ctor_extra_args =
+          match constant_constructors with
+          | Zero -> []
+          | At_least_one { is_int = _; ctor = (ctor_var, ctor_decision); } ->
+            let is_int_extra_arg = mk Simple.untagged_const_zero in
+            let ctor_extra_simple = Simple.const_zero in
+            let ctor_extra_arg = mk ctor_extra_simple in
+            let unboxed_ctor_extra_args =
+              compute_extra_args_for_one_decision_and_use []
+                typing_env_at_use (Available ctor_extra_simple) ctor_decision
+            in
+            is_int_extra_arg :: ctor_extra_arg :: unboxed_ctor_extra_args
+        in
+        let tag_at_use_site =
+          match Tag.Scannable.Map.get_singleton non_const_ctors_with_sizes with
+          | None ->
+            Misc.fatal_errorf "This case should have been filtered out by filter_decisions"
+          | Some (tag, _) -> tag
+        in
+        let tag_extra_arg =
+          tag_at_use_site
+          |> Tag.Scannable.to_targetint
+          |> Targetint.OCaml.of_targetint
+          |> Const.untagged_const_int
+          |> Simple.const
+          |> mk
+        in
+        let extra_args =
+          Tag.Scannable.Map.fold (fun tag_decision block_fields extra_args ->
+            let size = List.length block_fields in
+            let bak : Flambda_primitive.Block_access_kind.t =
+              Values {
+                size = Known (Targetint.OCaml.of_int size);
+                tag = tag_decision;
+                field_kind = Any_value;
+              }
+            in
+            let extra_args, _ =
+              List.fold_left (fun (extra_args, field_nth) (_, field_decision) ->
+                if Tag.Scannable.equal tag_at_use_site tag_decision then begin
+                  let unboxer = Field.unboxer bak field_nth in
+                  let new_extra_arg =
+                    extra_arg_of_arg_being_unboxed unboxer
+                      typing_env_at_use arg_being_unboxed
+                  in
+                  let extra_args =
+                    compute_extra_args_for_one_decision_and_use
+                      (new_extra_arg :: extra_args) typing_env_at_use
+                      (arg_being_unboxed_of_extra_arg new_extra_arg) field_decision
+                  in
+                  (extra_args, Target_imm.(add one field_nth))
+                end else begin
+                  let new_extra_arg = mk Simple.const_zero in
+                  let extra_args =
+                    compute_extra_args_for_one_decision_and_use
+                      (new_extra_arg :: extra_args) typing_env_at_use
+                      (arg_being_unboxed_of_extra_arg new_extra_arg) field_decision
+                  in
+                  (extra_args, Target_imm.(add one field_nth))
+                end
+              ) (extra_args, Target_imm.zero) block_fields
+            in
+            extra_args
+          ) fields_by_tag extra_args
+        in
+        tag_extra_arg :: (const_ctor_extra_args @ extra_args)
+      end
+    end
   | Unbox Number (Naked_float, _unboxed_float) ->
     let new_extra_arg =
       extra_arg_of_arg_being_unboxed Float.unboxer
@@ -647,6 +806,27 @@ let compute_extra_params decision =
         let extra_param = KP.create field_var kind in
         aux (extra_param :: extra_params) field_decision
       ) extra_params fields
+    | Unbox Variant { tag; constant_constructors; fields_by_tag; } ->
+      (* order of params : *)
+      let tag_extra_param = KP.create tag K.With_subkind.naked_immediate in
+      let cstrs_extra_params =
+        match constant_constructors with
+        | Zero -> []
+        | At_least_one { is_int; ctor = (ctor_var, ctor_decision); } ->
+          let is_int_extra_param = KP.create is_int K.With_subkind.naked_immediate in
+          let ctor_extra_param = KP.create ctor_var K.With_subkind.any_value in
+          let unboxed_ctor_extra_params = aux [] ctor_decision in
+          is_int_extra_param :: ctor_extra_param :: unboxed_ctor_extra_params
+      in
+      let extra_params =
+        Tag.Scannable.Map.fold (fun _ block_fields extra_params ->
+          List.fold_left (fun extra_params (field_var, field_decision) ->
+            let extra_param = KP.create field_var K.With_subkind.any_value in
+            aux (extra_param :: extra_params) field_decision
+          ) extra_params block_fields
+        ) fields_by_tag extra_params
+      in
+      tag_extra_param :: (cstrs_extra_params @ extra_params)
     | Unbox Number (naked_number_kind, unboxed_number) ->
       (* CR pchambart: This is seriously too contrived for what it's doing.
          Flambda_kind.With_subkind needs a function for doing that *)
