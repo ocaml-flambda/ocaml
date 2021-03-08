@@ -647,20 +647,17 @@ let compute_extra_params decision =
         let extra_param = KP.create field_var kind in
         aux (extra_param :: extra_params) field_decision
       ) extra_params fields
-    | Unbox Number (Naked_float, unboxed_float) ->
-      let extra_param = KP.create unboxed_float K.With_subkind.naked_float in
-      extra_param :: extra_params
-    | Unbox Number (Naked_int32, unboxed_int32) ->
-      let extra_param = KP.create unboxed_int32 K.With_subkind.naked_int32 in
-      extra_param :: extra_params
-    | Unbox Number (Naked_int64, unboxed_int64) ->
-      let extra_param = KP.create unboxed_int64 K.With_subkind.naked_int64 in
-      extra_param :: extra_params
-    | Unbox Number (Naked_nativeint, unboxed_nativeint) ->
-      let extra_param = KP.create unboxed_nativeint K.With_subkind.naked_nativeint in
-      extra_param :: extra_params
-    | Unbox Number (Naked_immediate, naked_immediate) ->
-      let extra_param = KP.create naked_immediate K.With_subkind.naked_immediate in
+    | Unbox Number (naked_number_kind, unboxed_number) ->
+      (* CR pchambart: This is seriously too contrived for what it's doing.
+         Flambda_kind.With_subkind needs a function for doing that *)
+      let boxable_number_kind =
+        K.Boxable_number.of_naked_number_kind naked_number_kind
+      in
+      let kind = K.Boxable_number.to_kind boxable_number_kind in
+      let kind_with_subkind =
+        K.With_subkind.create kind K.With_subkind.Subkind.Anything
+      in
+      let extra_param = KP.create unboxed_number kind_with_subkind in
       extra_param :: extra_params
     | _ -> assert false
   in
