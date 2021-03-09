@@ -45,7 +45,7 @@ and const_ctors =
   | Zero
   | At_least_one of {
       is_int : Variable.t;
-      ctor : Variable.t * decision;
+      ctor : decision;
     }
 
 and decision =
@@ -107,7 +107,7 @@ and print_const_ctor_num ppf = function
       @[<hov 1>(ctor@ %a)@]\
       )@]"
       Variable.print is_int
-      print_var_decision ctor
+      print_decision ctor
 
 
 let print ppf l =
@@ -118,6 +118,7 @@ let print ppf l =
   in
   Format.fprintf ppf "@[<hov 1>(%a)@]"
     (Format.pp_print_list ~pp_sep aux) l
+
 
 
 (* Unboxers *)
@@ -262,10 +263,9 @@ let max_unboxing_depth = 42
 
 let make_optimistic_const_ctor () =
   let is_int = Variable.create "is_int" in
-  let const_ctor = Variable.create "const_ctor" in
   let unboxed_const_ctor = Variable.create "unboxed_const_ctor" in
   let decision = Unbox (Number (Naked_immediate, unboxed_const_ctor)) in
-  let ctor = const_ctor, decision in
+  let ctor = decision in
   At_least_one { is_int; ctor; }
 
 let make_optimistic_number_decision tenv param_type decider : decision option =
@@ -356,25 +356,26 @@ and make_optimistic_fields ~depth tenv param_type (tag : Tag.t) size : block_fie
 (* Decision tree -> actual typing env *)
 (* ********************************** *)
 
+let add_equation_on_var denv var shape =
+  let kind = T.kind shape in
+  let var_type = T.alias_type_of kind (Simple.var var) in
+  match T.meet (DE.typing_env denv) var_type shape with
+  | Ok (_ty, env_extension) ->
+    DE.extend_typing_environment denv env_extension
+  | Bottom ->
+    Misc.fatal_errorf "Meet failed whereas prove previously succeeded"
+
 let denv_of_number_decision naked_kind shape param_var naked_var denv : DE.t =
-  let param_type = T.alias_type_of K.value (Simple.var param_var) in
   let naked_name =
     Var_in_binding_pos.create naked_var Name_mode.normal
   in
   let denv = DE.define_variable denv naked_name naked_kind in
-  let env_extension =
-    match T.meet (DE.typing_env denv) param_type shape with
-    | Ok (_ty, env_extension) -> env_extension
-    | Bottom ->
-      Misc.fatal_errorf "Meet failed whereas prove previously succeeded"
-  in
-  DE.extend_typing_environment denv env_extension
+  add_equation_on_var denv param_var shape
 
 let rec denv_of_decision denv param_var decision : DE.t =
   match decision with
   | Do_not_unbox -> denv
   | Unbox Unique_tag_and_size { tag; fields; } ->
-    let param_type = T.alias_type_of K.value (Simple.var param_var) in
     let field_kind =
       if Tag.equal tag Tag.double_array_tag then K.naked_float else K.value
     in
@@ -390,13 +391,7 @@ let rec denv_of_decision denv param_var decision : DE.t =
       Flambda_type.immutable_block ~is_unique:false tag
         ~field_kind ~fields:field_types
     in
-    let env_extension =
-      match T.meet (DE.typing_env denv) param_type shape with
-      | Ok (_ty, env_extension) -> env_extension
-      | Bottom ->
-        Misc.fatal_errorf "Meet failed whereas prove previously succeeded"
-    in
-    let denv = DE.extend_typing_environment denv env_extension in
+    let denv = add_equation_on_var denv param_var shape in
     List.fold_left (fun acc (field_var, field_decision) ->
       denv_of_decision acc field_var field_decision
     ) denv fields
@@ -432,21 +427,19 @@ let rec denv_of_decision denv param_var decision : DE.t =
     in
 
     (* next *)
-    let denv, const_ctors =
+    let denv =
       match constant_constructors with
-      | Zero -> denv, T.bottom K.naked_immediate
-      | At_least_one { ctor = (ctor_var, _); _ } ->
+      | Zero -> denv
+      | At_least_one { ctor = Do_not_unbox; _ } -> denv
+      | At_least_one { ctor = Unbox Number (Naked_immediate, ctor_var); _ } ->
         let v = Var_in_binding_pos.create ctor_var Name_mode.normal in
         let denv = DE.define_variable denv v K.value in
-        let unbox_ctor_var = Variable.create "unboxed_const_ctor" in
-        let v = Var_in_binding_pos.create unbox_ctor_var Name_mode.in_types in
-        let denv = DE.define_variable denv v K.naked_immediate in
-        let denv =
-          DE.add_equation_on_variable denv ctor_var
-            (T.tagged_immediate_alias_to ~naked_immediate:unbox_ctor_var)
-        in
-        denv, T.alias_type_of K.naked_immediate (Simple.var unbox_ctor_var)
+        ignore denv;
+        assert false
+      | At_least_one { ctor = _; _ } ->
+        assert false
     in
+    let const_ctors = assert false in
     let denv =
       Tag.Scannable.Map.fold (fun _ block_fields denv ->
         List.fold_left (fun acc (var, _) ->
@@ -464,22 +457,15 @@ let rec denv_of_decision denv param_var decision : DE.t =
         List.map type_of_var block_fields
       ) fields_by_tag
     in
-    let param_type = T.alias_type_of K.value (Simple.var param_var) in
     let shape = T.variant ~const_ctors ~non_const_ctors in
-    let env_extension =
-      match T.meet (DE.typing_env denv) param_type shape with
-      | Ok (_ty, env_extension) -> env_extension
-      | Bottom ->
-        Misc.fatal_errorf "Meet failed whereas prove previously succeeded"
-    in
-    let denv = DE.extend_typing_environment denv env_extension in
+    let denv = add_equation_on_var denv param_var shape in
 
     (* recursion *)
     let denv =
       match constant_constructors with
       | Zero -> denv
-      | At_least_one { ctor = (ctor_var, ctor_decision); _ } ->
-        denv_of_decision denv ctor_var ctor_decision
+      | At_least_one { ctor = _; _ } ->
+        assert false
     in
     Tag.Scannable.Map.fold (fun _ block_fields denv ->
       List.fold_left (fun denv (var, decision) ->
@@ -629,7 +615,8 @@ let rec compute_extra_args_for_one_decision_and_use
       let const_ctor_extra_args =
         match constant_constructors with
         | Zero -> []
-        | At_least_one { is_int = _; ctor = (ctor_var, ctor_decision); } ->
+        | At_least_one { is_int = _; ctor = ctor_decision; } ->
+          let ctor_var = assert false in
           let is_int_extra_arg = mk Simple.untagged_const_zero in
           let ctor_extra_simple = Simple.const_zero in
           let ctor_extra_arg = mk ctor_extra_simple in
@@ -671,7 +658,7 @@ let rec compute_extra_args_for_one_decision_and_use
         let const_ctor_extra_args =
           match constant_constructors with
           | Zero -> assert false
-          | At_least_one { is_int = _; ctor = (_, ctor_decision); } ->
+          | At_least_one { is_int = _; ctor = ctor_decision; } ->
             let is_int_extra_arg = mk Simple.untagged_const_true in
             let const_ctor_extra_arg = mk simple_being_unboxed in
             let unboxed_const_ctor_extra_args =
@@ -695,7 +682,8 @@ let rec compute_extra_args_for_one_decision_and_use
         let const_ctor_extra_args =
           match constant_constructors with
           | Zero -> []
-          | At_least_one { is_int = _; ctor = (ctor_var, ctor_decision); } ->
+          | At_least_one { is_int = _; ctor = ctor_decision; } ->
+            let ctor_var = assert false in
             let is_int_extra_arg = mk Simple.untagged_const_zero in
             let ctor_extra_simple = Simple.const_zero in
             let ctor_extra_arg = mk ctor_extra_simple in
@@ -812,7 +800,8 @@ let compute_extra_params decision =
       let cstrs_extra_params =
         match constant_constructors with
         | Zero -> []
-        | At_least_one { is_int; ctor = (ctor_var, ctor_decision); } ->
+        | At_least_one { is_int; ctor = ctor_decision; } ->
+          let ctor_var = assert false in
           let is_int_extra_param = KP.create is_int K.With_subkind.naked_immediate in
           let ctor_extra_param = KP.create ctor_var K.With_subkind.any_value in
           let unboxed_ctor_extra_params = aux [] ctor_decision in

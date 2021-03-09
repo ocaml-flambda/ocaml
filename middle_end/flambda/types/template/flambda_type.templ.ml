@@ -900,6 +900,105 @@ let prove_project_var_simple env ~min_name_mode t env_var : Simple.t proof =
   | Naked_immediate _ | Naked_float _ | Naked_int32 _ | Naked_int64 _
   | Naked_nativeint _ -> wrong_kind ()
 
+type untagged_const_ctor_name =
+  | Var of Variable.t
+  | Not_named
+  | Absent
+
+type variant_shape = {
+  untagged_const_ctor : untagged_const_ctor_name;
+  non_const_ctors_names : Variable.t array Tag.Scannable.Map.t;
+}
+
+let name_variant env v shape =
+  let fatal_error () =
+    Misc.fatal_errorf "Bad shape when naming variant fields"
+  in
+  let v_ty = alias_type_of K.value (Simple.var v) in
+  match expand_head v_ty env with
+  | Const (Tagged_immediate imm) ->
+    if not (Tag.Scannable.Map.is_empty shape.non_const_ctors_names) then
+      fatal_error ();
+    begin match shape.untagged_const_ctor with
+    | Not_named -> env
+    | Absent -> fatal_error ()
+    | Var const_ctor_var ->
+      begin match meet env v_ty (tagged_immediate_alias_to const_ctor_var) with
+      | Ok (_, env_extension) -> add_env_extension env env_extension
+      | Bottom -> fatal_error ()
+      end
+    end
+  | Const _ -> fatal_error ()
+  | Value (Ok (Variant blocks_imms)) ->
+    begin match block_imms.blocks with
+    | Unknown -> fatal_error ()
+    | Known blocks ->
+      match Row_like.For_blocks.all_tags_and_fields blocks with
+      | Unknown -> fatal_error ()
+      | Known non_const_ctors_with_fields ->
+        let non_const_ctors with_fields =
+          Tag.Map.fold (fun tag fields acc ->
+            match Tag.Scannable.of_tag tag with
+            | None -> fatal_error ()
+            | Some tag -> Tag.Scannable.Map.add tag fields acc
+          ) non_const_ctors_with_fields
+        in
+        begin match block_imms.immediates with
+        | Unknown -> fatal_error ()
+        | Known imms ->
+          let res = ref env in
+          let const_case = ref imms in
+
+          (* *)
+          begin match prove_naked_immediates env imms,
+                      shape.untagged_const_ctor with
+          | Unknwon, _ -> fatal_error ()
+          | Invalid, (Var _ | Not_named) -> fatal_error ()
+          | Invalid, Absent -> ()
+          | Proved _, Not_named -> ()
+          | Proved const_ctors, Var const_ctor_var ->
+            let const_ctor_ty =
+              alias_type_of K.naked_immediate (Simple.var const_ctor_var)
+            in
+            const_case := const_ctor_ty;
+            env := Typing_env.add_equation
+                     !env (Named.var const_ctor_var) imms;
+          end;
+
+          (* *)
+          let _ : _ Tag.Scannable.Map.t = (* used for side-effects *)
+            Tag.Scannable.Map.merge (fun _ field_opt name_opt ->
+              match field_opt, name_opt with
+              | None, _
+              | _, None -> fatal_error ()
+              | Some fields, Some names ->
+                Array.iter2 (fun ty var ->
+                  env :=
+                    Typing_env.add_equation
+                      !env (Named.var var) ty;
+                ) fields names;
+                None
+            ) non_const_ctors_with_fields shape.non_const_ctors_names
+          in
+
+          let non_const_ctors =
+            Tag.Scannable.Map.map (fun vars ->
+              Array.to_list (
+                Array.map (fun var -> alias_type_of K.value (Simple.var var)) vars
+              )) shape.non_const_ctors_names
+          in
+          let variant_ty =
+            Type_grammar.variant
+              ~const_ctors:!const_case
+              ~non_const_ctors
+          in
+          Typing_env.add_or_replace_equation !env 
+
+
+
+
+
+
 type to_lift =
   | Immutable_block of
       { tag : Tag.Scannable.t;
