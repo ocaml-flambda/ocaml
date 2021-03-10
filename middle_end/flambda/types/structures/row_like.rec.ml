@@ -151,10 +151,20 @@ struct
     let ({ known_tags = known1; other_tags = other1; } : t) = t1 in
     let ({ known_tags = known2; other_tags = other2; } : t) = t2 in
     let env_extension = ref None in
+    let need_join =
+      match other1, other2, Tag.Map.get_singleton known1, Tag.Map.get_singleton known2 with
+      | _, _, None, None -> true (* Overapproximaxion: tags sets don't need to be the sames *)
+      | Ok _, _, _, None -> true
+      | _, Ok _, None, _ -> true
+      | Ok _, Ok _, Some _, Some _ -> true (* Overapproximaxion: tags don't need to be the sames *)
+      | Bottom, _, Some _, _ -> false
+      | _, Bottom, _, Some _ -> false
+    in
     let join_env_extension ext =
       match !env_extension with
       | None -> env_extension := Some ext
       | Some ext2 ->
+        assert need_join;
         env_extension := Some (TEE.join meet_env ext2 ext)
     in
     let meet_index i1 i2 : index Or_bottom.t =
@@ -190,6 +200,10 @@ struct
             | Bottom -> None
             | Ok env_extension ->
               join_env_extension env_extension;
+              let env_extension =
+                if need_join then env_extension
+                else TEE.empty ()
+              in
               Some { maps_to; index; env_extension; }
     in
     let meet_knowns_tags case1 case2 : case option =
