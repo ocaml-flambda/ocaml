@@ -616,6 +616,22 @@ val prove_project_var_simple
   -> Var_within_closure.t
   -> Simple.t proof
 
+type untagged_const_ctor_name =
+  | Named of Variable.t
+  | Not_named
+  | Absent
+
+type variant_shape = {
+  untagged_const_ctor : untagged_const_ctor_name;
+  non_const_ctors_names : Variable.t array Tag.Scannable.Map.t;
+}
+
+val name_variant
+  : Typing_env.t
+ -> Variable.t
+ -> variant_shape
+ -> Typing_env.t
+
 type var_or_symbol_or_tagged_immediate = private
   | Var of Variable.t
   | Symbol of Symbol.t

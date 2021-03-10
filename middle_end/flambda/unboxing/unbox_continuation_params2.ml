@@ -119,6 +119,9 @@ let print ppf l =
   Format.fprintf ppf "@[<hov 1>(%a)@]"
     (Format.pp_print_list ~pp_sep aux) l
 
+(* small helper used later *)
+let pp_tag print_tag ppf tag =
+  if print_tag then Format.fprintf ppf "_%d" (Tag.to_int tag)
 
 
 (* Unboxers *)
@@ -294,7 +297,11 @@ let rec make_optimist_decision ~depth tenv param_type : decision =
     if depth > max_unboxing_depth then Do_not_unbox
     else match T.prove_unique_tag_and_size tenv param_type with
       | Proved (tag, size) ->
-        let fields = make_optimistic_fields ~depth tenv param_type tag size in
+        let fields =
+          make_optimistic_fields
+            ~add_tag_to_name:false ~depth
+            tenv param_type tag size
+        in
         Unbox (Unique_tag_and_size { tag; fields; })
       | Wrong_kind | Invalid | Unknown ->
         match T.prove_variant_like tenv param_type with
@@ -310,13 +317,13 @@ let rec make_optimist_decision ~depth tenv param_type : decision =
           let fields_by_tag =
             Tag.Scannable.Map.mapi (fun scannable_tag size ->
               let tag = Tag.Scannable.to_tag scannable_tag in
-              make_optimistic_fields ~depth tenv param_type tag size
+              make_optimistic_fields ~add_tag_to_name:true ~depth tenv param_type tag size
             ) non_const_ctors_with_sizes
           in
           Unbox (Variant { tag; constant_constructors; fields_by_tag; })
         | Wrong_kind | Invalid | Unknown -> Do_not_unbox
 
-and make_optimistic_fields ~depth tenv param_type (tag : Tag.t) size : block_fields =
+and make_optimistic_fields ~add_tag_to_name ~depth tenv param_type (tag : Tag.t) size =
   let field_kind, field_base_name =
     if Tag.equal tag Tag.double_array_tag
     then K.naked_float, "unboxed_float_field"
@@ -324,7 +331,8 @@ and make_optimistic_fields ~depth tenv param_type (tag : Tag.t) size : block_fie
   in
   let field_vars =
     List.init (Targetint.OCaml.to_int size)
-      (fun i -> Variable.create (Printf.sprintf "%s_%d" field_base_name i))
+      (fun i -> Variable.create
+                  (Format.asprintf "%s%a_%d" field_base_name (pp_tag add_tag_to_name) tag i))
   in
   let type_of_var v = Flambda_type.alias_type_of field_kind (Simple.var v) in
   let tenv =
@@ -427,19 +435,25 @@ let rec denv_of_decision denv param_var decision : DE.t =
     in
 
     (* next *)
-    let denv =
+    let denv, untagged_const_ctor =
       match constant_constructors with
-      | Zero -> denv
-      | At_least_one { ctor = Do_not_unbox; _ } -> denv
+      | Zero -> denv, Flambda_type.Absent
+      | At_least_one { ctor = Do_not_unbox; _ } -> denv, Flambda_type.Not_named
       | At_least_one { ctor = Unbox Number (Naked_immediate, ctor_var); _ } ->
         let v = Var_in_binding_pos.create ctor_var Name_mode.normal in
         let denv = DE.define_variable denv v K.value in
-        ignore denv;
-        assert false
+        let unbox_ctor_var = Variable.create "unboxed_const_ctor" in
+        let v = Var_in_binding_pos.create unbox_ctor_var Name_mode.in_types in
+        let denv = DE.define_variable denv v K.naked_immediate in
+        let denv =
+          DE.add_equation_on_variable denv ctor_var
+            (T.tagged_immediate_alias_to ~naked_immediate:unbox_ctor_var)
+        in
+        denv, Flambda_type.Named unbox_ctor_var
       | At_least_one { ctor = _; _ } ->
-        assert false
+        Misc.fatal_errorf "Variant constant constructor unboxed with a kind other \
+                           than naked_immediate."
     in
-    let const_ctors = assert false in
     let denv =
       Tag.Scannable.Map.fold (fun _ block_fields denv ->
         List.fold_left (fun acc (var, _) ->
@@ -448,25 +462,20 @@ let rec denv_of_decision denv param_var decision : DE.t =
         ) denv block_fields
       ) fields_by_tag denv
     in
-    let non_const_ctors : T.t list Tag.Scannable.Map.t =
+    let non_const_ctors_names : Variable.t array Tag.Scannable.Map.t =
       Tag.Scannable.Map.map (fun block_fields ->
-        let field_kind = K.value in
-        let type_of_var (v, _) =
-          Flambda_type.alias_type_of field_kind (Simple.var v)
-        in
-        List.map type_of_var block_fields
+        Array.of_list (List.map fst block_fields)
       ) fields_by_tag
     in
-    let shape = T.variant ~const_ctors ~non_const_ctors in
-    let denv = add_equation_on_var denv param_var shape in
+    let variant_shape : T.variant_shape =
+      { untagged_const_ctor; non_const_ctors_names; }
+    in
+    let denv =
+      DE.map_typing_env denv
+        ~f:(fun tenv -> T.name_variant tenv param_var variant_shape)
+    in
 
     (* recursion *)
-    let denv =
-      match constant_constructors with
-      | Zero -> denv
-      | At_least_one { ctor = _; _ } ->
-        assert false
-    in
     Tag.Scannable.Map.fold (fun _ block_fields denv ->
       List.fold_left (fun denv (var, decision) ->
         denv_of_decision denv var decision
@@ -615,16 +624,16 @@ let rec compute_extra_args_for_one_decision_and_use
       let const_ctor_extra_args =
         match constant_constructors with
         | Zero -> []
-        | At_least_one { is_int = _; ctor = ctor_decision; } ->
-          let ctor_var = assert false in
+        | At_least_one { ctor = Do_not_unbox; _ } ->
           let is_int_extra_arg = mk Simple.untagged_const_zero in
-          let ctor_extra_simple = Simple.const_zero in
-          let ctor_extra_arg = mk ctor_extra_simple in
-          let unboxed_ctor_extra_args =
-            compute_extra_args_for_one_decision_and_use []
-              typing_env_at_use (Available ctor_extra_simple) ctor_decision
-          in
-          is_int_extra_arg :: ctor_extra_arg :: unboxed_ctor_extra_args
+          [ is_int_extra_arg ]
+        | At_least_one { ctor = Unbox Number (Naked_immediate, ctor_var); _ } ->
+          let is_int_extra_arg = mk Simple.untagged_const_zero in
+          let unboxed_ctor_extra_arg = mk Simple.const_zero in
+          [is_int_extra_arg; unboxed_ctor_extra_arg ]
+        | At_least_one { ctor = Unbox _ ; _ } ->
+          Misc.fatal_errorf "Trying to unbox a vonstant constructor with a kind \
+                             other than naked_immediate."
       in
       let extra_args =
         Tag.Scannable.Map.fold (fun _ block_fields extra_args ->
@@ -658,14 +667,21 @@ let rec compute_extra_args_for_one_decision_and_use
         let const_ctor_extra_args =
           match constant_constructors with
           | Zero -> assert false
+          | At_least_one { is_int = _; ctor = Do_not_unbox; } ->
+            let is_int_extra_arg = mk Simple.untagged_const_true in
+            [is_int_extra_arg]
           | At_least_one { is_int = _; ctor = ctor_decision; } ->
             let is_int_extra_arg = mk Simple.untagged_const_true in
-            let const_ctor_extra_arg = mk simple_being_unboxed in
             let unboxed_const_ctor_extra_args =
               compute_extra_args_for_one_decision_and_use []
               typing_env_at_use (Available simple_being_unboxed) ctor_decision
             in
-            is_int_extra_arg :: const_ctor_extra_arg :: unboxed_const_ctor_extra_args
+            begin match unboxed_const_ctor_extra_args with
+            | [extra_arg] -> [is_int_extra_arg; extra_arg]
+            | _ ->
+              Misc.fatal_errorf "Bad number of extra arguments when unboxing \
+                                 the constant constructor of a variant."
+            end
         in
         let extra_args =
           Tag.Scannable.Map.fold (fun _ block_fields extra_args ->
@@ -682,16 +698,16 @@ let rec compute_extra_args_for_one_decision_and_use
         let const_ctor_extra_args =
           match constant_constructors with
           | Zero -> []
-          | At_least_one { is_int = _; ctor = ctor_decision; } ->
-            let ctor_var = assert false in
-            let is_int_extra_arg = mk Simple.untagged_const_zero in
-            let ctor_extra_simple = Simple.const_zero in
-            let ctor_extra_arg = mk ctor_extra_simple in
-            let unboxed_ctor_extra_args =
-              compute_extra_args_for_one_decision_and_use []
-                typing_env_at_use (Available ctor_extra_simple) ctor_decision
-            in
-            is_int_extra_arg :: ctor_extra_arg :: unboxed_ctor_extra_args
+          | At_least_one { ctor = Do_not_unbox; _ } ->
+            let is_int_extra_arg = mk Simple.untagged_const_false in
+            [ is_int_extra_arg ]
+          | At_least_one { ctor = Unbox Number (Naked_immediate, _); _ } ->
+            let is_int_extra_arg = mk Simple.untagged_const_false in
+            let unboxed_ctor_extra_arg = mk Simple.untagged_const_zero in
+            [ is_int_extra_arg; unboxed_ctor_extra_arg ]
+          | At_least_one { ctor = Unbox _ ; _ } ->
+            Misc.fatal_errorf "Tryng to unbox the constant constructor of a variant \
+                               with a kind other than naked_immediate."
         in
         let tag_at_use_site =
           match Tag.Scannable.Map.get_singleton non_const_ctors_with_sizes with
@@ -800,12 +816,16 @@ let compute_extra_params decision =
       let cstrs_extra_params =
         match constant_constructors with
         | Zero -> []
-        | At_least_one { is_int; ctor = ctor_decision; } ->
-          let ctor_var = assert false in
+        | At_least_one { is_int; ctor = Do_not_unbox; _ } ->
           let is_int_extra_param = KP.create is_int K.With_subkind.naked_immediate in
-          let ctor_extra_param = KP.create ctor_var K.With_subkind.any_value in
-          let unboxed_ctor_extra_params = aux [] ctor_decision in
-          is_int_extra_param :: ctor_extra_param :: unboxed_ctor_extra_params
+          [is_int_extra_param]
+        | At_least_one { is_int; ctor = Unbox Number (Naked_immediate, ctor_var); } ->
+          let is_int_extra_param = KP.create is_int K.With_subkind.naked_immediate in
+          let unboxed_ctor_param = KP.create ctor_var K.With_subkind.naked_immediate in
+          [is_int_extra_param; unboxed_ctor_param]
+        | At_least_one { is_int = _; ctor = Unbox _ } ->
+          Misc.fatal_errorf "Trying to unbox the constant constructor of a variant \
+                             with a kind other than naked_immediate."
       in
       let extra_params =
         Tag.Scannable.Map.fold (fun _ block_fields extra_params ->

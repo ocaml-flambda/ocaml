@@ -573,7 +573,7 @@ struct
           let map =
             Tag.Map.map (fun { maps_to; index; } ->
               match index with
-              | At_least index -> raise Exit
+              | At_least _ -> raise Exit
               | Known index ->
                 Array.init (Targetint.OCaml.to_int index)
                   (fun i ->
