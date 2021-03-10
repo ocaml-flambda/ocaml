@@ -21,6 +21,10 @@
 
 type t
 
+include Expr_std.S with type t := t
+
+include Contains_ids.S with type t := t
+
 val print : Format.formatter -> t -> unit
 
 val fold
@@ -32,6 +36,8 @@ val fold
 val invariant : t -> unit
 
 val empty : unit -> t
+
+val is_empty : t -> bool
 
 val one_equation : Name.t -> Type_grammar.t -> t
 
