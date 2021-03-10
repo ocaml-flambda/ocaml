@@ -45,7 +45,7 @@ module For_blocks : sig
 
   val all_tags_and_sizes : t -> Targetint.OCaml.t Tag.Map.t Or_unknown.t
 
-  val all_tags_and_fields : t -> Type_grammar.t array Tag.Map.t Or_unknwon.t
+  val all_tags_and_fields : t -> Type_grammar.t array Tag.Map.t Or_unknown.t
 
   val get_singleton : t -> (Tag_and_size.t * Product.Int_indexed.t) option
 

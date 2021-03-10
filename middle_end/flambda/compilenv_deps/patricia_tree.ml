@@ -417,7 +417,18 @@ end) = struct
     | Empty | Branch _ -> None
     | Leaf elt -> Some elt
 
-  let to_seq _ = Misc.fatal_error "to_seq not yet implemented"
+  let to_seq t =
+    let rec aux acc () =
+      match acc with
+      | [] -> Seq.Nil
+      | t0 :: r ->
+        begin match t0 with
+        | Empty -> aux r ()
+        | Leaf x -> Seq.Cons (x, aux r)
+        | Branch (_, _, t1, t2) -> aux (t1 :: t2 :: r) ()
+        end
+    in
+    aux [t]
 
   let to_seq_from _ _ = Misc.fatal_error "to_seq_from not yet implemented"
 
@@ -1019,7 +1030,18 @@ struct
 
   let map_sharing = map
 
-  let to_seq _ = Misc.fatal_error "to_seq not yet implemented"
+  let to_seq t =
+    let rec aux acc () =
+      match acc with
+      | [] -> Seq.Nil
+      | t0 :: r ->
+        begin match t0 with
+        | Empty -> aux r ()
+        | Leaf (key, value) -> Seq.Cons((key, value), aux r)
+        | Branch (_, _, t1, t2) -> aux (t1 :: t2 :: r) ()
+        end
+    in
+    aux [t]
 
   let to_seq_from _ _ = Misc.fatal_error "to_seq_from not yet implemented"
 

@@ -923,17 +923,21 @@ let name_variant env v shape =
     | Not_named -> env
     | Absent -> fatal_error ()
     | Var const_ctor_var ->
-      begin match meet env v_ty (tagged_immediate_alias_to const_ctor_var) with
-      | Ok (_, env_extension) -> add_env_extension env env_extension
+      let const_ctor_ty =
+        tagged_immediate_alias_to ~naked_immediate:const_ctor_var
+      in
+      begin match meet env v_ty const_ctor_ty with
+      | Ok (_, env_extension) ->
+        Typing_env.add_env_extension env env_extension
       | Bottom -> fatal_error ()
       end
     end
   | Const _ -> fatal_error ()
-  | Value (Ok (Variant blocks_imms)) ->
+  | Value (Ok (Variant block_imms)) ->
     begin match block_imms.blocks with
     | Unknown -> fatal_error ()
     | Known blocks ->
-      match Row_like.For_blocks.all_tags_and_fields blocks with
+      begin match Row_like.For_blocks.all_tags_and_fields blocks with
       | Unknown -> fatal_error ()
       | Known non_const_ctors_with_fields ->
         let non_const_ctors with_fields =
@@ -946,58 +950,53 @@ let name_variant env v shape =
         begin match block_imms.immediates with
         | Unknown -> fatal_error ()
         | Known imms ->
-          let res = ref env in
-          let const_case = ref imms in
-
-          (* *)
-          begin match prove_naked_immediates env imms,
-                      shape.untagged_const_ctor with
-          | Unknwon, _ -> fatal_error ()
-          | Invalid, (Var _ | Not_named) -> fatal_error ()
-          | Invalid, Absent -> ()
-          | Proved _, Not_named -> ()
-          | Proved const_ctors, Var const_ctor_var ->
-            let const_ctor_ty =
-              alias_type_of K.naked_immediate (Simple.var const_ctor_var)
-            in
-            const_case := const_ctor_ty;
-            env := Typing_env.add_equation
-                     !env (Named.var const_ctor_var) imms;
-          end;
-
-          (* *)
-          let _ : _ Tag.Scannable.Map.t = (* used for side-effects *)
-            Tag.Scannable.Map.merge (fun _ field_opt name_opt ->
-              match field_opt, name_opt with
-              | None, _
-              | _, None -> fatal_error ()
-              | Some fields, Some names ->
-                Array.iter2 (fun ty var ->
-                  env :=
-                    Typing_env.add_equation
-                      !env (Named.var var) ty;
-                ) fields names;
-                None
-            ) non_const_ctors_with_fields shape.non_const_ctors_names
+          let env, const_ctors =
+            match prove_naked_immediates env imms,
+                  shape.untagged_const_ctor with
+            | Unknown, _ -> fatal_error ()
+            | Invalid, (Var _ | Not_named) -> fatal_error ()
+            | Invalid, Absent -> env, imms
+            | Proved _, Not_named -> env, imms
+            | Proved _, Absent -> fatal_error ()
+            | Proved const_ctors, Var const_ctor_var ->
+              let const_ctor_ty =
+                alias_type_of K.naked_immediate (Simple.var const_ctor_var)
+              in
+              let env =
+                Typing_env.add_equation env (Name.var const_ctor_var) imms
+              in
+              env, const_ctor_ty
           in
-
+          let env =
+            Misc.Stdlib.Seq.fold2 (fun env (tag, fields) (tag', names) ->
+              if not (Tag.equal tag (Tag.Scannable.to_tag tag')) then fatal_error ();
+              Misc.Stdlib.Array.fold_left2 (fun env ty var ->
+                Typing_env.add_equation env (Name.var var) ty;
+              ) env fields names
+            ) env
+              (Tag.Map.to_seq non_const_ctors_with_fields)
+              (Tag.Scannable.Map.to_seq shape.non_const_ctors_names)
+          in
           let non_const_ctors =
             Tag.Scannable.Map.map (fun vars ->
               Array.to_list (
                 Array.map (fun var -> alias_type_of K.value (Simple.var var)) vars
               )) shape.non_const_ctors_names
           in
-          let variant_ty =
-            Type_grammar.variant
-              ~const_ctors:!const_case
-              ~non_const_ctors
-          in
-          Typing_env.add_or_replace_equation !env 
-
-
-
-
-
+          let variant_ty = Type_grammar.variant ~const_ctors ~non_const_ctors in
+          Typing_env.add_or_replace_equation env v variant_ty
+        end
+      end
+    end
+  | Value (Ok _)
+  | Value Unknown
+  | Value Bottom
+  | Naked_immediate _
+  | Naked_float _
+  | Naked_int32 _
+  | Naked_int64 _
+  | Naked_nativeint _
+    -> fatal_error ()
 
 type to_lift =
   | Immutable_block of

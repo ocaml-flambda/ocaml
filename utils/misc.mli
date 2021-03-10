@@ -191,6 +191,11 @@ module Stdlib : sig
        Invalid_argument if the two arrays are determined to have
        different lengths. *)
 
+    val fold_left2 : ('a -> 'b -> 'c -> 'a) -> 'a -> 'b array -> 'c array -> 'a
+    (* Same as [Array.fold_left], but for a two-argument predicate. Raise
+       Invalid_argument if the two arrays are determined to have
+       different lengths. *)
+
     val for_alli : (int -> 'a -> bool) -> 'a array -> bool
     (** Same as {!Array.for_all}, but the
         function is applied with the index of the element as first argument,
@@ -208,6 +213,14 @@ module Stdlib : sig
     val print : Format.formatter -> t -> unit
 
     val for_all : (char -> bool) -> t -> bool
+  end
+
+  module Seq : sig
+
+    val fold2 : ('acc -> 'a -> 'b -> 'acc) -> 'acc -> 'a Seq.t -> 'b Seq.t -> 'acc
+    (** Fold on the two sequences.
+        @raise Invalid_argument if the sequences are not of the same length. *)
+
   end
 
   external compare : 'a -> 'a -> int = "%compare"

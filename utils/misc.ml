@@ -419,6 +419,18 @@ module Stdlib = struct
         else loop (succ i) in
       loop 0
 
+    let fold_left2 f acc a b =
+      let len = Array.length a in
+      if len <> Array.length b then invalid_arg "Misc.Stdlib.Array.fold_left2";
+      let rec aux acc i =
+        if i=len then acc
+        else begin
+          let acc = f acc (Array.unsafe_get a i) (Array.unsafe_get b i) in
+          aux acc (i+1)
+        end
+      in
+      aux acc 0
+
     let for_alli p a =
       let n = Array.length a in
       let rec loop i =
@@ -452,6 +464,18 @@ module Stdlib = struct
 
     let print ppf t =
       Format.pp_print_string ppf t
+  end
+
+  module Seq = struct
+
+    let rec fold2 f acc l1 l2 =
+      match l1(), l2() with
+      | Seq.Nil, Seq.Nil -> acc
+      | Seq.Nil, Seq.Cons _
+      | Seq.Cons _, Seq.Nil -> raise (Invalid_argument "Misc.Stdlib.Seq.fold2")
+      | Seq.Cons(x1,l1'), Seq.Cons(x2,l2') ->
+        fold2 f (f acc x1 x2) l1' l2'
+
   end
 
   external compare : 'a -> 'a -> int = "%compare"
